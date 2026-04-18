@@ -1,0 +1,77 @@
+.toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 14px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupLabel {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+
+.sizeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.sizeBtn {
+  padding: 5px 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sizeBtn:hover {
+  border-color: var(--accent);
+  background: rgba(79, 142, 247, 0.08);
+}
+
+.toggleBtn {
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: all 0.15s;
+}
+
+.toggleBtn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(79, 142, 247, 0.1);
+}
+
+.deleteBtn {
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--danger);
+  border-color: var(--danger);
+  transition: background 0.15s;
+}
+
+.deleteBtn:hover:not(:disabled) {
+  background: rgba(224, 84, 84, 0.1);
+}
+
+.deleteBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}

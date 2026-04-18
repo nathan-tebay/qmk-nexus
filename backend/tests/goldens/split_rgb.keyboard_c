@@ -1,0 +1,23 @@
+#include QMK_KEYBOARD_H
+#include "rgb_matrix.h"
+#include "split_util.h"
+
+led_config_t g_led_config = { {
+    { 0, 1 },
+    { 2, 3 },
+}, {
+    { 0, 0 },
+    { 224, 0 },
+    { 0, 64 },
+    { 224, 64 },
+}, {
+    4,
+    4,
+    4,
+    4,
+} };
+
+void keyboard_post_init_kb(void) {
+    split_post_init();
+    keyboard_post_init_user();
+}

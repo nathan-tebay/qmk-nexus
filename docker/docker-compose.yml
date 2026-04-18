@@ -1,0 +1,33 @@
+services:
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: ../docker/frontend/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/backend/Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../backend:/app
+    env_file:
+      - ../backend/.env
+    environment:
+      - ENVIRONMENT=development
+    depends_on: []
+
+  builder:
+    build:
+      context: ../docker/builder
+    image: tebay-qmk-builder
+    profiles:
+      - build
