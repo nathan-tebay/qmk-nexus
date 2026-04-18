@@ -1,4 +1,5 @@
 import { FEATURE_MODULES, incompatMap } from './modules'
+import styles from './FeatureToggles.module.css'
 
 interface Props {
   features: Record<string, boolean>
@@ -13,29 +14,34 @@ export function FeatureToggles({ features, onToggle }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div className={styles.list}>
       {FEATURE_MODULES.map((mod) => {
         const enabled = !!features[mod.id]
         const disabled = !enabled && isDisabled(mod.id)
+        const rowCls = [
+          styles.row,
+          enabled ? styles.enabled : '',
+          disabled ? styles.disabled : '',
+        ].filter(Boolean).join(' ')
+        const pillCls = `${styles.pill} ${enabled ? styles.pillOn : ''}`
         return (
           <div
             key={mod.id}
             onClick={() => !disabled && onToggle(mod.id)}
             title={disabled ? `Incompatible with: ${mod.incompatibleWith.join(', ')}` : mod.description}
-            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 10px', borderRadius: 5, cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.35 : 1, background: enabled ? 'rgba(79,142,247,0.08)' : 'transparent', transition: 'background 0.15s' }}
+            className={rowCls}
           >
-            {/* Toggle pill */}
-            <div style={{ width: 32, height: 18, borderRadius: 9, background: enabled ? 'var(--accent)' : 'var(--border)', position: 'relative', flexShrink: 0, transition: 'background 0.2s' }}>
-              <div style={{ position: 'absolute', top: 2, left: enabled ? 16 : 2, width: 14, height: 14, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
+            <div className={pillCls}>
+              <div className={styles.knob} />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: enabled ? 'var(--text)' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className={styles.body}>
+              <div className={styles.title}>
                 {mod.name}
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', opacity: 0.6 }}>
+                <span className={styles.prevalence}>
                   {(mod.qmkPrevalence * 100).toFixed(0)}% of keyboards
                 </span>
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div className={styles.description}>
                 {mod.description}
               </div>
             </div>

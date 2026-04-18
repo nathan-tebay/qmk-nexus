@@ -10,13 +10,14 @@ class Settings(BaseSettings):
     jwt_secret: str = 'dev-secret-change-in-prod'
     jwt_algorithm: str = 'HS256'
 
-    s3_bucket: str = 'tebay-qmk'
+    s3_bucket: str = 'qmk-nexus'
     aws_region: str = 'us-east-1'
 
-    frontend_url: str = 'http://localhost:3000'
+    frontend_url: str = 'http://localhost:3001'
     api_base_url: str = 'http://localhost:8000'
 
     environment: str = 'development'
+    qmk_keyboards_path: str = '/mnt/LargeNVMe/Projects/GitHub/personal/qmk_firmware/keyboards'
 
     @property
     def is_prod(self) -> bool:

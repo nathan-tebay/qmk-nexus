@@ -1,6 +1,25 @@
 import { api } from './client'
 import type { KeyboardConfig } from '@/store/keyboard'
 
+export interface QMKKeyboardSummary {
+  path: string
+  name: string
+  manufacturer: string
+  mcu: string
+  usb_vid: string
+  usb_pid: string
+  layouts: string[]
+  key_count: number
+}
+
+export const qmkApi = {
+  search: (q: string) =>
+    api.get<QMKKeyboardSummary[]>(`/qmk/search?q=${encodeURIComponent(q)}`),
+
+  importKeyboard: (path: string) =>
+    api.get<KeyboardConfig>(`/qmk/import/${path}`),
+}
+
 export const keyboardsApi = {
   list: () => api.get<KeyboardConfig[]>('/keyboards/'),
 

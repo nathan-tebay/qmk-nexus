@@ -1,15 +1,61 @@
 import { useEffect, useState, useMemo } from 'react'
-import { KEYCODES, CATEGORIES } from './keycodes'
+import { KEYCODES, keycodeMap } from './keycodes'
+import styles from './KeycodePicker.module.css'
 
 interface Props {
   onSelect: (code: string) => void
   onClose: () => void
   currentCode?: string
+  layerCount?: number
 }
 
-export function KeycodePicker({ onSelect, onClose, currentCode }: Props) {
+type ModKey = 'ctrl' | 'shift' | 'alt' | 'gui' | 'meh' | 'hyper'
+
+const MODS: { key: ModKey; label: string; qmk: string }[] = [
+  { key: 'ctrl',  label: 'Ctrl',  qmk: 'LCTL' },
+  { key: 'shift', label: 'Shift', qmk: 'LSFT' },
+  { key: 'alt',   label: 'Alt',   qmk: 'LALT' },
+  { key: 'gui',   label: 'OS',    qmk: 'LGUI' },
+  { key: 'meh',   label: 'Meh',   qmk: 'MEH'  },
+  { key: 'hyper', label: 'Hyper', qmk: 'HYPR' },
+]
+
+const MT_MODS: { key: ModKey; label: string; bit: string }[] = [
+  { key: 'shift', label: 'Shift', bit: 'MOD_LSFT' },
+  { key: 'ctrl',  label: 'Ctrl',  bit: 'MOD_LCTL' },
+  { key: 'alt',   label: 'Alt',   bit: 'MOD_LALT' },
+  { key: 'gui',   label: 'OS',    bit: 'MOD_LGUI' },
+]
+
+function wrapMods(code: string, mods: Partial<Record<ModKey, boolean>>): string {
+  let result = code
+  if (mods.hyper) return `HYPR(${result})`
+  if (mods.meh)   return `MEH(${result})`
+  if (mods.gui)   result = `LGUI(${result})`
+  if (mods.alt)   result = `LALT(${result})`
+  if (mods.shift) result = `LSFT(${result})`
+  if (mods.ctrl)  result = `LCTL(${result})`
+  return result
+}
+
+function buildMT(tapCode: string, holdMods: Partial<Record<ModKey, boolean>>): string {
+  const bits = MT_MODS.filter((m) => holdMods[m.key]).map((m) => m.bit)
+  if (bits.length === 0) return tapCode
+  return `MT(${bits.join(' | ')}, ${tapCode})`
+}
+
+function buildLT(tapCode: string, layer: number): string {
+  return `LT(${layer}, ${tapCode})`
+}
+
+export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount = 5 }: Props) {
   const [search, setSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [mods, setMods] = useState<Partial<Record<ModKey, boolean>>>({})
+  const [holdTap, setHoldTap] = useState(false)
+  const [tapCode, setTapCode] = useState('')
+  const [holdMods, setHoldMods] = useState<Partial<Record<ModKey, boolean>>>({})
+  const [holdLayer, setHoldLayer] = useState<number | null>(null)
+  const [tapSearch, setTapSearch] = useState('')
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -19,68 +65,181 @@ export function KeycodePicker({ onSelect, onClose, currentCode }: Props) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return KEYCODES.filter((k) => {
-      const matchSearch = !q || k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
-      const matchCat = activeCategory === 'all' || k.category === activeCategory
-      return matchSearch && matchCat
-    })
-  }, [search, activeCategory])
+    return KEYCODES.filter((k) =>
+      !q || k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
+    )
+  }, [search])
 
-  function handleChip(code: string) { onSelect(code); onClose() }
+  const tapFiltered = useMemo(() => {
+    const q = tapSearch.toLowerCase()
+    return KEYCODES.filter((k) =>
+      !q || k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
+    )
+  }, [tapSearch])
+
+  function handlePickKey(code: string) {
+    if (holdTap) {
+      setTapCode(code)
+      return
+    }
+    const final = wrapMods(code, mods)
+    onSelect(final)
+    onClose()
+  }
+
+  function handleAssignHoldTap() {
+    if (!tapCode) return
+    let final: string
+    if (holdLayer !== null) {
+      final = buildLT(tapCode, holdLayer)
+    } else {
+      final = buildMT(tapCode, holdMods)
+    }
+    onSelect(final)
+    onClose()
+  }
+
+  function toggleMod(key: ModKey) {
+    setMods((m) => ({ ...m, [key]: !m[key] }))
+  }
+
+  function toggleHoldMod(key: ModKey) {
+    setHoldMods((m) => ({ ...m, [key]: !m[key] }))
+    setHoldLayer(null)
+  }
+
+  const tapLabel = tapCode ? (keycodeMap.get(tapCode)?.label ?? tapCode) : ''
 
   return (
     <div
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+      className={styles.overlay}
     >
-      <div style={{ width: 620, height: 500, background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 8, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 24px 48px rgba(0,0,0,0.5)' }}>
-
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 600 }}>Assign Keycode</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>×</button>
+      <div className={styles.modal}>
+        <div className={styles.header}>
+          <span className={styles.title}>Assign Keycode</span>
+          <button onClick={onClose} className={styles.closeBtn}>×</button>
         </div>
 
-        {/* Search */}
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
-          <input
-            autoFocus
-            placeholder="Search keycodes…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ width: '100%', boxSizing: 'border-box', padding: '6px 10px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text)', fontSize: 13 }}
-          />
-        </div>
-
-        {/* Category filters */}
-        <div style={{ display: 'flex', gap: 6, padding: '8px 16px', borderBottom: '1px solid var(--border)', flexShrink: 0, flexWrap: 'wrap' }}>
-          {[{ id: 'all', label: 'All' }, ...CATEGORIES].map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              style={{ padding: '3px 10px', borderRadius: 12, fontSize: 11, border: '1px solid var(--border)', background: activeCategory === cat.id ? 'var(--accent)' : 'var(--bg-elevated)', color: activeCategory === cat.id ? '#fff' : 'var(--text-muted)', cursor: 'pointer' }}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Grid */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 6, alignContent: 'start' }}>
-          {filtered.map((k) => (
-            <button
-              key={k.code}
-              title={`${k.code}${k.description ? ` — ${k.description}` : ''}`}
-              onClick={() => handleChip(k.code)}
-              style={{ padding: '8px 4px', textAlign: 'center', borderRadius: 4, background: 'var(--bg-elevated)', border: `${currentCode === k.code ? 2 : 1}px solid ${currentCode === k.code ? 'var(--accent)' : 'var(--border)'}`, color: 'var(--text)', cursor: 'pointer', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-            >
-              {k.label}
-            </button>
-          ))}
-          {filtered.length === 0 && (
-            <span style={{ gridColumn: '1/-1', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12, padding: 24 }}>No keycodes match</span>
+        {/* Hold/Tap toggle */}
+        <div className={styles.holdTapRow}>
+          <button
+            className={`${styles.toggleBtn} ${holdTap ? styles.toggleActive : ''}`}
+            onClick={() => { setHoldTap((v) => !v); setTapCode('') }}
+          >
+            Hold / Tap
+          </button>
+          {holdTap && tapCode && (
+            <span className={styles.tapPreview}>Tap: <strong>{tapLabel}</strong></span>
           )}
         </div>
+
+        {holdTap ? (
+          /* Hold/Tap mode */
+          <div className={styles.holdTapLayout}>
+            <div className={styles.holdSection}>
+              <span className={styles.sectionLabel}>Hold action</span>
+              <div className={styles.modRow}>
+                {MT_MODS.map((m) => (
+                  <button
+                    key={m.key}
+                    className={`${styles.modBtn} ${holdMods[m.key] ? styles.modActive : ''}`}
+                    onClick={() => toggleHoldMod(m.key)}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.layerRow}>
+                <span className={styles.sectionLabel}>or Layer:</span>
+                <div className={styles.layerBtns}>
+                  {Array.from({ length: layerCount }, (_, i) => i + 1).map((n) => (
+                    <button
+                      key={n}
+                      className={`${styles.modBtn} ${holdLayer === n ? styles.modActive : ''}`}
+                      onClick={() => { setHoldLayer(holdLayer === n ? null : n); setHoldMods({}) }}
+                    >
+                      L{n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={styles.tapSection}>
+              <span className={styles.sectionLabel}>Tap key {tapCode && `→ ${tapLabel}`}</span>
+              <input
+                autoFocus
+                placeholder="Search tap key…"
+                value={tapSearch}
+                onChange={(e) => setTapSearch(e.target.value)}
+                className={styles.searchInput}
+              />
+              <div className={`${styles.grid} ${styles.gridCompact}`}>
+                {tapFiltered.slice(0, 60).map((k) => (
+                  <button
+                    key={k.code}
+                    title={k.code}
+                    onClick={() => setTapCode(k.code)}
+                    className={`${styles.cell} ${tapCode === k.code ? styles.cellActive : ''}`}
+                  >
+                    {k.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              className={styles.assignBtn}
+              onClick={handleAssignHoldTap}
+              disabled={!tapCode || (Object.values(holdMods).every((v) => !v) && holdLayer === null)}
+            >
+              Assign
+            </button>
+          </div>
+        ) : (
+          /* Normal mode */
+          <>
+            <div className={styles.searchBar}>
+              <input
+                autoFocus
+                placeholder="Search keycodes…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className={styles.searchInput}
+              />
+            </div>
+
+            <div className={styles.modRow}>
+              {MODS.map((m) => (
+                <button
+                  key={m.key}
+                  className={`${styles.modBtn} ${mods[m.key] ? styles.modActive : ''}`}
+                  onClick={() => toggleMod(m.key)}
+                  title={`Wrap with ${m.qmk}()`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.grid}>
+              {filtered.map((k) => (
+                <button
+                  key={k.code}
+                  title={`${k.code}${k.description ? ` — ${k.description}` : ''}`}
+                  onClick={() => handlePickKey(k.code)}
+                  className={`${styles.cell} ${currentCode === k.code ? styles.cellActive : ''}`}
+                >
+                  {k.label}
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <span className={styles.empty}>No keycodes match</span>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

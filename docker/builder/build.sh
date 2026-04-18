@@ -1,5 +1,5 @@
 #!/bin/bash
-# Invoked by the tebay-qmk backend with /build mounted.
+# Invoked by the QMK Nexus backend with /build mounted.
 # Expected layout:
 #   /build/src/   — generated keyboard.c, keymap.c, config.h, rules.mk, etc.
 #   /build/output/ — created by this script; .hex/.bin/.uf2 written here

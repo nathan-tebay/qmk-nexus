@@ -26,7 +26,7 @@ export default function Layout() {
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-        <span className={styles.logo}>tebay-qmk</span>
+        <span className={styles.logo}>QMK Nexus</span>
         <nav className={styles.nav}>
           {stages.map((s) => (
             <NavLink

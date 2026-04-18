@@ -1,10 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from models import KeyboardConfig
 from codegen.keyboard_c import generate_keyboard_c

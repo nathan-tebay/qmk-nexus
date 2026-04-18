@@ -1,7 +1,7 @@
 """Build state + refresh token storage.
 
 Dev: in-memory dicts (no AWS needed).
-Prod: DynamoDB tables tebay-qmk-builds and tebay-qmk-refresh.
+Prod: DynamoDB tables qmk-nexus-builds and qmk-nexus-refresh.
 """
 from __future__ import annotations
 
@@ -28,18 +28,19 @@ def _ts(dt: datetime) -> int:
 
 def _builds_table():
     import boto3
-    return boto3.resource('dynamodb', region_name=settings.aws_region).Table('tebay-qmk-builds')
+    return boto3.resource('dynamodb', region_name=settings.aws_region).Table('qmk-nexus-builds')
 
 
 def _refresh_table():
     import boto3
-    return boto3.resource('dynamodb', region_name=settings.aws_region).Table('tebay-qmk-refresh')
+    return boto3.resource('dynamodb', region_name=settings.aws_region).Table('qmk-nexus-refresh')
 
 
 # ── Build state ────────────────────────────────────────────────────────────────
 
-def put_build(status: BuildStatus) -> None:
+def put_build(status: BuildStatus, user_id: str) -> None:
     data = status.model_dump()
+    data['user_id'] = user_id
     data['ttl'] = _ts(_now() + BUILD_TTL)
     if not settings.is_prod:
         _builds_mem[status.id] = data

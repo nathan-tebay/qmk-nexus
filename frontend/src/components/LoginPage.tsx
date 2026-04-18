@@ -2,13 +2,13 @@ import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
   function handleGoogleLogin() {
-    window.location.href = '/api/auth/google'
+    window.location.href = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/api/auth/google`
   }
 
   return (
     <div className={styles.root}>
       <div className={styles.card}>
-        <h1 className={styles.title}>tebay-qmk</h1>
+        <h1 className={styles.title}>QMK Nexus</h1>
         <p className={styles.sub}>Unified QMK keyboard firmware editor</p>
         <button className={styles.googleBtn} onClick={handleGoogleLogin}>
           <GoogleIcon />

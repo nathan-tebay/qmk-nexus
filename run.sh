@@ -49,7 +49,7 @@ case "${1:-help}" in
     check_env
     echo "Starting stack in background..."
     $COMPOSE up -d --build frontend backend
-    echo "Frontend: http://localhost:3000"
+    echo "Frontend: http://localhost:3001"
     echo "Backend:  http://localhost:8000"
     echo "API docs: http://localhost:8000/docs"
     ;;

@@ -4,12 +4,13 @@ services:
       context: ../frontend
       dockerfile: ../docker/frontend/Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "3001:3001"
     volumes:
       - ../frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000
+      - BACKEND_URL=http://backend:8000
 
   backend:
     build:
@@ -19,15 +20,17 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app
+      - /mnt/LargeNVMe/Projects/GitHub/personal/qmk_firmware/keyboards:/qmk_keyboards:ro
     env_file:
       - ../backend/.env
     environment:
       - ENVIRONMENT=development
+      - QMK_KEYBOARDS_PATH=/qmk_keyboards
     depends_on: []
 
   builder:
     build:
       context: ../docker/builder
-    image: tebay-qmk-builder
+    image: qmk-nexus-builder
     profiles:
       - build

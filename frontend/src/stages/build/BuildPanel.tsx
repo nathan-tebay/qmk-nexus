@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { buildsApi, type BuildStatus } from '@/api/builds'
 import { useKeyboardStore } from '@/store/keyboard'
 import { mcuById } from './mcus'
+import styles from './BuildPanel.module.css'
 
 interface Props {
   keyboardId: string | null
@@ -69,45 +70,39 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const isFailed  = status?.status === 'failed'
 
   const buildDisabled = triggering || isRunning || !mcuSupported
+  const buildBtnCls = `${styles.buildBtn} ${triggering ? styles.triggering : ''}`
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div className={styles.panel}>
       <button
         onClick={triggerBuild}
         disabled={buildDisabled}
         title={!mcuSupported ? 'ARM build not yet available' : undefined}
-        style={{ padding: '10px 20px', background: buildDisabled ? 'var(--bg-elevated)' : 'var(--accent)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 14, fontWeight: 600, cursor: buildDisabled ? 'not-allowed' : 'pointer', opacity: triggering ? 0.7 : 1 }}
+        className={buildBtnCls}
       >
         {isRunning ? 'Building…' : triggering ? 'Starting…' : !mcuSupported ? 'ARM — coming soon' : 'Build Firmware'}
       </button>
 
-      {error && <div style={{ fontSize: 12, color: 'var(--danger)', padding: '8px 10px', background: 'rgba(224,84,84,0.1)', borderRadius: 4 }}>{error}</div>}
+      {error && <div className={styles.error}>{error}</div>}
 
       {status && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className={styles.statusRow}>
             <StatusDot status={status.status} />
-            <span style={{ fontSize: 13, color: isSuccess ? 'var(--success)' : isFailed ? 'var(--danger)' : 'var(--text-muted)' }}>
+            <span className={`${styles.statusText} ${isSuccess ? styles.success : ''} ${isFailed ? styles.failed : ''}`}>
               {status.status === 'queued' ? 'Queued' : status.status === 'building' ? 'Compiling…' : status.status === 'success' ? 'Build successful' : 'Build failed'}
             </span>
           </div>
 
-          {/* Log */}
-          <div
-            ref={logRef}
-            style={{ background: '#0d0d0d', border: '1px solid var(--border)', borderRadius: 4, padding: 10, height: 200, overflowY: 'auto', fontFamily: 'monospace', fontSize: 11, color: '#ccc', lineHeight: 1.6 }}
-          >
+          <div ref={logRef} className={styles.log}>
             {status.log.map((line, i) => (
-              <div key={i} style={{ color: line.startsWith('[stderr]') ? '#f87171' : '#ccc' }}>{line}</div>
+              <div key={i} className={`${styles.logLine} ${line.startsWith('[stderr]') ? styles.stderr : ''}`}>{line}</div>
             ))}
-            {isRunning && <div style={{ color: 'var(--accent)', animation: 'pulse 1s infinite' }}>▋</div>}
+            {isRunning && <div className={styles.cursor}>▋</div>}
           </div>
 
           {isSuccess && (
-            <button
-              onClick={downloadArtifact}
-              style={{ padding: '9px 16px', background: 'var(--success)', border: 'none', borderRadius: 6, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-            >
+            <button onClick={downloadArtifact} className={styles.downloadBtn}>
               ↓ Download Firmware
             </button>
           )}
@@ -118,6 +113,10 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
 }
 
 function StatusDot({ status }: { status: string }) {
-  const color = status === 'success' ? 'var(--success)' : status === 'failed' ? 'var(--danger)' : 'var(--accent)'
-  return <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+  const cls = [
+    styles.dot,
+    status === 'success' ? styles.dotSuccess : '',
+    status === 'failed' ? styles.dotFailed : '',
+  ].filter(Boolean).join(' ')
+  return <div className={cls} />
 }

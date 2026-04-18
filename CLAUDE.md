@@ -81,7 +81,7 @@ backend/
 POST /api/builds/{keyboard_id}
   → Pull user SQLite from S3
   → codegen/ writes keyboard.c + keymap.c + Makefile to tempdir
-  → Docker container (tebay-qmk-builder) mounts tempdir
+  → Docker container (qmk-nexus-builder) mounts tempdir
   → avr-gcc or arm-none-eabi-gcc compiles directly
   → Client polls /api/builds/{id}/status every 2s
   → .hex/.bin returned as download response, not stored
@@ -91,7 +91,7 @@ POST /api/builds/{keyboard_id}
 Mirrored from QMK `keyboards/` to S3 via `scripts/sync_index.py`. Backend serves search/browse. Used for "import existing keyboard" flow in Stage 1.
 
 ## Dev vs Prod Storage
-`s3.py` checks `settings.is_prod`. In dev (`ENVIRONMENT=development`), SQLite files are stored in `/tmp/tebay-qmk-dbs/<user_id>.sqlite` — no AWS needed. In prod, pulled/pushed to S3 per request.
+`s3.py` checks `settings.is_prod`. In dev (`ENVIRONMENT=development`), SQLite files are stored in `/tmp/qmk-nexus-dbs/<user_id>.sqlite` — no AWS needed. In prod, pulled/pushed to S3 per request.
 
 ## Phase Tracker
 See project memory for full phase checklist. Current: **Phase 2 (Auth) complete**.

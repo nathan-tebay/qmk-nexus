@@ -18,12 +18,8 @@ GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 
 @router.get('/google')
-async def google_login(response: Response):
+async def google_login():
     state = secrets.token_urlsafe(32)
-    response.set_cookie(
-        'oauth_state', state,
-        httponly=True, secure=settings.is_prod, samesite='lax', max_age=300, path='/',
-    )
     params = urlencode({
         'client_id': settings.google_client_id,
         'redirect_uri': f'{settings.api_base_url}/api/auth/google/callback',
@@ -32,7 +28,12 @@ async def google_login(response: Response):
         'access_type': 'offline',
         'state': state,
     })
-    return RedirectResponse(f'{GOOGLE_AUTH_URL}?{params}')
+    redirect = RedirectResponse(f'{GOOGLE_AUTH_URL}?{params}')
+    redirect.set_cookie(
+        'oauth_state', state,
+        httponly=True, secure=settings.is_prod, samesite='lax', max_age=300, path='/',
+    )
+    return redirect
 
 
 @router.get('/google/callback')

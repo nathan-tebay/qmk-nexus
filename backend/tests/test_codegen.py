@@ -77,8 +77,14 @@ def test_layout_param_count_matches_defined_keys(minimal_avr_kb):
     ('minimal_avr_kb', generate_rules_mk, 'minimal_avr.rules_mk'),
     ('split_rgb_kb', generate_keyboard_h, 'split_rgb.keyboard_h'),
     ('split_rgb_kb', generate_keyboard_c, 'split_rgb.keyboard_c'),
+    ('split_rgb_kb', generate_keymap_c, 'split_rgb.keymap_c'),
     ('split_rgb_kb', generate_config_h, 'split_rgb.config_h'),
     ('split_rgb_kb', generate_rules_mk, 'split_rgb.rules_mk'),
+    ('rp2040_oled_kb', generate_keyboard_h, 'rp2040_oled.keyboard_h'),
+    ('rp2040_oled_kb', generate_keyboard_c, 'rp2040_oled.keyboard_c'),
+    ('rp2040_oled_kb', generate_keymap_c, 'rp2040_oled.keymap_c'),
+    ('rp2040_oled_kb', generate_config_h, 'rp2040_oled.config_h'),
+    ('rp2040_oled_kb', generate_rules_mk, 'rp2040_oled.rules_mk'),
 ])
 def test_snapshot(request, fixture, gen_fn, suffix):
     kb: KeyboardConfig = request.getfixturevalue(fixture)

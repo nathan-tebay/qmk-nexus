@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from config import settings
-from routers import auth, keyboards, builds
+from routers import auth, keyboards, builds, qmk
 
 
 class _JsonFormatter(logging.Formatter):
@@ -30,13 +30,13 @@ def _configure_logging() -> None:
 
 
 _configure_logging()
-logger = logging.getLogger('tebay-qmk')
+logger = logging.getLogger('qmk-nexus')
 
-app = FastAPI(title='tebay-qmk', version='0.1.0')
+app = FastAPI(title='QMK Nexus', version='0.1.0')
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=[settings.frontend_url, 'http://qmknexus.local'],
     allow_credentials=True,
     allow_methods=['*'],
     allow_headers=['*'],
@@ -45,6 +45,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix='/api')
 app.include_router(keyboards.router, prefix='/api')
 app.include_router(builds.router, prefix='/api')
+app.include_router(qmk.router, prefix='/api')
 
 
 @app.get('/api/health')

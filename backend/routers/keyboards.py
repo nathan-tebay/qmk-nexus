@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from models import KeyboardConfig, User
 from auth import get_current_user
-from s3 import pull_user_db, push_user_db
+from s3 import S3ConflictError, pull_user_db, push_user_db
 from utils import jsonable_out
 import db as database
 
 router = APIRouter(prefix='/keyboards', tags=['keyboards'])
+
+
+def _push(user_id: str, path):
+    try:
+        push_user_db(user_id, path)
+    except S3ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get('/')
@@ -18,7 +25,7 @@ async def list_keyboards(user: User = Depends(get_current_user)):
 async def create_keyboard(config: KeyboardConfig, user: User = Depends(get_current_user)):
     path = pull_user_db(user.id)
     saved = database.upsert_keyboard(path, config)
-    push_user_db(user.id, path)
+    _push(user.id, path)
     return jsonable_out(saved)
 
 
@@ -42,7 +49,7 @@ async def update_keyboard(
     if not database.get_keyboard(path, keyboard_id):
         raise HTTPException(status_code=404, detail='Keyboard not found')
     saved = database.upsert_keyboard(path, config)
-    push_user_db(user.id, path)
+    _push(user.id, path)
     return jsonable_out(saved)
 
 
@@ -51,5 +58,5 @@ async def delete_keyboard(keyboard_id: str, user: User = Depends(get_current_use
     path = pull_user_db(user.id)
     if not database.delete_keyboard(path, keyboard_id):
         raise HTTPException(status_code=404, detail='Keyboard not found')
-    push_user_db(user.id, path)
+    _push(user.id, path)
     return {'deleted': keyboard_id}

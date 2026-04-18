@@ -1,4 +1,5 @@
 import { MCU_LIST } from './mcus'
+import styles from './MetadataForm.module.css'
 
 interface Props {
   name: string
@@ -11,24 +12,20 @@ interface Props {
   onChange: (field: string, value: string) => void
 }
 
-const field: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4 }
-const label: React.CSSProperties = { fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const input: React.CSSProperties = { background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 4, padding: '6px 10px', color: 'var(--text)', fontSize: 13 }
-
 export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, softSerialPin, splitEnabled, onChange }: Props) {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-      <div style={field}>
-        <label style={label}>Keyboard Name</label>
-        <input style={input} value={name} onChange={(e) => onChange('name', e.target.value)} placeholder="My Keyboard" />
+    <div className={styles.grid}>
+      <div className={styles.field}>
+        <label className={styles.label}>Keyboard Name</label>
+        <input className={styles.input} value={name} onChange={(e) => onChange('name', e.target.value)} placeholder="My Keyboard" />
       </div>
-      <div style={field}>
-        <label style={label}>Manufacturer</label>
-        <input style={input} value={manufacturer} onChange={(e) => onChange('manufacturer', e.target.value)} placeholder="Tebay" />
+      <div className={styles.field}>
+        <label className={styles.label}>Manufacturer</label>
+        <input className={styles.input} value={manufacturer} onChange={(e) => onChange('manufacturer', e.target.value)} placeholder="Tebay" />
       </div>
-      <div style={{ ...field, gridColumn: '1 / -1' }}>
-        <label style={label}>MCU</label>
-        <select style={input} value={mcu} onChange={(e) => onChange('mcu', e.target.value)}>
+      <div className={`${styles.field} ${styles.fieldFull}`}>
+        <label className={styles.label}>MCU</label>
+        <select className={styles.input} value={mcu} onChange={(e) => onChange('mcu', e.target.value)}>
           {MCU_LIST.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}{!o.supported ? ' (coming soon)' : ''}
@@ -36,18 +33,18 @@ export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, softSeri
           ))}
         </select>
       </div>
-      <div style={field}>
-        <label style={label}>USB VID</label>
-        <input style={input} value={usbVid} onChange={(e) => onChange('usbVid', e.target.value)} placeholder="0xFEED" />
+      <div className={styles.field}>
+        <label className={styles.label}>USB VID</label>
+        <input className={styles.input} value={usbVid} onChange={(e) => onChange('usbVid', e.target.value)} placeholder="0xFEED" />
       </div>
-      <div style={field}>
-        <label style={label}>USB PID</label>
-        <input style={input} value={usbPid} onChange={(e) => onChange('usbPid', e.target.value)} placeholder="0x0000" />
+      <div className={styles.field}>
+        <label className={styles.label}>USB PID</label>
+        <input className={styles.input} value={usbPid} onChange={(e) => onChange('usbPid', e.target.value)} placeholder="0x0000" />
       </div>
       {splitEnabled && (
-        <div style={field}>
-          <label style={label}>Soft Serial Pin</label>
-          <input style={input} value={softSerialPin} onChange={(e) => onChange('softSerialPin', e.target.value)} placeholder="D0" />
+        <div className={styles.field}>
+          <label className={styles.label}>Soft Serial Pin</label>
+          <input className={styles.input} value={softSerialPin} onChange={(e) => onChange('softSerialPin', e.target.value)} placeholder="D0" />
         </div>
       )}
     </div>

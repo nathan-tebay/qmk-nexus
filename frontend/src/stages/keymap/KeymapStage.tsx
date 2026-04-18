@@ -9,7 +9,6 @@ export default function KeymapStage() {
   const {
     config, activeLayerId,
     setActiveLayer, setKeycode, addLayer, removeLayer, renameLayer,
-    selectedKeyId,
   } = useKeyboardStore()
 
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -77,6 +76,7 @@ export default function KeymapStage() {
           currentCode={currentCode}
           onSelect={handleSelect}
           onClose={() => setPickerOpen(false)}
+          layerCount={config.layers.length}
         />
       )}
     </div>

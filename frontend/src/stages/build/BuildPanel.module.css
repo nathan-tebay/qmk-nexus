@@ -1,0 +1,110 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.buildBtn {
+  padding: 10px 20px;
+  background: var(--accent);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.buildBtn:disabled {
+  background: var(--bg-elevated);
+  cursor: not-allowed;
+}
+
+.buildBtn.triggering {
+  opacity: 0.7;
+}
+
+.error {
+  font-size: 12px;
+  color: var(--danger);
+  padding: 8px 10px;
+  background: rgba(224, 84, 84, 0.1);
+  border-radius: 4px;
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusText {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.statusText.success {
+  color: var(--success);
+}
+
+.statusText.failed {
+  color: var(--danger);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--accent);
+}
+
+.dot.dotSuccess {
+  background: var(--success);
+}
+
+.dot.dotFailed {
+  background: var(--danger);
+}
+
+.log {
+  background: #0d0d0d;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 11px;
+  color: #ccc;
+  line-height: 1.6;
+}
+
+.logLine {
+  color: #ccc;
+}
+
+.logLine.stderr {
+  color: #f87171;
+}
+
+.cursor {
+  color: var(--accent);
+  animation: pulse 1s infinite;
+}
+
+.downloadBtn {
+  padding: 9px 16px;
+  background: var(--success);
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

@@ -1,4 +1,4 @@
-"""Curated feature module definitions for the tebay-qmk editor."""
+"""Curated feature module definitions for the qmk-nexus editor."""
 
 from dataclasses import dataclass, field
 

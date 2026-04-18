@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore, User } from '@/store/auth'
 import { api } from '@/api/client'
+import styles from './AuthCallback.module.css'
 
 export default function AuthCallback() {
   const { setUser } = useAuthStore()
@@ -17,8 +18,8 @@ export default function AuthCallback() {
   }, [setUser, navigate])
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-      <span style={{ color: 'var(--text-muted)' }}>Signing in...</span>
+    <div className={styles.container}>
+      <span className={styles.text}>Signing in...</span>
     </div>
   )
 }

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+*.pyc
+__pycache__/
+.venv/
+venv/
+*.db
+*.sqlite
+*.hex
+*.bin
+*.elf
+.DS_Store

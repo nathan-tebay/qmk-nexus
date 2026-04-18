@@ -5,7 +5,7 @@ import subprocess
 import uuid
 from pathlib import Path
 
-logger = logging.getLogger('tebay-qmk.builds')
+logger = logging.getLogger('qmk-nexus.builds')
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
@@ -20,7 +20,7 @@ from utils import jsonable_out, safe_name
 
 router = APIRouter(prefix='/builds', tags=['builds'])
 
-DOCKER_IMAGE = 'tebay-qmk-builder'
+DOCKER_IMAGE = 'qmk-nexus-builder'
 _BUILDS_ROOT = Path('/tmp/tebay-builds')
 _BUILDS_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -83,9 +83,7 @@ async def trigger_build(keyboard_id: str, user: User = Depends(get_current_user)
         status='building',
         log=['Build started'],
     )
-    # store user_id for rate limiting (not in model, inject into raw dict)
-    dynamo.put_build(status)
-    dynamo._builds_mem[build_id]['user_id'] = user.id  # dev shortcut
+    dynamo.put_build(status, user.id)
 
     try:
         generate_all(config, build_dir)

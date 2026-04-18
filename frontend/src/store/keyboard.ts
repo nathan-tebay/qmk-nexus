@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+export type KeyShapeType = 'rect' | 'iso-enter' | 'stepped-caps' | 'iso-shift'
+
 export interface KeyDef {
   id: string
   x: number
@@ -11,6 +13,7 @@ export interface KeyDef {
   row: number | null
   col: number | null
   ledIndex: number | null
+  shape: KeyShapeType
 }
 
 export interface MatrixPin {
@@ -72,9 +75,12 @@ const defaultConfig: KeyboardConfig = {
 interface KeyboardStore {
   config: KeyboardConfig
   selectedKeyId: string | null
+  selectedKeyIds: string[]
   activeLayerId: string
   setConfig: (config: Partial<KeyboardConfig>) => void
   setSelectedKey: (id: string | null) => void
+  setSelectedKeys: (ids: string[]) => void
+  toggleSelectedKey: (id: string) => void
   setActiveLayer: (id: string) => void
   addKey: (key: KeyDef) => void
   updateKey: (id: string, updates: Partial<KeyDef>) => void
@@ -89,12 +95,25 @@ interface KeyboardStore {
 export const useKeyboardStore = create<KeyboardStore>((set) => ({
   config: defaultConfig,
   selectedKeyId: null,
+  selectedKeyIds: [],
   activeLayerId: 'layer0',
 
   setConfig: (updates) =>
     set((s) => ({ config: { ...s.config, ...updates } })),
 
-  setSelectedKey: (id) => set({ selectedKeyId: id }),
+  setSelectedKey: (id) =>
+    set({ selectedKeyId: id, selectedKeyIds: id ? [id] : [] }),
+
+  setSelectedKeys: (ids) =>
+    set({ selectedKeyIds: ids, selectedKeyId: ids[0] ?? null }),
+
+  toggleSelectedKey: (id) =>
+    set((s) => {
+      const next = s.selectedKeyIds.includes(id)
+        ? s.selectedKeyIds.filter((k) => k !== id)
+        : [...s.selectedKeyIds, id]
+      return { selectedKeyIds: next, selectedKeyId: next[0] ?? null }
+    }),
 
   setActiveLayer: (id) => set({ activeLayerId: id }),
 
@@ -112,6 +131,8 @@ export const useKeyboardStore = create<KeyboardStore>((set) => ({
   removeKey: (id) =>
     set((s) => ({
       config: { ...s.config, keys: s.config.keys.filter((k) => k.id !== id) },
+      selectedKeyIds: s.selectedKeyIds.filter((k) => k !== id),
+      selectedKeyId: s.selectedKeyId === id ? null : s.selectedKeyId,
     })),
 
   setKeycode: (keyId, layerId, keycode) =>

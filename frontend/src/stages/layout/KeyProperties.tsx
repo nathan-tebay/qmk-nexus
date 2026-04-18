@@ -2,8 +2,16 @@ import { useKeyboardStore, type KeyDef } from '@/store/keyboard'
 import styles from './KeyProperties.module.css'
 
 export default function KeyProperties() {
-  const { config, selectedKeyId, updateKey } = useKeyboardStore()
+  const { config, selectedKeyId, selectedKeyIds, updateKey } = useKeyboardStore()
   const key = config.keys.find((k) => k.id === selectedKeyId)
+
+  if (selectedKeyIds.length > 1) {
+    return (
+      <div className={styles.empty}>
+        <span>{selectedKeyIds.length} keys selected</span>
+      </div>
+    )
+  }
 
   if (!key) {
     return (

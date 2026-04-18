@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-
 from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
@@ -14,7 +9,6 @@ def generate_keyboard_h(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
 
-    guard = config.name.upper().replace(" ", "_").replace("-", "_") + "_H"
     params = [f"k{k.row:02d}{k.col:02d}" for k in keys]
     param_str = ", ".join(params)
 

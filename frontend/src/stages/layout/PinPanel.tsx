@@ -1,4 +1,4 @@
-import { useKeyboardStore, type MatrixPin, type ColPin } from '@/store/keyboard'
+import { useKeyboardStore } from '@/store/keyboard'
 import styles from './PinPanel.module.css'
 
 export default function PinPanel() {

@@ -56,3 +56,26 @@
   flex: 1;
   overflow: hidden;
 }
+
+.matrixInfo {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.matrixInfo strong {
+  color: var(--text);
+  font-size: 12px;
+  margin-bottom: 2px;
+}

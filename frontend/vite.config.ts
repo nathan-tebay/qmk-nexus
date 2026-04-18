@@ -10,11 +10,13 @@ export default defineConfig({
     },
   },
   server: {
-    port: 3000,
+    port: 3001,
+    allowedHosts: ['qmknexus.local', 'qmknexus-backend.local'],
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: process.env.BACKEND_URL ?? 'http://backend:8000',
         changeOrigin: true,
+        cookieDomainRewrite: '',
       },
     },
   },

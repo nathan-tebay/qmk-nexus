@@ -1,4 +1,4 @@
-# tebay-qmk Remediation Plan
+# qmk-nexus Remediation Plan
 
 Generated from code review 2026-04-17. Addresses 34 findings across backend, frontend, infra, codegen.
 
@@ -45,7 +45,7 @@ Generated from code review 2026-04-17. Addresses 34 findings across backend, fro
 
 ### A4. DynamoDB build state (#4)
 **New file:** `backend/dynamo.py`
-- Client: `boto3.resource('dynamodb').Table('tebay-qmk-builds')`.
+- Client: `boto3.resource('dynamodb').Table('qmk-nexus-builds')`.
 - In dev (`settings.is_prod == False`), fall back to in-memory dict (current behavior) — keeps local dev cheap.
 - Schema: `build_id` (PK), `user_id`, `keyboard_id`, `status`, `log`, `artifact_path`, `error`, `created_at`, `ttl` (expire 1h after terminal state).
 - Methods: `put_build(status)`, `get_build(id)`, `update_status(id, patch)`.
@@ -58,7 +58,7 @@ Generated from code review 2026-04-17. Addresses 34 findings across backend, fro
 **Files:** `backend/auth.py`, `backend/routers/auth.py`, `backend/main.py`, `frontend/src/api/client.ts`, `frontend/src/store/auth.ts`, `frontend/src/components/AuthCallback.tsx`
 - **Backend:**
   - `create_access_token(user)` — 15 min.
-  - `create_refresh_token(user)` — 30 days, random opaque token stored in DynamoDB `tebay-qmk-refresh` keyed by token hash → user_id + exp.
+  - `create_refresh_token(user)` — 30 days, random opaque token stored in DynamoDB `qmk-nexus-refresh` keyed by token hash → user_id + exp.
   - OAuth callback: set `Set-Cookie: access_token=...; HttpOnly; Secure; SameSite=Lax; Path=/` + refresh cookie. Redirect to `/auth/callback` (no token in URL).
   - `get_current_user` reads cookie instead of (or in addition to) bearer header.
   - `POST /api/auth/refresh` — reads refresh cookie, verifies against DynamoDB, rotates refresh token, issues new access cookie.
@@ -196,7 +196,7 @@ Generated from code review 2026-04-17. Addresses 34 findings across backend, fro
 
 ### C9. Backend structured logging (#26)
 **Files:** `backend/main.py`, `backend/routers/builds.py`, `backend/routers/auth.py`, `backend/routers/keyboards.py`, `backend/s3.py`
-- Add `logger = logging.getLogger('tebay-qmk')` at module level.
+- Add `logger = logging.getLogger('qmk-nexus')` at module level.
 - Log `logger.exception` on all `except Exception` paths.
 - Configure root logger in `main.py` for JSON format (Lambda-friendly).
 

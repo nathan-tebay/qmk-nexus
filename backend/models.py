@@ -28,6 +28,7 @@ class KeyDef(BaseModel):
     row: int | None = None
     col: int | None = None
     led_index: int | None = None
+    shape: str = 'rect'
 
 
 class MatrixPin(BaseModel):
