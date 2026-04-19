@@ -85,7 +85,7 @@ export function deriveIndices(keys: KeyDef[], edges: MatrixEdge[]): KeyDef[] {
   }))
 }
 
-export type KeyShapeType = 'rect' | 'iso-enter' | 'stepped-caps'
+export type KeyShapeType = 'rect' | 'iso-enter'
 
 export interface KeyDef {
   id: string

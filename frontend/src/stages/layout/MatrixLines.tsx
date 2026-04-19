@@ -30,7 +30,16 @@ interface Props {
 function keyCenter(k: KeyDef) {
   const w = k.w * UNIT - GAP
   const h = k.h * UNIT - GAP
-  return { x: k.x * UNIT + w / 2, y: k.y * UNIT + h / 2 }
+  const lx = w / 2
+  const ly = h / 2
+  if (!k.rotation) return { x: k.x * UNIT + lx, y: k.y * UNIT + ly }
+  const rad = (k.rotation * Math.PI) / 180
+  const cos = Math.cos(rad)
+  const sin = Math.sin(rad)
+  return {
+    x: k.x * UNIT + cos * lx - sin * ly,
+    y: k.y * UNIT + sin * lx + cos * ly,
+  }
 }
 
 // Perpendicular offset keeps row/col lines visually distinct when they share key centers

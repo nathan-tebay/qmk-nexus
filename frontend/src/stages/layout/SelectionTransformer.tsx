@@ -73,16 +73,17 @@ export default function SelectionTransformer({ stageRef }: Props) {
       node.scaleX(1)
       node.scaleY(1)
 
-      const newW = Math.max(0.5, Math.round((node.width() * scaleX) / (UNIT * STEP)) * STEP)
-      const newH = Math.max(0.5, Math.round((node.height() * scaleY) / (UNIT * STEP)) * STEP)
-
-      updateKey(id, {
-        w: newW,
-        h: newH,
+      const isResized = Math.abs(scaleX - 1) > 0.01 || Math.abs(scaleY - 1) > 0.01
+      const updates: Parameters<typeof updateKey>[1] = {
         rotation: Math.round(node.rotation()),
         x: node.x() / UNIT,
         y: node.y() / UNIT,
-      })
+      }
+      if (isResized) {
+        updates.w = Math.max(STEP, Math.round((node.width() * scaleX) / (UNIT * STEP)) * STEP)
+        updates.h = Math.max(STEP, Math.round((node.height() * scaleY) / (UNIT * STEP)) * STEP)
+      }
+      updateKey(id, updates)
     }
 
     setLiveRotation(null)
@@ -101,11 +102,15 @@ export default function SelectionTransformer({ stageRef }: Props) {
             ? []
             : ['middle-right', 'bottom-center', 'bottom-right']
         }
-        boundBoxFunc={(_, newBox) => ({
-          ...newBox,
-          width: Math.max(UNIT, newBox.width),
-          height: Math.max(UNIT, newBox.height),
-        })}
+        boundBoxFunc={(oldBox, newBox) => {
+          // During rotation the axis-aligned bbox grows — don't constrain size then
+          if (Math.abs(newBox.rotation - oldBox.rotation) > 0.001) return newBox
+          return {
+            ...newBox,
+            width: Math.max(UNIT * STEP, newBox.width),
+            height: Math.max(UNIT * STEP, newBox.height),
+          }
+        }}
       />
       {liveRotation !== null && labelPos && (
         <Text

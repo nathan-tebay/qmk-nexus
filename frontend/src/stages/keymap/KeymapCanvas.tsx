@@ -16,27 +16,14 @@ interface Props {
 
 function isoEnterPath(ctx: Context, w: number, h: number) {
   const notch = UNIT * 0.25
-  const mid = UNIT
-  ctx.beginPath()
-  ctx.moveTo(notch, 0)
-  ctx.lineTo(w, 0)
-  ctx.lineTo(w, h)
-  ctx.lineTo(0, h)
-  ctx.lineTo(0, mid)
-  ctx.lineTo(notch, mid)
-  ctx.closePath()
-}
-
-function steppedCapsPath(ctx: Context, w: number, h: number) {
-  const stepX = UNIT * 1.25 - GAP / 2
-  const stepDepth = 6
+  const mid = h - UNIT
   ctx.beginPath()
   ctx.moveTo(0, 0)
   ctx.lineTo(w, 0)
   ctx.lineTo(w, h)
-  ctx.lineTo(stepX, h)
-  ctx.lineTo(stepX, h - stepDepth)
-  ctx.lineTo(0, h - stepDepth)
+  ctx.lineTo(notch, h)
+  ctx.lineTo(notch, mid)
+  ctx.lineTo(0, mid)
   ctx.closePath()
 }
 
@@ -131,16 +118,16 @@ export default function KeymapCanvas({ width, height, onKeyClick, onTooltip, onT
                 <>
                   <Shape sceneFunc={(ctx, s) => { isoEnterPath(ctx, w, h); ctx.fillStrokeShape(s) }} fill={KEY_FILL} stroke={stroke} strokeWidth={strokeWidth} {...shadow} />
                   <Shape sceneFunc={(ctx, s) => {
-                    const notch = UNIT * 0.25, mid = UNIT, inset = 3
+                    const notch = UNIT * 0.25, mid = h - UNIT, inset = 3
                     ctx.beginPath()
-                    ctx.moveTo(notch + inset, inset); ctx.lineTo(w - inset, inset); ctx.lineTo(w - inset, h - inset)
-                    ctx.lineTo(inset, h - inset); ctx.lineTo(inset, mid + inset); ctx.lineTo(notch + inset, mid + inset)
+                    ctx.moveTo(inset, inset); ctx.lineTo(w - inset, inset); ctx.lineTo(w - inset, h - inset)
+                    ctx.lineTo(notch + inset, h - inset); ctx.lineTo(notch + inset, mid - inset); ctx.lineTo(inset, mid - inset)
                     ctx.closePath(); ctx.fillStrokeShape(s)
                   }} fill="#333" />
                 </>
               ) : (
                 <>
-                  <Shape sceneFunc={(ctx, s) => { steppedCapsPath(ctx, w, h); ctx.fillStrokeShape(s) }} fill={KEY_FILL} stroke={stroke} strokeWidth={strokeWidth} {...shadow} />
+                  <Rect width={w} height={h} fill={KEY_FILL} stroke={stroke} strokeWidth={strokeWidth} cornerRadius={KEY_RADIUS} {...shadow} />
                   <Rect x={3} y={3} width={w - 6} height={h - 8} fill="#333" cornerRadius={KEY_RADIUS - 2} />
                 </>
               )}

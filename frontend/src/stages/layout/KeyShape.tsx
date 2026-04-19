@@ -23,27 +23,14 @@ const SNAP_UNIT = UNIT * 0.25
 
 function isoEnterPath(ctx: Context, w: number, h: number) {
   const notch = UNIT * 0.25
-  const mid = UNIT
-  ctx.beginPath()
-  ctx.moveTo(notch, 0)
-  ctx.lineTo(w, 0)
-  ctx.lineTo(w, h)
-  ctx.lineTo(0, h)
-  ctx.lineTo(0, mid)
-  ctx.lineTo(notch, mid)
-  ctx.closePath()
-}
-
-function steppedCapsPath(ctx: Context, w: number, h: number) {
-  const stepX = UNIT * 1.25 - GAP / 2
-  const stepDepth = 6
+  const mid = h - UNIT  // step is one unit from the bottom
   ctx.beginPath()
   ctx.moveTo(0, 0)
   ctx.lineTo(w, 0)
   ctx.lineTo(w, h)
-  ctx.lineTo(stepX, h)
-  ctx.lineTo(stepX, h - stepDepth)
-  ctx.lineTo(0, h - stepDepth)
+  ctx.lineTo(notch, h)
+  ctx.lineTo(notch, mid)
+  ctx.lineTo(0, mid)
   ctx.closePath()
 }
 
@@ -120,32 +107,23 @@ export default function KeyShape({
           <Shape
             sceneFunc={(ctx, shape) => {
               const notch = UNIT * 0.25
-              const mid = UNIT
+              const mid = h - UNIT
               const inset = 3
               ctx.beginPath()
-              ctx.moveTo(notch + inset, inset)
+              ctx.moveTo(inset, inset)
               ctx.lineTo(w - inset, inset)
               ctx.lineTo(w - inset, h - inset)
-              ctx.lineTo(inset, h - inset)
-              ctx.lineTo(inset, mid + inset)
-              ctx.lineTo(notch + inset, mid + inset)
+              ctx.lineTo(notch + inset, h - inset)
+              ctx.lineTo(notch + inset, mid - inset)
+              ctx.lineTo(inset, mid - inset)
               ctx.closePath()
               ctx.fillStrokeShape(shape)
             }}
             fill="#333"
           />
         </>
-      ) : keyDef.shape === 'stepped-caps' ? (
-        <>
-          <Shape
-            sceneFunc={(ctx, shape) => { steppedCapsPath(ctx, w, h); ctx.fillStrokeShape(shape) }}
-            fill={fill} stroke={stroke} strokeWidth={strokeWidth}
-            {...shadow}
-          />
-          <Rect x={3} y={3} width={w - 6} height={h - 8} fill="#333" cornerRadius={KEY_RADIUS - 2} />
-        </>
       ) : (
-        /* iso-shift and fallback: rect */
+        /* fallback: rect */
         <>
           <Rect
             width={w} height={h}

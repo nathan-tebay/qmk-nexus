@@ -50,8 +50,8 @@ export default function KeyProperties() {
             step={0.25}
             value={key.w}
             onChange={(e) => set('w', num(e.target.value, 1))}
-            readOnly={key.shape === 'iso-enter' || key.shape === 'stepped-caps'}
-            style={{ opacity: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 0.5 : 1, cursor: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 'not-allowed' : undefined }}
+            readOnly={key.shape === 'iso-enter'}
+            style={{ opacity: (key.shape === 'iso-enter') ? 0.5 : 1, cursor: (key.shape === 'iso-enter') ? 'not-allowed' : undefined }}
           />
         </Field>
         <Field label="Height (u)">
@@ -61,12 +61,12 @@ export default function KeyProperties() {
             step={0.25}
             value={key.h}
             onChange={(e) => set('h', num(e.target.value, 1))}
-            readOnly={key.shape === 'iso-enter' || key.shape === 'stepped-caps'}
-            style={{ opacity: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 0.5 : 1, cursor: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 'not-allowed' : undefined }}
+            readOnly={key.shape === 'iso-enter'}
+            style={{ opacity: (key.shape === 'iso-enter') ? 0.5 : 1, cursor: (key.shape === 'iso-enter') ? 'not-allowed' : undefined }}
           />
         </Field>
       </div>
-      {(key.shape === 'iso-enter' || key.shape === 'stepped-caps') && <span className={styles.note}>fixed shape size</span>}
+      {(key.shape === 'iso-enter') && <span className={styles.note}>fixed shape size</span>}
 
       <div className={styles.row}>
         <Field label="X (u)">
