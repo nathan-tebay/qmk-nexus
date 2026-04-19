@@ -57,6 +57,145 @@
   overflow: hidden;
 }
 
+.welcome {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.welcomeCard {
+  pointer-events: all;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 36px 40px;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.welcomeTitle {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.welcomeTagline {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: -12px 0 0;
+}
+
+.welcomeSteps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.welcomeStep {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.stepNum {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(79, 142, 247, 0.15);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.welcomeStep div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.welcomeStep strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.welcomeStep span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.welcomeActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.welcomePrimary {
+  flex: 1;
+  padding: 9px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.welcomePrimary:hover {
+  opacity: 0.88;
+}
+
+.welcomeSecondary {
+  flex: 1;
+  padding: 9px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: none;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.welcomeSecondary:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.welcomeCredits {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin: 0;
+  text-align: center;
+}
+
+.welcomeCredits a {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.welcomeCredits a:hover {
+  color: var(--text);
+}
+
 .matrixInfo {
   position: absolute;
   bottom: 16px;

@@ -4,6 +4,16 @@
   gap: 12px;
 }
 
+.matrixError {
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #ef4444;
+  line-height: 1.6;
+}
+
 .buildBtn {
   padding: 10px 20px;
   background: var(--accent);

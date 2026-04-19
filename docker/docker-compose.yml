@@ -1,5 +1,6 @@
 services:
   frontend:
+    container_name: qmknexus
     build:
       context: ../frontend
       dockerfile: ../docker/frontend/Dockerfile.dev
@@ -13,6 +14,7 @@ services:
       - BACKEND_URL=http://backend:8000
 
   backend:
+    container_name: qmknexus-backend
     build:
       context: ../backend
       dockerfile: ../docker/backend/Dockerfile.dev
@@ -20,12 +22,10 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app
-      - /mnt/LargeNVMe/Projects/GitHub/personal/qmk_firmware/keyboards:/qmk_keyboards:ro
     env_file:
       - ../backend/.env
     environment:
       - ENVIRONMENT=development
-      - QMK_KEYBOARDS_PATH=/qmk_keyboards
     depends_on: []
 
   builder:

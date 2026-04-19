@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { buildsApi, type BuildStatus } from '@/api/builds'
 import { useKeyboardStore } from '@/store/keyboard'
+import { validateMatrices } from '@/utils/validateMatrices'
 import { mcuById } from './mcus'
 import styles from './BuildPanel.module.css'
 
@@ -12,9 +13,13 @@ interface Props {
 const POLL_MS = 2000
 
 export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
-  const keyboardName = useKeyboardStore((s) => s.config.name)
-  const mcu = useKeyboardStore((s) => s.config.mcu)
+  const config = useKeyboardStore((s) => s.config)
+  const keyboardName = config.name
+  const mcu = config.mcu
   const mcuSupported = mcuById.get(mcu)?.supported ?? true
+  const matrixValidation = validateMatrices(config)
+  const matrixBlocked = !matrixValidation.matrixOk
+  const ledBlocked = !matrixValidation.ledOk
   const [buildId, setBuildId] = useState<string | null>(null)
   const [status, setStatus] = useState<BuildStatus | null>(null)
   const [triggering, setTriggering] = useState(false)
@@ -69,11 +74,19 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const isSuccess = status?.status === 'success' && status?.artifactAvailable
   const isFailed  = status?.status === 'failed'
 
-  const buildDisabled = triggering || isRunning || !mcuSupported
+  const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked
   const buildBtnCls = `${styles.buildBtn} ${triggering ? styles.triggering : ''}`
 
   return (
     <div className={styles.panel}>
+      {(matrixBlocked || ledBlocked) && (
+        <div className={styles.matrixError}>
+          {matrixValidation.errors.map((e, i) => (
+            <div key={i}>✗ {e}</div>
+          ))}
+          <div style={{ marginTop: 4, fontWeight: 600 }}>Fix matrix wiring in Stage 1 to enable build.</div>
+        </div>
+      )}
       <button
         onClick={triggerBuild}
         disabled={buildDisabled}

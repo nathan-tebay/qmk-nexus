@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { KEYCODES, keycodeMap } from './keycodes'
+import { KEYCODES, CATEGORIES, keycodeMap } from './keycodes'
 import styles from './KeycodePicker.module.css'
 
 interface Props {
@@ -50,6 +50,7 @@ function buildLT(tapCode: string, layer: number): string {
 
 export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount = 5 }: Props) {
   const [search, setSearch] = useState('')
+  const [category, setCategory] = useState('basic')
   const [mods, setMods] = useState<Partial<Record<ModKey, boolean>>>({})
   const [holdTap, setHoldTap] = useState(false)
   const [tapCode, setTapCode] = useState('')
@@ -65,10 +66,11 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return KEYCODES.filter((k) =>
-      !q || k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
-    )
-  }, [search])
+    return KEYCODES.filter((k) => {
+      if (q) return k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
+      return k.category === category
+    })
+  }, [search, category])
 
   const tapFiltered = useMemo(() => {
     const q = tapSearch.toLowerCase()
@@ -209,6 +211,20 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
                 className={styles.searchInput}
               />
             </div>
+
+            {!search && (
+              <div className={styles.chips}>
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    className={`${styles.chip} ${category === cat.id ? styles.chipActive : ''}`}
+                    onClick={() => setCategory(cat.id)}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className={styles.modRow}>
               {MODS.map((m) => (

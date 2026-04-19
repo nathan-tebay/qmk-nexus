@@ -50,6 +50,8 @@ export default function KeyProperties() {
             step={0.25}
             value={key.w}
             onChange={(e) => set('w', num(e.target.value, 1))}
+            readOnly={key.shape === 'iso-enter' || key.shape === 'stepped-caps'}
+            style={{ opacity: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 0.5 : 1, cursor: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 'not-allowed' : undefined }}
           />
         </Field>
         <Field label="Height (u)">
@@ -59,9 +61,12 @@ export default function KeyProperties() {
             step={0.25}
             value={key.h}
             onChange={(e) => set('h', num(e.target.value, 1))}
+            readOnly={key.shape === 'iso-enter' || key.shape === 'stepped-caps'}
+            style={{ opacity: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 0.5 : 1, cursor: (key.shape === 'iso-enter' || key.shape === 'stepped-caps') ? 'not-allowed' : undefined }}
           />
         </Field>
       </div>
+      {(key.shape === 'iso-enter' || key.shape === 'stepped-caps') && <span className={styles.note}>fixed shape size</span>}
 
       <div className={styles.row}>
         <Field label="X (u)">
@@ -101,10 +106,10 @@ export default function KeyProperties() {
             min={0}
             step={1}
             value={key.row ?? ''}
-            placeholder="—"
-            onChange={(e) =>
-              set('row', e.target.value === '' ? null : parseInt(e.target.value))
-            }
+            placeholder="auto"
+            readOnly
+            style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            onChange={() => {}}
           />
         </Field>
         <Field label="Col">
@@ -113,10 +118,10 @@ export default function KeyProperties() {
             min={0}
             step={1}
             value={key.col ?? ''}
-            placeholder="—"
-            onChange={(e) =>
-              set('col', e.target.value === '' ? null : parseInt(e.target.value))
-            }
+            placeholder="auto"
+            readOnly
+            style={{ opacity: 0.6, cursor: 'not-allowed' }}
+            onChange={() => {}}
           />
         </Field>
       </div>
@@ -127,12 +132,13 @@ export default function KeyProperties() {
           min={0}
           step={1}
           value={key.ledIndex ?? ''}
-          placeholder="None"
-          onChange={(e) =>
-            set('ledIndex', e.target.value === '' ? null : parseInt(e.target.value))
-          }
+          placeholder="auto"
+          readOnly
+          style={{ opacity: 0.6, cursor: 'not-allowed' }}
+          onChange={() => {}}
         />
       </Field>
+      <span className={styles.note}>assigned via matrix wiring</span>
     </div>
   )
 }

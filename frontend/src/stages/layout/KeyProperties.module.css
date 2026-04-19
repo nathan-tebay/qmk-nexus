@@ -52,3 +52,11 @@
   background: var(--border);
   margin: 4px 0;
 }
+
+.note {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 2px;
+  display: block;
+}

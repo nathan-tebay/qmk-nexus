@@ -5,6 +5,8 @@ import { KeycodePicker } from './KeycodePicker'
 import KeymapCanvas from './KeymapCanvas'
 import styles from './KeymapStage.module.css'
 
+interface Tooltip { code: string; x: number; y: number }
+
 export default function KeymapStage() {
   const {
     config, activeLayerId,
@@ -13,6 +15,7 @@ export default function KeymapStage() {
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerKeyId, setPickerKeyId] = useState<string | null>(null)
+  const [tooltip, setTooltip] = useState<Tooltip | null>(null)
 
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
@@ -42,8 +45,10 @@ export default function KeymapStage() {
 
   if (config.keys.length === 0) {
     return (
-      <div className={styles.empty}>
-        <span>No keys defined. Add keys in Stage 1 first.</span>
+      <div className={styles.root}>
+        <div className={styles.empty}>
+          <span>No keys defined. Add keys in Stage 1 first.</span>
+        </div>
       </div>
     )
   }
@@ -63,12 +68,35 @@ export default function KeymapStage() {
         Click any key to assign a keycode · Double-click a layer tab to rename
       </div>
 
-      <div className={styles.canvas} ref={canvasContainerRef}>
+      <div className={styles.canvas} ref={canvasContainerRef} style={{ position: 'relative' }}>
         <KeymapCanvas
           width={canvasSize.width}
           height={canvasSize.height}
           onKeyClick={handleKeyClick}
+          onTooltip={(code, x, y) => setTooltip({ code, x, y })}
+          onTooltipHide={() => setTooltip(null)}
         />
+        {tooltip && (
+          <div
+            style={{
+              position: 'absolute',
+              left: tooltip.x + 12,
+              top: tooltip.y - 8,
+              background: '#1a1a1a',
+              border: '1px solid #444',
+              borderRadius: 4,
+              padding: '4px 8px',
+              fontSize: 11,
+              color: '#ccc',
+              fontFamily: 'monospace',
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap',
+              zIndex: 100,
+            }}
+          >
+            {tooltip.code}
+          </div>
+        )}
       </div>
 
       {pickerOpen && pickerKeyId && (

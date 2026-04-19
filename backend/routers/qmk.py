@@ -1,97 +1,51 @@
 import json
 import logging
-import os
+import uuid
+from collections import defaultdict
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from config import settings
-from models import ColPin, KeyDef, KeyboardConfig, Layer, MatrixPin
+from models import ColPin, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin
 
 logger = logging.getLogger('qmk-nexus.qmk')
 
 router = APIRouter(prefix='/qmk', tags=['qmk'])
 
-
-# ---------------------------------------------------------------------------
-# Index building
-# ---------------------------------------------------------------------------
-
-def _extract_info(info: dict[str, Any]) -> dict[str, Any] | None:
-    """Extract summary fields from a raw info.json dict. Returns None if not a valid leaf keyboard."""
-    layouts = info.get('layouts', {})
-    if not layouts:
-        return None
-
-    usb = info.get('usb', {})
-    processor = info.get('processor', info.get('processor_type', 'unknown'))
-
-    return {
-        'name': info.get('keyboard_name', ''),
-        'manufacturer': info.get('manufacturer', ''),
-        'mcu': str(processor).lower(),
-        'usb_vid': usb.get('vid', '0xFEED'),
-        'usb_pid': usb.get('pid', '0x0000'),
-        'layouts': list(layouts.keys()),
-        'key_count': len(next(iter(layouts.values()), {}).get('layout', [])),
-        'matrix_pins': info.get('matrix_pins', {}),
-    }
+_INDEX_PATH = Path(__file__).parent.parent / 'data' / 'qmk_index.json'
+_KB_DATA_DIR = Path(__file__).parent.parent / 'data' / 'keyboards'
 
 
 @lru_cache(maxsize=1)
-def _build_index() -> list[dict[str, Any]]:
-    kb_root = Path(settings.qmk_keyboards_path)
-    if not kb_root.exists():
-        logger.warning('QMK keyboards path not found: %s', kb_root)
+def _load_index() -> list[dict[str, Any]]:
+    if not _INDEX_PATH.exists():
+        logger.warning('QMK index not found at %s', _INDEX_PATH)
         return []
+    with open(_INDEX_PATH) as f:
+        data = json.load(f)
+    logger.info('QMK index loaded: %d keyboards', len(data))
+    return data
 
-    index: list[dict[str, Any]] = []
-    for info_path in sorted(kb_root.rglob('info.json')):
-        try:
-            with open(info_path) as f:
-                data = json.load(f)
-        except Exception:
-            continue
-
-        entry = _extract_info(data)
-        if not entry:
-            continue
-
-        rel = info_path.parent.relative_to(kb_root)
-        entry['path'] = str(rel).replace('\\', '/')
-        index.append(entry)
-
-    logger.info('QMK index built: %d keyboards', len(index))
-    return index
-
-
-# ---------------------------------------------------------------------------
-# Response models (plain dicts — no Pydantic overhead for large lists)
-# ---------------------------------------------------------------------------
 
 @router.get('/search')
 def search_keyboards(q: str = Query('', max_length=100)) -> list[dict[str, Any]]:
-    index = _build_index()
+    index = _load_index()
     if not q.strip():
         return index[:100]
 
     q_lower = q.lower()
     results = [
         entry for entry in index
-        if q_lower in entry['name'].lower() or q_lower in entry['manufacturer'].lower()
-        or q_lower in entry['path'].lower()
+        if q_lower in entry.get('name', '').lower()
+        or q_lower in entry.get('manufacturer', '').lower()
+        or q_lower in entry.get('path', '').lower()
     ]
     return results[:100]
 
 
-# ---------------------------------------------------------------------------
-# Import: convert QMK info.json → KeyboardConfig
-# ---------------------------------------------------------------------------
-
 def _nanoid() -> str:
-    import uuid
     return uuid.uuid4().hex[:10]
 
 
@@ -99,7 +53,6 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     usb = info.get('usb', {})
     processor = info.get('processor', info.get('processor_type', 'atmega32u4'))
 
-    # Pick first layout
     layouts: dict[str, Any] = info.get('layouts', {})
     if not layouts:
         raise HTTPException(status_code=422, detail='Keyboard has no layouts defined')
@@ -124,7 +77,6 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
             shape='rect',
         ))
 
-    # Build pin lists from matrix_pins
     matrix_pins: dict[str, Any] = info.get('matrix_pins', {})
     row_pins: list[MatrixPin] = [
         MatrixPin(row=i, pin=pin)
@@ -138,6 +90,44 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     features_raw: dict[str, Any] = info.get('features', {})
     features = {k: bool(v) for k, v in features_raw.items() if isinstance(v, bool)}
 
+    # Build matrix edges by chaining keys within each row/col group
+    row_groups: dict[int, list[KeyDef]] = defaultdict(list)
+    col_groups: dict[int, list[KeyDef]] = defaultdict(list)
+    for key in keys:
+        if key.row is not None:
+            row_groups[key.row].append(key)
+        if key.col is not None:
+            col_groups[key.col].append(key)
+
+    matrix_edges: list[MatrixEdge] = []
+    for group in row_groups.values():
+        for i in range(len(group) - 1):
+            matrix_edges.append(MatrixEdge(from_=group[i].id, to=group[i + 1].id, type='row'))
+    for group in col_groups.values():
+        for i in range(len(group) - 1):
+            matrix_edges.append(MatrixEdge(from_=group[i].id, to=group[i + 1].id, type='col'))
+
+    # Parse embedded default keymap if available (from build_qmk_index.py)
+    raw_keymap = info.get('_default_keymap')
+    if raw_keymap and raw_keymap.get('layers'):
+        _skip = {'KC_TRNS', 'KC_NO', 'XXXXXXX', ''}
+        layers: list[Layer] = []
+        for i, codes in enumerate(raw_keymap['layers']):
+            keycodes = {
+                keys[j].id: code
+                for j, code in enumerate(codes)
+                if j < len(keys) and code not in _skip
+            }
+            layers.append(Layer(
+                id=f'layer{i}',
+                name='Base' if i == 0 else f'Layer {i}',
+                keycodes=keycodes,
+            ))
+        if not layers:
+            layers = [Layer(id='layer0', name='Base', keycodes={})]
+    else:
+        layers = [Layer(id='layer0', name='Base', keycodes={})]
+
     return KeyboardConfig(
         id=None,
         name=info.get('keyboard_name', kb_path.split('/')[-1]),
@@ -148,7 +138,8 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
         keys=keys,
         row_pins=row_pins,
         col_pins=col_pins,
-        layers=[Layer(id='layer0', name='Base', keycodes={})],
+        matrix_edges=matrix_edges,
+        layers=layers,
         features=features,
         soft_serial_pin='D0',
     )
@@ -156,16 +147,14 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
 
 @router.get('/import/{kb_path:path}', response_model=KeyboardConfig)
 def import_keyboard(kb_path: str) -> KeyboardConfig:
-    kb_root = Path(settings.qmk_keyboards_path)
-    info_file = kb_root / kb_path / 'info.json'
-
-    if not info_file.exists():
+    kb_file = _KB_DATA_DIR / (kb_path + '.json')
+    if not kb_file.exists():
         raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
 
     try:
-        with open(info_file) as f:
+        with open(kb_file) as f:
             info = json.load(f)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Failed to read info.json: {e}')
+        raise HTTPException(status_code=500, detail=f'Failed to read keyboard data: {e}')
 
     return _convert_to_config(kb_path, info)

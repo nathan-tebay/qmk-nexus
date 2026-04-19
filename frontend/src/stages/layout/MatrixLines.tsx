@@ -1,10 +1,30 @@
 import { Line, Circle } from 'react-konva'
-import type { KeyDef } from '@/store/keyboard'
+import type { KeyDef, MatrixEdge } from '@/store/keyboard'
 import { UNIT, GAP } from './constants'
+
+export type ColorScheme = 'default' | 'deuteranopia' | 'protanopia' | 'tritanopia' | 'highContrast'
+
+export const COLOR_SCHEME_LABELS: Record<ColorScheme, string> = {
+  default: 'Default',
+  deuteranopia: 'Deuteranopia',
+  protanopia: 'Protanopia',
+  tritanopia: 'Tritanopia',
+  highContrast: 'High Contrast',
+}
+
+export const SCHEME_COLORS: Record<ColorScheme, Record<MatrixEdge['type'], string>> = {
+  default:      { row: '#ef4444', col: '#22c55e', led: '#3b82f6' },
+  deuteranopia: { row: '#d55e00', col: '#0173b2', led: '#cc78bc' },
+  protanopia:   { row: '#0173b2', col: '#de8f05', led: '#cc78bc' },
+  tritanopia:   { row: '#ee7733', col: '#0077bb', led: '#009988' },
+  highContrast: { row: '#ffff00', col: '#00ffff', led: '#ff00ff' },
+}
 
 interface Props {
   keys: KeyDef[]
+  edges: MatrixEdge[]
   pendingId?: string | null
+  colorScheme?: ColorScheme
 }
 
 function keyCenter(k: KeyDef) {
@@ -13,59 +33,39 @@ function keyCenter(k: KeyDef) {
   return { x: k.x * UNIT + w / 2, y: k.y * UNIT + h / 2 }
 }
 
-export default function MatrixLines({ keys, pendingId }: Props) {
-  const byRow = new Map<number, KeyDef[]>()
-  const byCol = new Map<number, KeyDef[]>()
+// Perpendicular offset keeps row/col lines visually distinct when they share key centers
+const OFFSETS: Record<MatrixEdge['type'], { x: number; y: number }> = {
+  row: { x: 0, y: -4 },
+  col: { x: 4, y: 0 },
+  led: { x: 0, y: 4 },
+}
 
-  for (const k of keys) {
-    if (k.row !== null) {
-      const arr = byRow.get(k.row) ?? []
-      arr.push(k)
-      byRow.set(k.row, arr)
-    }
-    if (k.col !== null) {
-      const arr = byCol.get(k.col) ?? []
-      arr.push(k)
-      byCol.set(k.col, arr)
-    }
-  }
-
-  const ledKeys = keys
-    .filter((k) => k.ledIndex !== null)
-    .sort((a, b) => a.ledIndex! - b.ledIndex!)
-
-  const pending = pendingId ? keys.find((k) => k.id === pendingId) : null
+export default function MatrixLines({ keys, edges, pendingId, colorScheme = 'default' }: Props) {
+  const colors = SCHEME_COLORS[colorScheme]
+  const keyMap = new Map(keys.map((k) => [k.id, k]))
+  const pending = pendingId ? keyMap.get(pendingId) : undefined
   const pendingCenter = pending ? keyCenter(pending) : null
 
   return (
     <>
-      {/* Row lines (red) */}
-      {Array.from(byRow.entries()).map(([row, rowKeys]) => {
-        const sorted = [...rowKeys].sort((a, b) => a.x - b.x)
-        if (sorted.length < 2) return null
-        const points = sorted.flatMap((k) => { const c = keyCenter(k); return [c.x, c.y] })
-        return <Line key={`row-${row}`} points={points} stroke="#ef4444" strokeWidth={2} opacity={0.75} />
+      {edges.map((edge, i) => {
+        const from = keyMap.get(edge.from)
+        const to = keyMap.get(edge.to)
+        if (!from || !to) return null
+        const fc = keyCenter(from)
+        const tc = keyCenter(to)
+        const off = OFFSETS[edge.type]
+        return (
+          <Line
+            key={`edge-${i}`}
+            points={[fc.x + off.x, fc.y + off.y, tc.x + off.x, tc.y + off.y]}
+            stroke={colors[edge.type]}
+            strokeWidth={2}
+            opacity={0.9}
+          />
+        )
       })}
 
-      {/* Col lines (green) */}
-      {Array.from(byCol.entries()).map(([col, colKeys]) => {
-        const sorted = [...colKeys].sort((a, b) => a.y - b.y)
-        if (sorted.length < 2) return null
-        const points = sorted.flatMap((k) => { const c = keyCenter(k); return [c.x, c.y] })
-        return <Line key={`col-${col}`} points={points} stroke="#22c55e" strokeWidth={2} opacity={0.75} />
-      })}
-
-      {/* LED path (blue) */}
-      {ledKeys.length >= 2 && (
-        <Line
-          points={ledKeys.flatMap((k) => { const c = keyCenter(k); return [c.x, c.y] })}
-          stroke="#3b82f6"
-          strokeWidth={2}
-          opacity={0.75}
-        />
-      )}
-
-      {/* Pending connection indicator */}
       {pendingCenter && (
         <Circle
           x={pendingCenter.x}

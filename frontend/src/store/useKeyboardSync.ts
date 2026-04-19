@@ -1,15 +1,22 @@
 import { useState, useCallback } from 'react'
 import { useKeyboardStore } from './keyboard'
 import { keyboardsApi } from '@/api/keyboards'
+import { validateMatrices } from '@/utils/validateMatrices'
 
 export function useKeyboardSync() {
   const { config, setConfig } = useKeyboardStore()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [warning, setWarning] = useState<string | null>(null)
 
   const save = useCallback(async () => {
     setSaving(true)
     setError(null)
+    setWarning(null)
+    const v = validateMatrices(config)
+    if (!v.matrixOk || !v.ledOk) {
+      setWarning(`Saved with issues: ${v.errors.join('; ')}`)
+    }
     try {
       const saved = config.id
         ? await keyboardsApi.update(config.id, config)
@@ -27,5 +34,5 @@ export function useKeyboardSync() {
     setConfig(kb)
   }, [setConfig])
 
-  return { save, load, saving, error }
+  return { save, load, saving, error, warning }
 }

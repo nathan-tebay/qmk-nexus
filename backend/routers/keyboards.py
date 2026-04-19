@@ -21,9 +21,15 @@ async def list_keyboards(user: User = Depends(get_current_user)):
     return [jsonable_out(k) for k in database.list_keyboards(path)]
 
 
+MAX_KEYBOARDS = 20
+
+
 @router.post('/')
 async def create_keyboard(config: KeyboardConfig, user: User = Depends(get_current_user)):
     path = pull_user_db(user.id)
+    existing = database.list_keyboards(path)
+    if len(existing) >= MAX_KEYBOARDS:
+        raise HTTPException(status_code=400, detail=f'Keyboard limit reached ({MAX_KEYBOARDS}). Delete one before creating a new keyboard.')
     saved = database.upsert_keyboard(path, config)
     _push(user.id, path)
     return jsonable_out(saved)

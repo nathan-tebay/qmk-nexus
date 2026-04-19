@@ -84,10 +84,65 @@
   justify-content: center;
 }
 
+.switcherBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 3px 8px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.switcherBtn:hover {
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+
+.kbNameBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.kbNameBtn:hover {
+  background: var(--bg-elevated);
+}
+
+.kbNameBtn:hover .pencilIcon {
+  opacity: 1;
+}
+
 .kbName {
   font-size: 13px;
   color: var(--text-muted);
   font-weight: 500;
+}
+
+.pencilIcon {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.kbNameInput {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 3px 8px;
+  outline: none;
+  width: 180px;
 }
 
 .saveBtn {
@@ -111,6 +166,15 @@
 .saveError {
   font-size: 11px;
   color: var(--danger);
+}
+
+.saveWarning {
+  font-size: 11px;
+  color: #f59e0b;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .main {

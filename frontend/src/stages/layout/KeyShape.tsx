@@ -6,6 +6,7 @@ import {
   UNIT, GAP, KEY_FILL, KEY_STROKE, KEY_SELECTED_STROKE,
   KEY_RADIUS, LABEL_COLOR,
 } from './constants'
+import { parseAssignedCode } from '@/utils/parseCode'
 
 interface Props {
   keyDef: KeyDef
@@ -156,19 +157,18 @@ export default function KeyShape({
         </>
       )}
 
-      {/* Keycode label — hidden in matrix mode */}
-      {!showMatrix && labelText && (
-        <Text
-          x={4} y={0}
-          width={w - 8} height={h}
-          text={labelText}
-          fontSize={13}
-          fill={LABEL_COLOR}
-          align="center"
-          verticalAlign="middle"
-          listening={false}
-        />
-      )}
+      {/* Keycode label — hidden in matrix mode, rendered in keymap format */}
+      {!showMatrix && labelText && (() => {
+        const { tap, hold } = parseAssignedCode(labelText)
+        return hold ? (
+          <>
+            <Text x={4} y={4} width={w - 8} text={hold} fontSize={9} fill="#888" align="center" listening={false} />
+            <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={13} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+          </>
+        ) : (
+          <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={13} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+        )
+      })()}
     </Group>
   )
 }

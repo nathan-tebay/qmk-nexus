@@ -17,7 +17,6 @@ class Settings(BaseSettings):
     api_base_url: str = 'http://localhost:8000'
 
     environment: str = 'development'
-    qmk_keyboards_path: str = '/mnt/LargeNVMe/Projects/GitHub/personal/qmk_firmware/keyboards'
 
     @property
     def is_prod(self) -> bool:

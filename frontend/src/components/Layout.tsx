@@ -1,7 +1,9 @@
+import { useState, useRef } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { useKeyboardStore } from '@/store/keyboard'
+import KeyboardSwitcher from './KeyboardSwitcher'
 import styles from './Layout.module.css'
 
 const stages = [
@@ -14,13 +16,35 @@ export default function Layout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const kbName = useKeyboardStore((s) => s.config.name)
-  const { save, saving, error } = useKeyboardSync()
+  const setConfig = useKeyboardStore((s) => s.setConfig)
+  const { save, saving, error, warning } = useKeyboardSync()
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
+  const [showSwitcher, setShowSwitcher] = useState(false)
+  const nameInputRef = useRef<HTMLInputElement>(null)
 
   function handleLogout() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
       logout()
       navigate('/login')
     })
+  }
+
+  function startEdit() {
+    setNameValue(kbName)
+    setEditingName(true)
+    setTimeout(() => nameInputRef.current?.select(), 0)
+  }
+
+  function commitName() {
+    const trimmed = nameValue.trim()
+    if (trimmed) setConfig({ name: trimmed })
+    setEditingName(false)
+  }
+
+  function handleNameKey(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') commitName()
+    if (e.key === 'Escape') setEditingName(false)
   }
 
   return (
@@ -41,8 +65,27 @@ export default function Layout() {
           ))}
         </nav>
         <div className={styles.center}>
-          <span className={styles.kbName}>{kbName}</span>
+          <button className={styles.switcherBtn} onClick={() => setShowSwitcher(true)} title="My Keyboards">
+            ☰
+          </button>
+          {editingName ? (
+            <input
+              ref={nameInputRef}
+              className={styles.kbNameInput}
+              value={nameValue}
+              autoFocus
+              onChange={(e) => setNameValue(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={handleNameKey}
+            />
+          ) : (
+            <button className={styles.kbNameBtn} onClick={startEdit} title="Rename keyboard">
+              <span className={styles.kbName}>{kbName}</span>
+              <span className={styles.pencilIcon}>✏</span>
+            </button>
+          )}
           {error && <span className={styles.saveError}>{error}</span>}
+          {!error && warning && <span className={styles.saveWarning}>{warning}</span>}
           <button
             className={styles.saveBtn}
             onClick={save}
@@ -64,6 +107,7 @@ export default function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+      {showSwitcher && <KeyboardSwitcher onClose={() => setShowSwitcher(false)} />}
     </div>
   )
 }

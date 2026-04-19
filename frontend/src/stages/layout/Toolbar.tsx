@@ -21,7 +21,6 @@ const KEY_SIZES: { label: string; w: number; h: number; shape?: KeyShapeType }[]
   { label: '2.75u', w: 2.75, h: 1 },
   { label: 'ISO ↵', w: 1.5, h: 2, shape: 'iso-enter' },
   { label: 'Step ⇪', w: 1.75, h: 1, shape: 'stepped-caps' },
-  { label: 'ISO ⇧', w: 2.25, h: 1, shape: 'iso-shift' },
 ]
 
 export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggleGrid, onFitView, onImportQMK }: Props) {

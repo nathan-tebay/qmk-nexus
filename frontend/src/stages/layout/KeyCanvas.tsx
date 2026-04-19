@@ -4,7 +4,7 @@ import type Konva from 'konva'
 import { useKeyboardStore } from '@/store/keyboard'
 import KeyShape from './KeyShape'
 import SelectionTransformer from './SelectionTransformer'
-import MatrixLines from './MatrixLines'
+import MatrixLines, { type ColorScheme } from './MatrixLines'
 import { CANVAS_BG, UNIT } from './constants'
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
   snapGrid: boolean
   width: number
   height: number
+  colorScheme?: ColorScheme
 }
 
 export interface KeyCanvasHandle {
@@ -31,13 +32,14 @@ const GRID_U = 40
 const SNAP_U = 0.25
 
 const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
-  { showMatrix, snapGrid, width, height },
+  { showMatrix, snapGrid, width, height, colorScheme = 'default' },
   ref,
 ) {
   const stageRef = useRef<Konva.Stage>(null)
   const {
     config, selectedKeyIds, activeLayerId,
     setSelectedKey, setSelectedKeys, toggleSelectedKey, updateKey,
+    addMatrixEdge, removeMatrixEdge,
   } = useKeyboardStore()
 
   const [matrixPending, setMatrixPending] = useState<MatrixPending | null>(null)
@@ -89,22 +91,17 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
       return
     }
 
-    const field = matrixPending.mode === 'col' ? 'col' : matrixPending.mode === 'led' ? 'ledIndex' : 'row'
-    const key1 = config.keys.find((k) => k.id === matrixPending.id)
-    const key2 = config.keys.find((k) => k.id === id)
-    if (!key1 || !key2) return
+    const type = matrixPending.mode === 'col' ? 'col' : matrixPending.mode === 'led' ? 'led' : 'row'
+    const edges = config.matrixEdges ?? []
+    const exists = edges.some(
+      (e) => e.type === type &&
+        ((e.from === matrixPending.id && e.to === id) || (e.from === id && e.to === matrixPending.id))
+    )
 
-    const v1 = key1[field]
-    const v2 = key2[field]
-
-    if (v1 !== null && v1 === v2) {
-      updateKey(key1.id, { [field]: null })
-      updateKey(key2.id, { [field]: null })
+    if (exists) {
+      removeMatrixEdge(matrixPending.id, id, type)
     } else {
-      const usedIndices = config.keys.map((k) => k[field]).filter((v) => v !== null) as number[]
-      const nextIdx = v1 !== null ? v1 : v2 !== null ? v2 : (usedIndices.length > 0 ? Math.max(...usedIndices) + 1 : 0)
-      updateKey(key1.id, { [field]: nextIdx })
-      updateKey(key2.id, { [field]: nextIdx })
+      addMatrixEdge({ from: matrixPending.id, to: id, type })
     }
 
     setMatrixPending(null)
@@ -142,12 +139,12 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     const totalH = GRID_U * UNIT * 0.6
     for (let x = 0; x <= totalW; x += snapPx) {
       gridLines.push(
-        <Line key={`gv-${x}`} points={[x, 0, x, totalH]} stroke="#ffffff" opacity={0.05} strokeWidth={0.5} />
+        <Line key={`gv-${x}`} points={[x, 0, x, totalH]} stroke="#ffffff" opacity={0.15} strokeWidth={0.5} />
       )
     }
     for (let y = 0; y <= totalH; y += snapPx) {
       gridLines.push(
-        <Line key={`gh-${y}`} points={[0, y, totalW, y]} stroke="#ffffff" opacity={0.05} strokeWidth={0.5} />
+        <Line key={`gh-${y}`} points={[0, y, totalW, y]} stroke="#ffffff" opacity={0.15} strokeWidth={0.5} />
       )
     }
   }
@@ -180,7 +177,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
             />
           )
         })}
-        {showMatrix && <MatrixLines keys={config.keys} pendingId={matrixPending?.id} />}
+        {showMatrix && <MatrixLines keys={config.keys} edges={config.matrixEdges ?? []} pendingId={matrixPending?.id} colorScheme={colorScheme} />}
         {!showMatrix && <SelectionTransformer stageRef={stageRef} />}
       </Layer>
     </Stage>

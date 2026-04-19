@@ -83,7 +83,12 @@ export default function QMKImportModal({ onClose }: Props) {
             <div className={styles.empty}>Loading index…</div>
           )}
           {!loading && results.length === 0 && (
-            <div className={styles.empty}>No keyboards found</div>
+            <div className={styles.empty}>
+              No keyboards found.
+              {!query && <span style={{ display: 'block', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                The QMK keyboard index is empty. Populate <code>qmk_firmware/keyboards/</code> with QMK source files to enable import.
+              </span>}
+            </div>
           )}
           {results.map((entry) => (
             <div key={entry.path} className={styles.row}>

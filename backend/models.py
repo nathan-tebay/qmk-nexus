@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from pydantic.alias_generators import to_camel
 
 
@@ -53,6 +53,18 @@ class Layer(BaseModel):
     keycodes: dict[str, str] = Field(default_factory=dict)
 
 
+class MatrixEdge(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: str = Field(alias='from')
+    to: str
+    type: str
+
+    @model_serializer
+    def _serialize(self) -> dict:
+        return {'from': self.from_, 'to': self.to, 'type': self.type}
+
+
 class KeyboardConfig(BaseModel):
     model_config = _camel()
 
@@ -65,6 +77,7 @@ class KeyboardConfig(BaseModel):
     keys: list[KeyDef] = Field(default_factory=list)
     row_pins: list[MatrixPin] = Field(default_factory=list)
     col_pins: list[ColPin] = Field(default_factory=list)
+    matrix_edges: list[MatrixEdge] = Field(default_factory=list)
     layers: list[Layer] = Field(default_factory=list)
     features: dict[str, bool] = Field(default_factory=dict)
     soft_serial_pin: str = 'D0'
