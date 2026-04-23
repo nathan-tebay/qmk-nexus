@@ -7,7 +7,7 @@ import styles from './BuildPanel.module.css'
 
 interface Props {
   keyboardId: string | null
-  onSaveFirst: () => void
+  onSaveFirst: () => Promise<string | null>
 }
 
 const POLL_MS = 2000
@@ -38,14 +38,32 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   }, [status?.log])
 
   async function triggerBuild() {
-    if (!keyboardId) { onSaveFirst(); return }
     setTriggering(true)
     setError(null)
     setStatus(null)
     setBuildId(null)
     stopPolling()
+
+    let id = keyboardId
+    if (!id) {
+      id = await onSaveFirst()
+      if (!id) { setTriggering(false); return }
+    }
+
     try {
-      const s = await buildsApi.trigger(keyboardId)
+      let s: BuildStatus
+      try {
+        s = await buildsApi.trigger(id)
+      } catch (e) {
+        if (e instanceof Error && e.message === 'Keyboard not found') {
+          // Stale id — re-save then retry
+          id = await onSaveFirst()
+          if (!id) throw new Error('Save failed, cannot build')
+          s = await buildsApi.trigger(id)
+        } else {
+          throw e
+        }
+      }
       setBuildId(s.id)
       setStatus(s)
       if (s.status === 'queued' || s.status === 'building') {

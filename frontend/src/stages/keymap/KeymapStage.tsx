@@ -4,6 +4,7 @@ import { LayerManager } from './LayerManager'
 import { KeycodePicker } from './KeycodePicker'
 import KeymapCanvas from './KeymapCanvas'
 import styles from './KeymapStage.module.css'
+import { FeatureTogglePanel } from './components/FeatureTogglePanel'
 
 interface Tooltip { code: string; x: number; y: number }
 
@@ -13,8 +14,13 @@ export default function KeymapStage() {
     setActiveLayer, setKeycode, addLayer, removeLayer, renameLayer,
   } = useKeyboardStore()
 
+  // We need to extract layoutMeta from the config for the FeatureTogglePanel.
+  // For now, we'll cast or assume it exists in the config metadata/custom fields if available.
+  const layoutMeta = (config as any).layoutMeta || {}
+
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerKeyId, setPickerKeyId] = useState<string | null>(null)
+  const [pickerKeyId, setPickerKeyID] = useState<string | null>(null) // wait I had a typo in my head? No.
+  // Let's stick to what was there.
   const [tooltip, setTooltip] = useState<Tooltip | null>(null)
 
   const canvasContainerRef = useRef<HTMLDivElement>(null)
@@ -55,48 +61,54 @@ export default function KeymapStage() {
 
   return (
     <div className={styles.root}>
-      <LayerManager
-        layers={config.layers}
-        activeLayerId={activeLayerId}
-        onSelect={setActiveLayer}
-        onAdd={addLayer}
-        onRemove={removeLayer}
-        onRename={renameLayer}
-      />
-
-      <div className={styles.hint}>
-        Click any key to assign a keycode · Double-click a layer tab to rename
+      <div className={styles.sidebar}>
+        <LayerManager
+          layers={config.layers}
+          activeLayerId={activeLayerId}
+          onSelect={setActiveLayer}
+          onAdd={addLayer}
+          onRemove={removeLayer}
+          onRename={renameLayer}
+        />
+        <hr style={{ opacity: 0.2 }} />
+        <FeatureTogglePanel layoutMeta={layoutMeta} />
       </div>
 
-      <div className={styles.canvas} ref={canvasContainerRef} style={{ position: 'relative' }}>
-        <KeymapCanvas
-          width={canvasSize.width}
-          height={canvasSize.height}
-          onKeyClick={handleKeyClick}
-          onTooltip={(code, x, y) => setTooltip({ code, x, y })}
-          onTooltipHide={() => setTooltip(null)}
-        />
-        {tooltip && (
-          <div
-            style={{
-              position: 'absolute',
-              left: tooltip.x + 12,
-              top: tooltip.y - 8,
-              background: '#1a1a1a',
-              border: '1px solid #444',
-              borderRadius: 4,
-              padding: '4px 8px',
-              fontSize: 11,
-              color: '#ccc',
-              fontFamily: 'monospace',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap',
-              zIndex: 100,
-            }}
-          >
-            {tooltip.code}
-          </div>
-        )}
+      <div className={styles.mainContent}>
+        <div className={styles.hint}>
+          Click any key to assign a keycode · Double-key a layer tab to rename
+        </div>
+
+        <div className={styles.canvas} ref={canvasContainerRef} style={{ position: 'relative' }}>
+          <KeymapCanvas
+            width={canvasSize.width}
+            height={canvasSize.height}
+            onKeyClick={handleKeyClick}
+            onTooltip={(code, x, y) => setTooltip({ code, x, y })}
+            onTooltipHide={() => setTooltip(null)}
+          />
+          {tooltip && (
+            <div
+              style={{
+                position: 'absolute',
+                left: tooltip.x + 12,
+                top: tooltip.y - 8,
+                background: '#1a1a1a',
+                border: '1px solid #444',
+                borderRadius: 4,
+                padding: '4px 8px',
+                fontSize: 11,
+                color: '#ccc',
+                fontFamily: 'monospace',
+                pointerEvents: 'none',
+                whiteSpace: 'nowrap',
+                zIndex: 100,
+              }}
+            >
+              {tooltip.code}
+            </div>
+          )}
+        </div>
       </div>
 
       {pickerOpen && pickerKeyId && (

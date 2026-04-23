@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 function makeUF(ids: string[]) {
   const parent = new Map<string, string>()
@@ -187,7 +188,7 @@ interface KeyboardStore {
   removeMatrixEdge: (from: string, to: string, type: MatrixEdge['type']) => void
 }
 
-export const useKeyboardStore = create<KeyboardStore>((set) => ({
+export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   config: defaultConfig,
   selectedKeyId: null,
   selectedKeyIds: [],
@@ -295,4 +296,4 @@ export const useKeyboardStore = create<KeyboardStore>((set) => ({
       )
       return { config: { ...s.config, matrixEdges: edges, keys: deriveIndices(s.config.keys, edges) } }
     }),
-}))
+}), { name: 'keyboard-store' }))
