@@ -34,12 +34,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     python3 \
     python3-pip \
+    socat \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=elf2uf2-builder /usr/local/bin/elf2uf2 /usr/local/bin/elf2uf2
 
 WORKDIR /build
 COPY build.sh /usr/local/bin/build.sh
-RUN chmod +x /usr/local/bin/build.sh
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+COPY api.sh /api.sh
+RUN chmod +x /usr/local/bin/build.sh /usr/local/bin/entrypoint.sh /api.sh
 
-ENTRYPOINT ["/usr/local/bin/build.sh"]
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
