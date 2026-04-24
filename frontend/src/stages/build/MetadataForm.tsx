@@ -7,12 +7,10 @@ interface Props {
   mcu: string
   usbVid: string
   usbPid: string
-  softSerialPin: string
-  splitEnabled: boolean
   onChange: (field: string, value: string) => void
 }
 
-export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, softSerialPin, splitEnabled, onChange }: Props) {
+export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, onChange }: Props) {
   return (
     <div className={styles.grid}>
       <div className={styles.field}>
@@ -41,12 +39,6 @@ export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, softSeri
         <label className={styles.label}>USB PID</label>
         <input className={styles.input} value={usbPid} onChange={(e) => onChange('usbPid', e.target.value)} placeholder="0x0000" />
       </div>
-      {splitEnabled && (
-        <div className={styles.field}>
-          <label className={styles.label}>Soft Serial Pin</label>
-          <input className={styles.input} value={softSerialPin} onChange={(e) => onChange('softSerialPin', e.target.value)} placeholder="D0" />
-        </div>
-      )}
     </div>
   )
 }

@@ -60,3 +60,22 @@
   margin-top: 2px;
   display: block;
 }
+
+.removeBtn {
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--danger, #e05454);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--danger, #e05454);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.removeBtn:hover {
+  background: rgba(224, 84, 84, 0.1);
+}
+
+.field select {
+  width: 100%;
+}

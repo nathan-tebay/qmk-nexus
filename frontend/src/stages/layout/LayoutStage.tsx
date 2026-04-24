@@ -3,6 +3,7 @@ import { nanoid } from './nanoid'
 import KeyCanvas, { type KeyCanvasHandle } from './KeyCanvas'
 import Toolbar from './Toolbar'
 import KeyProperties from './KeyProperties'
+import PeripheralProperties from './PeripheralProperties'
 import PinPanel from './PinPanel'
 import QMKImportModal from './QMKImportModal'
 import styles from './LayoutStage.module.css'
@@ -23,7 +24,11 @@ export default function LayoutStage() {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<KeyCanvasHandle>(null)
-  const { selectedKeyIds, removeKey, setSelectedKeys, addKey } = useKeyboardStore()
+  const {
+    selectedKeyIds, removeKey, setSelectedKeys, addKey,
+    selectedPeripheralId, selectedPeripheralType,
+    removeEncoder, removeOled, removeTrackball, setSelectedPeripheral,
+  } = useKeyboardStore()
 
   function handleValidate() {
     setValidation(validateMatrices(config))
@@ -44,13 +49,20 @@ export default function LayoutStage() {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
       if (document.activeElement !== document.body) return
+      if (selectedPeripheralId && selectedPeripheralType) {
+        if (selectedPeripheralType === 'encoder') removeEncoder(selectedPeripheralId)
+        else if (selectedPeripheralType === 'oled') removeOled(selectedPeripheralId)
+        else if (selectedPeripheralType === 'trackball') removeTrackball(selectedPeripheralId)
+        setSelectedPeripheral(null, null)
+        return
+      }
       if (selectedKeyIds.length === 0) return
       for (const id of selectedKeyIds) removeKey(id)
       setSelectedKeys([])
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedKeyIds, removeKey, setSelectedKeys])
+  }, [selectedKeyIds, removeKey, setSelectedKeys, selectedPeripheralId, selectedPeripheralType, removeEncoder, removeOled, removeTrackball, setSelectedPeripheral])
 
   return (
     <>
@@ -176,7 +188,9 @@ export default function LayoutStage() {
           </button>
         </div>
         <div className={styles.tabContent}>
-          {rightTab === 'properties' ? <KeyProperties /> : <PinPanel />}
+          {rightTab === 'properties'
+            ? (selectedPeripheralId ? <PeripheralProperties /> : <KeyProperties />)
+            : <PinPanel />}
         </div>
       </aside>
     </div>

@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 function makeUF(ids: string[]) {
   const parent = new Map<string, string>()
@@ -123,6 +124,29 @@ export interface MatrixEdge {
   type: 'row' | 'col' | 'led'
 }
 
+export interface EncoderElement {
+  id: string
+  x: number
+  y: number
+}
+
+export interface OledElement {
+  id: string
+  x: number
+  y: number
+  rotation: number
+  displaySize: '64_32' | '64_48' | '128_32' | '128_64'
+}
+
+export interface TrackballElement {
+  id: string
+  x: number
+  y: number
+  driver: 'pmw3360' | 'pmw3389' | 'adns9800' | 'cirque_pinnacle_spi' | 'pimoroni_trackball'
+}
+
+export type PeripheralType = 'encoder' | 'oled' | 'trackball'
+
 export interface KeyboardConfig {
   id: string | null
   name: string
@@ -136,7 +160,75 @@ export interface KeyboardConfig {
   matrixEdges: MatrixEdge[]
   layers: Layer[]
   features: Record<string, boolean>
+  featureConfigs: Record<string, Record<string, string>>
+  featureInputValues: Record<string, Record<string, string>>
   softSerialPin: string
+  encoders: EncoderElement[]
+  oleds: OledElement[]
+  trackballs: TrackballElement[]
+}
+
+const featureDefaults: Record<string, Record<string, string>> = {
+  bootmagic: { BOOTMAGIC_LITE_ROW: '', BOOTMAGIC_LITE_COLUMN: '' },
+  mousekeys: { MOUSEKEY_DELAY: '500', MOUSEKEY_INTERVAL: '50', MOUSEKEY_MAX_SPEED: '5' },
+  nkro: { FORCE_NKRO: 'no' },
+  rgblight: { RGBLIGHT_PIN: 'D3', RGBLIGHT_LED_COUNT: '30', RGBLIGHT_LIMIT_VAL: '255', RGBLIGHT_DEFAULT_MODE: 'RGBLIGHT_EFFECT_BREATHING' },
+  rgb_matrix: { RGB_MATRIX_DRIVER: 'IS31FL3731', RGB_MATRIX_LED_COUNT: '60', RGB_MATRIX_MAXIMUM_BRIGHTNESS: '255', RGB_MATRIX_DEFAULT_MODE: 'RGB_MATRIX_EFFECT_BREATHING', RGB_MATRIX_SLEEP: 'yes' },
+  encoder: { ENCODER_COUNT: '1', ENCODER_RESOLUTION: '4' },
+  split_keyboard: { SPLIT_TRANSPORT: 'serial', SOFT_SERIAL_PIN: 'D2', SPLIT_IS_MASTER: 'yes', SPLIT_USB_DETECT: 'yes', SPLIT_TRANSPORT_MIRROR: 'no', SPLIT_LAYER_STATE_ENABLE: 'no', SPLIT_RGB_MATRIX_ENABLE: 'no' },
+  oled: { OLED_COUNT: '1', OLED_BRIGHTNESS: '255', OLED_TIMEOUT: '20000' },
+  backlight: { BACKLIGHT_PIN: 'B7', BACKLIGHT_LEVELS: '3', BACKLIGHT_BREATHING: 'no' },
+  tap_dance: { TAPPING_TERM: '200' },
+  combo: { COMBO_TERM: '65' },
+  audio: { AUDIO_PIN: 'C6', AUDIO_CLICKY: 'no' },
+  pointing_device: { POINTING_DEVICE_DRIVER: 'pmw3360', POINTING_DEVICE_ROTATION_90: 'no', POINTING_DEVICE_INVERT_X: 'no', POINTING_DEVICE_INVERT_Y: 'no' },
+}
+
+function uid() {
+  return crypto.randomUUID().slice(0, 8)
+}
+
+function syncPeripheralFeatures(
+  config: KeyboardConfig,
+): Pick<KeyboardConfig, 'features' | 'featureConfigs'> {
+  const features = { ...config.features }
+  const fc = { ...config.featureConfigs }
+
+  const encCount = (config.encoders ?? []).length
+  features.encoder = encCount > 0
+  if (encCount > 0) {
+    fc.encoder = { ...(featureDefaults.encoder ?? {}), ...(fc.encoder ?? {}), ENCODER_COUNT: String(encCount) }
+  } else {
+    delete fc.encoder
+  }
+
+  const oledCount = (config.oleds ?? []).length
+  features.oled = oledCount > 0
+  if (oledCount > 0) {
+    fc.oled = { ...(featureDefaults.oled ?? {}), ...(fc.oled ?? {}), OLED_COUNT: String(oledCount) }
+  } else {
+    delete fc.oled
+  }
+
+  const tbCount = (config.trackballs ?? []).length
+  features.pointing_device = tbCount > 0
+  if (tbCount > 0) {
+    fc.pointing_device = { ...(featureDefaults.pointing_device ?? {}), ...(fc.pointing_device ?? {}) }
+  } else {
+    delete fc.pointing_device
+  }
+
+  return { features, featureConfigs: fc }
+}
+
+function ensureFeatureConfigs(features: Record<string, boolean>, featureConfigs: Record<string, Record<string, string>>): Record<string, Record<string, string>> {
+  const result = { ...featureConfigs }
+  for (const [featureId, enabled] of Object.entries(features)) {
+    if (enabled && !result[featureId] && featureDefaults[featureId]) {
+      result[featureId] = { ...featureDefaults[featureId] }
+    }
+  }
+  return result
 }
 
 const defaultConfig: KeyboardConfig = {
@@ -151,7 +243,6 @@ const defaultConfig: KeyboardConfig = {
   colPins: [],
   matrixEdges: [],
   layers: [{ id: 'layer0', name: 'Base', keycodes: {} }],
-  softSerialPin: 'D0',
   features: {
     rgb_matrix: false,
     backlight: false,
@@ -160,9 +251,16 @@ const defaultConfig: KeyboardConfig = {
     split_keyboard: false,
     nkro: true,
     bootmagic: true,
-    mousekey: false,
-    extrakey: true,
+    mousekeys: false,
+    extrakeys: true,
+    pointing_device: false,
   },
+  featureConfigs: {},
+  featureInputValues: {},
+  softSerialPin: 'D0',
+  encoders: [],
+  oleds: [],
+  trackballs: [],
 }
 
 interface KeyboardStore {
@@ -171,6 +269,8 @@ interface KeyboardStore {
   selectedKeyIds: string[]
   activeLayerId: string
   setConfig: (config: Partial<KeyboardConfig>) => void
+  setFeatureConfig: (feature: string, key: string, value: string) => void
+  setFeatureInputValue: (featureId: string, inputId: string, value: string) => void
   setSelectedKey: (id: string | null) => void
   setSelectedKeys: (ids: string[]) => void
   toggleSelectedKey: (id: string) => void
@@ -185,13 +285,27 @@ interface KeyboardStore {
   renameLayer: (id: string, name: string) => void
   addMatrixEdge: (edge: MatrixEdge) => void
   removeMatrixEdge: (from: string, to: string, type: MatrixEdge['type']) => void
+  selectedPeripheralId: string | null
+  selectedPeripheralType: PeripheralType | null
+  setSelectedPeripheral: (id: string | null, type: PeripheralType | null) => void
+  addEncoder: () => void
+  removeEncoder: (id: string) => void
+  updateEncoder: (id: string, updates: Partial<EncoderElement>) => void
+  addOled: () => void
+  removeOled: (id: string) => void
+  updateOled: (id: string, updates: Partial<OledElement>) => void
+  addTrackball: () => void
+  removeTrackball: (id: string) => void
+  updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
 }
 
-export const useKeyboardStore = create<KeyboardStore>((set) => ({
+export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   config: defaultConfig,
   selectedKeyId: null,
   selectedKeyIds: [],
   activeLayerId: 'layer0',
+  selectedPeripheralId: null,
+  selectedPeripheralType: null,
 
   setConfig: (updates) =>
     set((s) => ({ config: { ...s.config, ...updates } })),
@@ -246,13 +360,37 @@ export const useKeyboardStore = create<KeyboardStore>((set) => ({
       },
     })),
 
+  setFeatureConfig: (feature, key, value) =>
+    set((s) => {
+      const fc = { ...s.config.featureConfigs };
+      fc[feature] = { ...(fc[feature] || {}), [key]: value };
+      return { config: { ...s.config, featureConfigs: fc } };
+    }),
+
+  setFeatureInputValue: (featureId, inputId, value) =>
+    set((s) => {
+      const fiv = { ...s.config.featureInputValues };
+      fiv[featureId] = { ...(fiv[featureId] || {}), [inputId]: value };
+      return { config: { ...s.config, featureInputValues: fiv } };
+    }),
+
+
   toggleFeature: (feature) =>
-    set((s) => ({
-      config: {
-        ...s.config,
-        features: { ...s.config.features, [feature]: !s.config.features[feature] },
-      },
-    })),
+    set((s) => {
+      const isEnabling = !s.config.features[feature];
+      const newFeatures = { ...s.config.features, [feature]: !s.config.features[feature] };
+      const newFeatureConfigs = { ...s.config.featureConfigs };
+
+      if (isEnabling) {
+        newFeatureConfigs[feature] = featureDefaults[feature] ? { ...featureDefaults[feature] } : {};
+      } else {
+        delete newFeatureConfigs[feature];
+      }
+
+      return {
+        config: { ...s.config, features: newFeatures, featureConfigs: newFeatureConfigs },
+      };
+    }),
 
   addLayer: () =>
     set((s) => {
@@ -295,4 +433,117 @@ export const useKeyboardStore = create<KeyboardStore>((set) => ({
       )
       return { config: { ...s.config, matrixEdges: edges, keys: deriveIndices(s.config.keys, edges) } }
     }),
+
+  setSelectedPeripheral: (id, type) =>
+    set({ selectedPeripheralId: id, selectedPeripheralType: type }),
+
+  addEncoder: () =>
+    set((s) => {
+      const enc: EncoderElement = { id: uid(), x: 0, y: 0 }
+      const encoders = [...(s.config.encoders ?? []), enc]
+      const synced = syncPeripheralFeatures({ ...s.config, encoders })
+      return {
+        config: { ...s.config, encoders, ...synced },
+        selectedPeripheralId: enc.id,
+        selectedPeripheralType: 'encoder' as PeripheralType,
+        selectedKeyId: null,
+        selectedKeyIds: [],
+      }
+    }),
+
+  removeEncoder: (id) =>
+    set((s) => {
+      const encoders = (s.config.encoders ?? []).filter((e) => e.id !== id)
+      const synced = syncPeripheralFeatures({ ...s.config, encoders })
+      return {
+        config: { ...s.config, encoders, ...synced },
+        selectedPeripheralId: s.selectedPeripheralId === id ? null : s.selectedPeripheralId,
+        selectedPeripheralType: s.selectedPeripheralId === id ? null : s.selectedPeripheralType,
+      }
+    }),
+
+  updateEncoder: (id, updates) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        encoders: (s.config.encoders ?? []).map((e) => e.id === id ? { ...e, ...updates } : e),
+      },
+    })),
+
+  addOled: () =>
+    set((s) => {
+      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32' }
+      const oleds = [...(s.config.oleds ?? []), oled]
+      const synced = syncPeripheralFeatures({ ...s.config, oleds })
+      return {
+        config: { ...s.config, oleds, ...synced },
+        selectedPeripheralId: oled.id,
+        selectedPeripheralType: 'oled' as PeripheralType,
+        selectedKeyId: null,
+        selectedKeyIds: [],
+      }
+    }),
+
+  removeOled: (id) =>
+    set((s) => {
+      const oleds = (s.config.oleds ?? []).filter((o) => o.id !== id)
+      const synced = syncPeripheralFeatures({ ...s.config, oleds })
+      return {
+        config: { ...s.config, oleds, ...synced },
+        selectedPeripheralId: s.selectedPeripheralId === id ? null : s.selectedPeripheralId,
+        selectedPeripheralType: s.selectedPeripheralId === id ? null : s.selectedPeripheralType,
+      }
+    }),
+
+  updateOled: (id, updates) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        oleds: (s.config.oleds ?? []).map((o) => o.id === id ? { ...o, ...updates } : o),
+      },
+    })),
+
+  addTrackball: () =>
+    set((s) => {
+      const tb: TrackballElement = { id: uid(), x: 0, y: 0, driver: 'pmw3360' }
+      const trackballs = [...(s.config.trackballs ?? []), tb]
+      const synced = syncPeripheralFeatures({ ...s.config, trackballs })
+      return {
+        config: { ...s.config, trackballs, ...synced },
+        selectedPeripheralId: tb.id,
+        selectedPeripheralType: 'trackball' as PeripheralType,
+        selectedKeyId: null,
+        selectedKeyIds: [],
+      }
+    }),
+
+  removeTrackball: (id) =>
+    set((s) => {
+      const trackballs = (s.config.trackballs ?? []).filter((t) => t.id !== id)
+      const synced = syncPeripheralFeatures({ ...s.config, trackballs })
+      return {
+        config: { ...s.config, trackballs, ...synced },
+        selectedPeripheralId: s.selectedPeripheralId === id ? null : s.selectedPeripheralId,
+        selectedPeripheralType: s.selectedPeripheralId === id ? null : s.selectedPeripheralType,
+      }
+    }),
+
+  updateTrackball: (id, updates) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        trackballs: (s.config.trackballs ?? []).map((t) => t.id === id ? { ...t, ...updates } : t),
+      },
+    })),
+}), {
+  name: 'keyboard-store',
+  onRehydrateStorage: () => (state) => {
+    // After restoring from localStorage, ensure all enabled features have config defaults
+    if (state?.config) {
+      const newFeatureConfigs = ensureFeatureConfigs(state.config.features, state.config.featureConfigs);
+      if (Object.keys(newFeatureConfigs).length !== Object.keys(state.config.featureConfigs).length) {
+        state.config = { ...state.config, featureConfigs: newFeatureConfigs };
+      }
+    }
+  },
 }))

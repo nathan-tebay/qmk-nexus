@@ -9,16 +9,17 @@ usage() {
 Usage: $(basename "$0") <command>
 
 Commands:
-  dev         Start frontend + backend in dev mode (hot reload)
-  build       Build all Docker images
-  up          Start full stack in background
-  down        Stop all containers
-  logs        Tail logs from all containers
-  builder     Build the firmware builder image only
-  backend     Start backend only
-  frontend    Start frontend only
-  clean       Remove all containers, images, volumes for this project
-  help        Show this message
+  dev           Start frontend + backend in dev mode (hot reload)
+  build         Build all Docker images
+  up            Start full stack in background
+  down          Stop all containers
+  logs          Tail logs from all containers
+  builder       Build the firmware builder image only
+  backend       Start backend only
+  frontend      Start frontend only
+  build-proxy   Start local build proxy server (replaces Lambda for dev)
+  clean         Remove all containers, images, volumes for this project
+  help          Show this message
 EOF
 }
 
@@ -65,6 +66,14 @@ case "${1:-help}" in
     ;;
   frontend)
     $COMPOSE up --build frontend
+    ;;
+  build-proxy)
+    echo "Starting local build proxy on http://localhost:${DEV_SERVER_PORT:-8080} ..."
+    BUILD_IMAGE="${BUILD_IMAGE:-qmk-nexus-builder}" \
+    BUILDS_ROOT="${BUILDS_ROOT:-/tmp/tebay-builds}" \
+    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8080}" \
+    BIND_HOST="${BIND_HOST:-127.0.0.1}" \
+    python3 "$ROOT/docker/builder/server.py"
     ;;
   clean)
     echo "Removing containers, images, and volumes..."

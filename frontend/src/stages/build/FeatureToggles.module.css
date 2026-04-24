@@ -1,85 +1,219 @@
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* ---- Outer grid ---- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 700px));
+  gap: 12px;
+  padding: 16px;
+  align-items: normal;
+  justify-content: center;
 }
 
-.row {
+/* ---- Incompatibility Banner ---- */
+
+.incompatibilityBanner {
+  grid-column: 1 / -1;
+  background: rgba(255, 68, 68, 0.08);
+  border: 1px solid #ff4444;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #ff6b6b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.incompatibilityBanner ul {
+  margin: 6px 0 0 0;
+  padding-left: 20px;
+}
+
+.incompatibilityBanner li {
+  margin-bottom: 4px;
+}
+
+/* ---- Group card ---- */
+
+.group {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.02));
+}
+
+.groupHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background 0.15s;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted, #888);
 }
 
-.row.disabled {
-  cursor: not-allowed;
-  opacity: 0.35;
+.groupCount {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted, #888);
 }
 
-.row.enabled {
-  background: rgba(79, 142, 247, 0.08);
+.groupContent {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.pill {
-  width: 32px;
-  height: 18px;
-  border-radius: 9px;
-  background: var(--border);
-  position: relative;
-  flex-shrink: 0;
-  transition: background 0.2s;
+/* ---- Feature Card ---- */
+
+.featureCard {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  background: transparent;
+  transition: background 0.12s;
 }
 
-.pill.pillOn {
-  background: var(--accent);
+.featureCard:hover {
+  background: rgba(255, 255, 255, 0.03);
 }
 
-.knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  transition: left 0.2s;
+.featureCardEnabled {
+  border-left-color: var(--accent, #4fc3f7);
+  background: rgba(79, 195, 247, 0.04);
 }
 
-.pill.pillOn .knob {
-  left: 16px;
+.featureCardWarning {
+  border-left-color: #ff4444;
+  background: rgba(255, 68, 68, 0.05);
 }
 
-.body {
-  flex: 1;
-  min-width: 0;
-}
+/* ---- Feature Header ---- */
 
-.title {
-  font-size: 13px;
-  color: var(--text-muted);
+.featureHeader {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.row.enabled .title {
-  color: var(--text);
+.featureLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
 }
 
-.prevalence {
-  font-size: 10px;
-  color: var(--text-muted);
-  opacity: 0.6;
+.featureCheckbox input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent, #4fc3f7);
+  flex-shrink: 0;
 }
 
-.description {
+.featureName {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #e0e0e0);
+}
+
+.featureDesc {
   font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 1px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--text-muted, #888);
+  margin: 2px 0 0 24px;
+  line-height: 1.4;
+}
+
+.warningIcon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+/* ---- Config Panel ---- */
+
+.configPanel {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.configLabel {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-muted, #999);
+  min-width: 160px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.pinBadge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #4fc3f7;
+  background: rgba(79, 195, 247, 0.12);
+  border: 1px solid rgba(79, 195, 247, 0.25);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+}
+
+.configInput {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.05));
+  color: var(--text, #e0e0e0);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.configInput:focus {
+  border-color: var(--accent, #4fc3f7);
+}
+
+.configInput.pinInput {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+}
+
+.configSelect {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.3));
+  color: var(--text, #e0e0e0);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+
+.configSelect:focus {
+  border-color: var(--accent, #4fc3f7);
+}
+
+.configSelect option {
+  background: #1a1a2e;
+  color: var(--text, #e0e0e0);
 }

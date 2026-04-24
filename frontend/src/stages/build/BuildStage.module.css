@@ -1,21 +1,56 @@
+/* ---- Stage shell ---- */
+
 .stage {
   display: flex;
+  flex-direction: column;
+  width: 100%;
   height: 100%;
   overflow: hidden;
 }
 
-.left {
-  width: 420px;
+/* ---- Top area: full-width scroll zone that centers its content ---- */
+
+.topBar {
   flex-shrink: 0;
-  border-right: 1px solid var(--border);
   overflow-y: auto;
+  max-height: 55%;
+  padding: 24px 16px 20px;
+  border-bottom: 1px solid var(--border);
+
+  /* center the inner card */
   display: flex;
-  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
 }
 
-.section {
+/* ---- Inner card: Metadata + Build side by side, max 980px ---- */
+
+.topCard {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  max-width: 980px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+}
+
+.metadataSection {
+  flex: 1;
   padding: 20px;
-  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+
+.buildSection {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
 }
 
 .sectionTitle {
@@ -27,31 +62,16 @@
   margin-bottom: 14px;
 }
 
-.right {
-  flex: 1;
-  padding: 28px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: 0;
-}
-
-.rightTitle {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0;
-}
+/* ---- Summary ---- */
 
 .summary {
-  background: var(--bg-elevated);
+  background: var(--bg-base, rgba(0, 0, 0, 0.2));
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 16px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
 }
 
 .summaryRow {
@@ -67,4 +87,26 @@
 .summaryValue {
   color: var(--text);
   font-weight: 500;
+  text-align: right;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Feature modules area ---- */
+
+.featuresSection {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.featuresSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  padding: 14px 16px 0;
 }

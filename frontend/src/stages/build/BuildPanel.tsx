@@ -3,11 +3,29 @@ import { buildsApi, type BuildStatus } from '@/api/builds'
 import { useKeyboardStore } from '@/store/keyboard'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { mcuById } from './mcus'
+import { FEATURE_MODULES } from './modules'
 import styles from './BuildPanel.module.css'
+
+function getFeatureValidationErrors(
+  features: Record<string, boolean>,
+  featureConfigs: Record<string, Record<string, string>>,
+): string[] {
+  const errors: string[] = []
+  for (const mod of FEATURE_MODULES) {
+    if (!features[mod.id]) continue
+    const cfg = featureConfigs[mod.id] ?? {}
+    for (const key of mod.requiredConfig) {
+      if (!cfg[key]?.trim()) {
+        errors.push(`${mod.name}: ${key} is required`)
+      }
+    }
+  }
+  return errors
+}
 
 interface Props {
   keyboardId: string | null
-  onSaveFirst: () => void
+  onSaveFirst: () => Promise<string | null>
 }
 
 const POLL_MS = 2000
@@ -20,6 +38,8 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const matrixValidation = validateMatrices(config)
   const matrixBlocked = !matrixValidation.matrixOk
   const ledBlocked = !matrixValidation.ledOk
+  const featureErrors = getFeatureValidationErrors(config.features, config.featureConfigs)
+  const featureBlocked = featureErrors.length > 0
   const [buildId, setBuildId] = useState<string | null>(null)
   const [status, setStatus] = useState<BuildStatus | null>(null)
   const [triggering, setTriggering] = useState(false)
@@ -38,14 +58,32 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   }, [status?.log])
 
   async function triggerBuild() {
-    if (!keyboardId) { onSaveFirst(); return }
     setTriggering(true)
     setError(null)
     setStatus(null)
     setBuildId(null)
     stopPolling()
+
+    let id = keyboardId
+    if (!id) {
+      id = await onSaveFirst()
+      if (!id) { setTriggering(false); return }
+    }
+
     try {
-      const s = await buildsApi.trigger(keyboardId)
+      let s: BuildStatus
+      try {
+        s = await buildsApi.trigger(id)
+      } catch (e) {
+        if (e instanceof Error && e.message === 'Keyboard not found') {
+          // Stale id — re-save then retry
+          id = await onSaveFirst()
+          if (!id) throw new Error('Save failed, cannot build')
+          s = await buildsApi.trigger(id)
+        } else {
+          throw e
+        }
+      }
       setBuildId(s.id)
       setStatus(s)
       if (s.status === 'queued' || s.status === 'building') {
@@ -74,7 +112,7 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const isSuccess = status?.status === 'success' && status?.artifactAvailable
   const isFailed  = status?.status === 'failed'
 
-  const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked
+  const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked || featureBlocked
   const buildBtnCls = `${styles.buildBtn} ${triggering ? styles.triggering : ''}`
 
   return (
@@ -85,6 +123,14 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
             <div key={i}>✗ {e}</div>
           ))}
           <div style={{ marginTop: 4, fontWeight: 600 }}>Fix matrix wiring in Stage 1 to enable build.</div>
+        </div>
+      )}
+      {featureBlocked && (
+        <div className={styles.matrixError}>
+          {featureErrors.map((e, i) => (
+            <div key={i}>✗ {e}</div>
+          ))}
+          <div style={{ marginTop: 4, fontWeight: 600 }}>Fill required feature fields above to enable build.</div>
         </div>
       )}
       <button

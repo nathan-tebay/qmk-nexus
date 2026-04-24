@@ -5,6 +5,7 @@ import { useKeyboardStore } from '@/store/keyboard'
 import KeyShape from './KeyShape'
 import SelectionTransformer from './SelectionTransformer'
 import MatrixLines, { type ColorScheme } from './MatrixLines'
+import { EncoderShape, OledShape, TrackballShape } from './PeripheralShape'
 import { CANVAS_BG, UNIT } from './constants'
 
 interface Props {
@@ -40,6 +41,8 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     config, selectedKeyIds, activeLayerId,
     setSelectedKey, setSelectedKeys, toggleSelectedKey, updateKey,
     addMatrixEdge, removeMatrixEdge,
+    selectedPeripheralId, setSelectedPeripheral,
+    updateEncoder, updateOled, updateTrackball,
   } = useKeyboardStore()
 
   const [matrixPending, setMatrixPending] = useState<MatrixPending | null>(null)
@@ -66,8 +69,14 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
   function handleStageClick(e: Konva.KonvaEventObject<MouseEvent>) {
     if (e.target === e.currentTarget) {
       setSelectedKeys([])
+      setSelectedPeripheral(null, null)
       setMatrixPending(null)
     }
+  }
+
+  function handlePeripheralSelect(id: string, type: 'encoder' | 'oled' | 'trackball') {
+    setSelectedKeys([])
+    setSelectedPeripheral(id, type)
   }
 
   function handleKeySelect(id: string, shiftKey: boolean) {
@@ -109,16 +118,22 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
 
   const fitView = useCallback(() => {
     const stage = stageRef.current
-    if (!stage || config.keys.length === 0) return
-    const maxX = Math.max(...config.keys.map((k) => (k.x + k.w) * UNIT))
-    const maxY = Math.max(...config.keys.map((k) => (k.y + k.h) * UNIT))
+    const allBounds: number[][] = [
+      ...config.keys.map((k) => [(k.x + k.w) * UNIT, (k.y + k.h) * UNIT]),
+      ...(config.encoders ?? []).map((e) => [(e.x + 2) * UNIT, (e.y + 2) * UNIT]),
+      ...(config.oleds ?? []).map((o) => [(o.x + 2.5) * UNIT, (o.y + 1.5) * UNIT]),
+      ...(config.trackballs ?? []).map((t) => [(t.x + 2) * UNIT, (t.y + 2) * UNIT]),
+    ]
+    if (!stage || allBounds.length === 0) return
+    const maxX = Math.max(...allBounds.map((b) => b[0]))
+    const maxY = Math.max(...allBounds.map((b) => b[1]))
     const padding = 60
     const scaleX = (width - padding * 2) / maxX
     const scaleY = (height - padding * 2) / maxY
     const scale = Math.min(scaleX, scaleY, MAX_SCALE)
     stage.scale({ x: scale, y: scale })
     stage.position({ x: padding, y: padding })
-  }, [config.keys, width, height])
+  }, [config.keys, config.encoders, config.oleds, config.trackballs, width, height])
 
   useImperativeHandle(ref, () => ({ fitView }), [fitView])
 
@@ -177,6 +192,33 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
             />
           )
         })}
+        {(config.encoders ?? []).map((enc) => (
+          <EncoderShape
+            key={enc.id}
+            el={enc}
+            selected={selectedPeripheralId === enc.id}
+            onSelect={(id) => handlePeripheralSelect(id, 'encoder')}
+            onChange={updateEncoder}
+          />
+        ))}
+        {(config.oleds ?? []).map((oled) => (
+          <OledShape
+            key={oled.id}
+            el={oled}
+            selected={selectedPeripheralId === oled.id}
+            onSelect={(id) => handlePeripheralSelect(id, 'oled')}
+            onChange={updateOled}
+          />
+        ))}
+        {(config.trackballs ?? []).map((tb) => (
+          <TrackballShape
+            key={tb.id}
+            el={tb}
+            selected={selectedPeripheralId === tb.id}
+            onSelect={(id) => handlePeripheralSelect(id, 'trackball')}
+            onChange={updateTrackball}
+          />
+        ))}
         {showMatrix && <MatrixLines keys={config.keys} edges={config.matrixEdges ?? []} pendingId={matrixPending?.id} colorScheme={colorScheme} />}
         {!showMatrix && <SelectionTransformer stageRef={stageRef} />}
       </Layer>

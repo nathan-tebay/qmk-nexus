@@ -9,7 +9,7 @@ export function useKeyboardSync() {
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
 
-  const save = useCallback(async () => {
+  const save = useCallback(async (): Promise<string | null> => {
     setSaving(true)
     setError(null)
     setWarning(null)
@@ -22,8 +22,10 @@ export function useKeyboardSync() {
         ? await keyboardsApi.update(config.id, config)
         : await keyboardsApi.create(config)
       setConfig({ id: saved.id })
+      return saved.id
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed')
+      return null
     } finally {
       setSaving(false)
     }
