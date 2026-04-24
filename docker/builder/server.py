@@ -189,7 +189,9 @@ class BuildHandler(BaseHTTPRequestHandler):
             return
 
         payload = self._read_body()
-        build_id = str(uuid.uuid4())[:8]
+        # Accept a caller-provided build_id (e.g. from the backend which has
+        # already written source files into BUILDS_ROOT/{build_id}/src/).
+        build_id = payload.get("build_id") or str(uuid.uuid4())[:8]
 
         with global_lock:
             builds[build_id] = {

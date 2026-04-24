@@ -23,10 +23,18 @@ services:
       - "8000:8000"
     volumes:
       - ../backend:/app
+      # Shared with the host build proxy so generated source files are visible
+      # to the proxy and the builder container it spawns.
+      # Run the proxy first: ./run.sh build-proxy
+      - /tmp/tebay-builds:/tmp/tebay-builds
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ../backend/.env
     environment:
       - ENVIRONMENT=development
+      # Points to the build proxy started by: ./run.sh build-proxy
+      - BUILD_PROXY_URL=http://host.docker.internal:8080
     depends_on: []
 
   builder:

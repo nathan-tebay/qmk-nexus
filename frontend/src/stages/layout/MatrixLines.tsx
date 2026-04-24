@@ -5,7 +5,7 @@ import { UNIT, GAP } from './constants'
 export type ColorScheme = 'default' | 'deuteranopia' | 'protanopia' | 'tritanopia' | 'highContrast'
 
 export const COLOR_SCHEME_LABELS: Record<ColorScheme, string> = {
-  default: 'Default',
+  default: 'Colorblind (None)',
   deuteranopia: 'Deuteranopia',
   protanopia: 'Protanopia',
   tritanopia: 'Tritanopia',

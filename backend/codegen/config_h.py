@@ -8,12 +8,8 @@ from codegen._mcu import MCU_BOOTLOADER
 def generate_config_h(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
-    rgb_enabled = config.features.get('rgb_matrix', False)
-    rgblight_enabled = config.features.get('rgblight', False)
-    split_enabled = config.features.get('split_keyboard', False)
-    encoder_enabled = config.features.get('encoder', False)
-    oled_enabled = config.features.get('oled', False)
-    audio_enabled = config.features.get('audio', False)
+    fc = config.feature_configs or {}
+    features = config.features or {}
 
     lines: list[str] = [
         '#pragma once',
@@ -45,54 +41,134 @@ def generate_config_h(config: KeyboardConfig) -> str:
 
     lines += ['', '#define DIODE_DIRECTION COL2ROW', '', '#define DEBOUNCE 5', '']
 
-    if rgb_enabled:
+    if features.get('rgb_matrix'):
+        rgb = fc.get('rgb_matrix', {})
         led_count = len([k for k in config.keys if k.led_index is not None])
         if led_count == 0:
             led_count = len([k for k in config.keys if k.row is not None])
+        driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
+        max_bright = rgb.get('RGB_MATRIX_MAXIMUM_BRIGHTNESS', '200')
+        default_mode = rgb.get('RGB_MATRIX_DEFAULT_MODE', 'RGB_MATRIX_BREATHING')
+        sleep = rgb.get('RGB_MATRIX_SLEEP', 'yes')
         lines += [
             f'#define RGB_MATRIX_LED_COUNT {led_count}',
-            '#define RGB_MATRIX_MAXIMUM_BRIGHTNESS 200',
-            '#define RGB_MATRIX_DEFAULT_MODE RGB_MATRIX_BREATHING',
+            f'#define RGB_MATRIX_MAXIMUM_BRIGHTNESS {max_bright}',
+            f'#define RGB_MATRIX_DEFAULT_MODE {default_mode}',
             '#define RGB_MATRIX_DEFAULT_HUE 0',
             '#define RGB_MATRIX_DEFAULT_SAT 255',
             '#define RGB_MATRIX_DEFAULT_VAL 128',
             '#define RGB_MATRIX_DEFAULT_SPD 127',
             '#define RGB_MATRIX_TIMEOUT 0',
-            '#define RGB_MATRIX_SLEEP',
+        ]
+        if sleep == 'yes':
+            lines.append('#define RGB_MATRIX_SLEEP')
+        if driver in ('IS31FL3731', 'IS31FL3733', 'IS31FL3735', 'IS31FL3736',
+                      'IS31FL3737', 'IS31FL3738', 'IS31FL3741', 'IS31FL3742',
+                      'IS31FL3743', 'IS31FL3744', 'IS31FL3745', 'IS31FL3746'):
+            sda = rgb.get('RGB_MATRIX_I2C_SDA', 'D2')
+            scl = rgb.get('RGB_MATRIX_I2C_SCL', 'D1')
+            lines += [f'#define RGB_MATRIX_I2C_SDA {sda}', f'#define RGB_MATRIX_I2C_SCL {scl}']
+        elif driver == 'WS2812':
+            pin = rgb.get('RGB_MATRIX_PIN', 'D3')
+            lines.append(f'#define RGB_MATRIX_PIN {pin}')
+        lines.append('')
+
+    if features.get('rgblight'):
+        rgl = fc.get('rgblight', {})
+        pin = rgl.get('RGBLIGHT_PIN', 'D3')
+        count = rgl.get('RGBLIGHT_LED_COUNT', '12')
+        limit = rgl.get('RGBLIGHT_LIMIT_VAL', '200')
+        mode = rgl.get('RGBLIGHT_DEFAULT_MODE', 'RGBLIGHT_MODE_BREATHING')
+        lines += [
+            f'#define RGBLIGHT_PIN {pin}',
+            f'#define RGBLIGHT_LED_COUNT {count}',
+            f'#define RGBLIGHT_LIMIT_VAL {limit}',
+            f'#define RGBLIGHT_DEFAULT_MODE {mode}',
             '',
         ]
 
-    if rgblight_enabled:
-        lines += [
-            '#define RGBLIGHT_LED_COUNT 12',
-            '#define RGBLIGHT_LIMIT_VAL 200',
-            '#define RGBLIGHT_DEFAULT_MODE RGBLIGHT_MODE_BREATHING',
-            '',
-        ]
+    if features.get('backlight'):
+        bl = fc.get('backlight', {})
+        pin = bl.get('BACKLIGHT_PIN', 'B7')
+        lines += [f'#define BACKLIGHT_PIN {pin}', '']
 
-    if split_enabled:
-        serial_pin = config.soft_serial_pin or 'D0'
-        lines += [
-            f'#define SOFT_SERIAL_PIN {serial_pin}',
-            '#define SPLIT_USB_DETECT',
-            '#define SPLIT_TRANSPORT_MIRROR',
-            '#define SPLIT_LAYER_STATE_ENABLE',
-            '#define SPLIT_LED_STATE_ENABLE',
-            '#define SPLIT_MODS_ENABLE',
-        ]
-        if rgb_enabled:
+    if features.get('split_keyboard'):
+        sp = fc.get('split_keyboard', {})
+        transport = sp.get('SPLIT_TRANSPORT', 'serial')
+        serial_pin = sp.get('SOFT_SERIAL_PIN', config.soft_serial_pin or 'D2')
+        lines += [f'#define SOFT_SERIAL_PIN {serial_pin}']
+        if transport == 'i2c':
+            sda = sp.get('SPLIT_I2C_SDA', 'D2')
+            scl = sp.get('SPLIT_I2C_SCL', 'D1')
+            lines += [f'#define SPLIT_I2C_SDA {sda}', f'#define SPLIT_I2C_SCL {scl}']
+        for define in ('SPLIT_USB_DETECT', 'SPLIT_TRANSPORT_MIRROR',
+                       'SPLIT_LAYER_STATE_ENABLE', 'SPLIT_LED_STATE_ENABLE', 'SPLIT_MODS_ENABLE'):
+            if sp.get(define, 'yes') == 'yes':
+                lines.append(f'#define {define}')
+        if features.get('rgb_matrix') and sp.get('SPLIT_RGB_MATRIX_ENABLE', 'no') == 'yes':
             lines.append('#define SPLIT_RGB_MATRIX_ENABLE')
         lines.append('')
 
-    if encoder_enabled:
-        lines += ['#define ENCODER_RESOLUTION 4', '']
+    if features.get('encoder'):
+        enc = fc.get('encoder', {})
+        count = enc.get('ENCODER_COUNT', '1')
+        resolution = enc.get('ENCODER_RESOLUTION', '4')
+        lines += [
+            f'#define NUM_ENCODERS {count}',
+            f'#define ENCODER_RESOLUTION {resolution}',
+        ]
+        for i in range(int(count)):
+            pad_a = enc.get(f'ENCODER_PAD_A_{i}', 'B6')
+            pad_b = enc.get(f'ENCODER_PAD_B_{i}', 'B2')
+            lines += [f'#define ENCODER_PIN_A_{i} {pad_a}', f'#define ENCODER_PIN_B_{i} {pad_b}']
+        lines.append('')
 
-    if oled_enabled:
-        lines += ['#define OLED_BRIGHTNESS 128', '#define OLED_TIMEOUT 60000', '']
+    if features.get('oled'):
+        oled = fc.get('oled', {})
+        brightness = oled.get('OLED_BRIGHTNESS', '128')
+        timeout = oled.get('OLED_TIMEOUT', '60000')
+        lines += [
+            f'#define OLED_BRIGHTNESS {brightness}',
+            f'#define OLED_TIMEOUT {timeout}',
+            '',
+        ]
 
-    if audio_enabled:
-        lines += ['/* #define AUDIO_PIN C6 */', '']
+    if features.get('audio'):
+        aud = fc.get('audio', {})
+        pin = aud.get('AUDIO_PIN', 'C6')
+        lines += [f'#define AUDIO_PIN {pin}', '']
 
-    lines += [f'#define BOOTLOADER {MCU_BOOTLOADER.get(config.mcu.lower(), "atmel-dfu")}', '']
+    if features.get('pointing_device'):
+        pd = fc.get('pointing_device', {})
+        driver = pd.get('POINTING_DEVICE_DRIVER', 'pmw3360')
+        cs = pd.get('POINTING_DEVICE_CS_PIN')
+        motion = pd.get('POINTING_DEVICE_MOTION_PIN')
+        rot90 = pd.get('POINTING_DEVICE_ROTATION_90', 'no')
+        inv_x = pd.get('POINTING_DEVICE_INVERT_X', 'no')
+        inv_y = pd.get('POINTING_DEVICE_INVERT_Y', 'no')
+        if cs:
+            lines.append(f'#define POINTING_DEVICE_CS_PIN {cs}')
+        if motion:
+            lines.append(f'#define POINTING_DEVICE_MOTION_PIN {motion}')
+        if rot90 == 'yes':
+            lines.append('#define POINTING_DEVICE_ROTATION_90')
+        if inv_x == 'yes':
+            lines.append('#define POINTING_DEVICE_INVERT_X')
+        if inv_y == 'yes':
+            lines.append('#define POINTING_DEVICE_INVERT_Y')
+        lines.append('')
+
+    if features.get('bootmagic'):
+        bm = fc.get('bootmagic', {})
+        row = bm.get('BOOTMAGIC_LITE_ROW', '0')
+        col = bm.get('BOOTMAGIC_LITE_COLUMN', '0')
+        lines += [
+            f'#define BOOTMAGIC_LITE_ROW {row}',
+            f'#define BOOTMAGIC_LITE_COLUMN {col}',
+            '',
+        ]
+
+    bootloader = MCU_BOOTLOADER.get(config.mcu.lower(), 'atmel-dfu')
+    lines += [f'#define BOOTLOADER {bootloader}', '']
 
     return '\n'.join(lines)

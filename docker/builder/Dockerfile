@@ -34,10 +34,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     python3 \
     python3-pip \
+    python3-venv \
+    git \
     socat \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=elf2uf2-builder /usr/local/bin/elf2uf2 /usr/local/bin/elf2uf2
+
+# ── QMK firmware (shallow clone + LUFA for AVR USB) ──────────────────────────
+# Provides the C headers and make infrastructure; LUFA is required for the
+# USB HID stack on AVR.  ChibiOS submodule is initialised for ARM targets.
+RUN git clone --depth 1 https://github.com/qmk/qmk_firmware.git /qmk_firmware && \
+    cd /qmk_firmware && \
+    git submodule update --init --depth 1 \
+        lib/lufa \
+        lib/chibios \
+        lib/chibios-contrib
+
+ENV QMK_HOME=/qmk_firmware
 
 WORKDIR /build
 COPY build.sh /usr/local/bin/build.sh

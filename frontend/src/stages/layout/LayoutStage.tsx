@@ -5,7 +5,7 @@ import Toolbar from './Toolbar'
 import KeyProperties from './KeyProperties'
 import PeripheralProperties from './PeripheralProperties'
 import PinPanel from './PinPanel'
-import QMKImportModal from './QMKImportModal'
+import LoadKeyboardModal from './LoadKeyboardModal'
 import styles from './LayoutStage.module.css'
 import { useKeyboardStore } from '@/store/keyboard'
 import { validateMatrices, type MatrixValidationResult } from '@/utils/validateMatrices'
@@ -117,7 +117,7 @@ export default function LayoutStage() {
               </div>
               <div className={styles.welcomeActions}>
                 <button className={styles.welcomePrimary} onClick={() => setShowImport(true)}>
-                  Import QMK Keyboard
+                  Load Keyboard
                 </button>
                 <button className={styles.welcomeSecondary} onClick={() => addKey({ id: nanoid(), x: 0, y: 0, w: 1, h: 1, rotation: 0, label: '', row: null, col: null, ledIndex: null, shape: 'rect' })}>
                   Start from Scratch
@@ -194,7 +194,7 @@ export default function LayoutStage() {
         </div>
       </aside>
     </div>
-    {showImport && <QMKImportModal onClose={() => setShowImport(false)} />}
+    {showImport && <LoadKeyboardModal onClose={() => setShowImport(false)} />}
     </>
   )
 }

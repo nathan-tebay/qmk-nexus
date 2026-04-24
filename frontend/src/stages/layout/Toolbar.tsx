@@ -71,7 +71,7 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
     <div className={styles.toolbar}>
       <div className={styles.group}>
         <button className={styles.importQmkBtn} onClick={onImportQMK}>
-          Import QMK Keyboard
+          Load Keyboard
         </button>
       </div>
 

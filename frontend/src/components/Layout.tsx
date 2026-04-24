@@ -3,7 +3,6 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { useKeyboardStore } from '@/store/keyboard'
-import KeyboardSwitcher from './KeyboardSwitcher'
 import styles from './Layout.module.css'
 
 const stages = [
@@ -20,7 +19,6 @@ export default function Layout() {
   const { save, saving, error, warning } = useKeyboardSync()
   const [editingName, setEditingName] = useState(false)
   const [nameValue, setNameValue] = useState('')
-  const [showSwitcher, setShowSwitcher] = useState(false)
   const nameInputRef = useRef<HTMLInputElement>(null)
 
   function handleLogout() {
@@ -65,9 +63,6 @@ export default function Layout() {
           ))}
         </nav>
         <div className={styles.center}>
-          <button className={styles.switcherBtn} onClick={() => setShowSwitcher(true)} title="My Keyboards">
-            ☰
-          </button>
           {editingName ? (
             <input
               ref={nameInputRef}
@@ -107,7 +102,6 @@ export default function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
-      {showSwitcher && <KeyboardSwitcher onClose={() => setShowSwitcher(false)} />}
     </div>
   )
 }

@@ -8,6 +8,7 @@ from codegen.keyboard_h import generate_keyboard_h
 from codegen.config_h import generate_config_h
 from codegen.rules_mk import generate_rules_mk
 from codegen.keymap_c import generate_keymap_c
+from codegen.info_json import generate_info_json
 
 
 def generate_all(config: KeyboardConfig, output_dir: Path) -> None:
@@ -23,6 +24,7 @@ def generate_all(config: KeyboardConfig, output_dir: Path) -> None:
         "config.h": generate_config_h(config),
         "rules.mk": generate_rules_mk(config),
         "keymap.c": generate_keymap_c(config),
+        "info.json": generate_info_json(config),
     }
 
     for filename, content in files.items():

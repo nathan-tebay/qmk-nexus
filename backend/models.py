@@ -53,6 +53,30 @@ class Layer(BaseModel):
     keycodes: dict[str, str] = Field(default_factory=dict)
 
 
+class EncoderElement(BaseModel):
+    model_config = _camel()
+    id: str
+    x: float = 0.0
+    y: float = 0.0
+
+
+class OledElement(BaseModel):
+    model_config = _camel()
+    id: str
+    x: float = 0.0
+    y: float = 0.0
+    rotation: float = 0.0
+    display_size: str = '128_32'
+
+
+class TrackballElement(BaseModel):
+    model_config = _camel()
+    id: str
+    x: float = 0.0
+    y: float = 0.0
+    driver: str = 'pmw3360'
+
+
 class MatrixEdge(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
@@ -80,7 +104,12 @@ class KeyboardConfig(BaseModel):
     matrix_edges: list[MatrixEdge] = Field(default_factory=list)
     layers: list[Layer] = Field(default_factory=list)
     features: dict[str, bool] = Field(default_factory=dict)
+    feature_configs: dict[str, dict[str, str]] = Field(default_factory=dict)
+    feature_input_values: dict[str, dict[str, str]] = Field(default_factory=dict)
     soft_serial_pin: str = 'D0'
+    encoders: list[EncoderElement] = Field(default_factory=list)
+    oleds: list[OledElement] = Field(default_factory=list)
+    trackballs: list[TrackballElement] = Field(default_factory=list)
 
 
 class BuildStatus(BaseModel):

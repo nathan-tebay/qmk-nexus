@@ -209,7 +209,7 @@
   gap: 4px;
   font-size: 11px;
   color: var(--text-muted);
-  pointer-events: none;
+  pointer-events: all;
   backdrop-filter: blur(4px);
 }
 

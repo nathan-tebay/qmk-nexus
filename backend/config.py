@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     frontend_url: str = 'http://localhost:3001'
     api_base_url: str = 'http://localhost:8000'
 
+    # When set, builds are delegated to the local build proxy (server.py).
+    # Run it with: ./run.sh build-proxy
+    build_proxy_url: str = ''
+
     environment: str = 'development'
 
     @property

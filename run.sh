@@ -48,6 +48,15 @@ case "${1:-help}" in
     ;;
   up)
     check_env
+    echo "Starting build proxy in background..."
+    BUILD_IMAGE="${BUILD_IMAGE:-qmk-nexus-builder}" \
+    BUILDS_ROOT="${BUILDS_ROOT:-/tmp/tebay-builds}" \
+    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8080}" \
+    BIND_HOST="${BIND_HOST:-0.0.0.0}" \
+    python3 "$ROOT/docker/builder/server.py" &
+    echo $! > /tmp/tebay-build-proxy.pid
+    echo "Build proxy: http://localhost:${DEV_SERVER_PORT:-8080}"
+
     echo "Starting stack in background..."
     $COMPOSE up -d --build frontend backend
     echo "Frontend: http://localhost:3001"
@@ -55,6 +64,11 @@ case "${1:-help}" in
     echo "API docs: http://localhost:8000/docs"
     ;;
   down)
+    if [[ -f /tmp/tebay-build-proxy.pid ]]; then
+      echo "Stopping build proxy..."
+      kill "$(cat /tmp/tebay-build-proxy.pid)" 2>/dev/null || true
+      rm -f /tmp/tebay-build-proxy.pid
+    fi
     $COMPOSE down
     ;;
   logs)
