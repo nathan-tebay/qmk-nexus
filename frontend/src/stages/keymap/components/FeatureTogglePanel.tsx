@@ -1,94 +1,177 @@
-import React, { useState, useEffect } from 'react';
-import { FeatureConfig, KeyboardLayoutMeta } from '../../../features/types';
-import { featureDefinitions } from '../../../features/featureDefinitions';
-import { initializeFeatures } from '../../../features/layoutIntegration';
+import React, { useState, useEffect, useCallback } from 'react'
+import { useKeyboardStore } from '@/store/keyboard'
+import { FeatureConfig, FeatureInput as FeatureInputType, KeyboardLayoutMeta } from '../../../features/types'
+import { featureDefinitions } from '../../../features/featureDefinitions'
+import { initializeFeatures } from '../../../features/layoutIntegration'
+import type { Warning } from '../../../features/types'
+
+const PIN_REGEX = /^[A-K]\d{1,2}$/i
+
+const WARNING_ICONS: Record<Warning['type'], string> = {
+  hardware: '🔧',
+  info: 'ℹ️',
+  caution: '⚠️',
+}
+
+const WARNING_COLORS: Record<Warning['type'], { bg: string; border: string }> = {
+  hardware: { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b' },
+  info:     { bg: 'rgba(59, 130, 246, 0.1)',  border: '#3b82f6' },
+  caution:  { bg: 'rgba(239, 68, 68, 0.1)',   border: '#ef4444' },
+}
+
+function WarningBanner({ warning }: { warning: Warning }) {
+  const { bg, border } = WARNING_COLORS[warning.type]
+  return (
+    <div
+      role="alert"
+      className={`warning-banner warning-${warning.type}`}
+      style={{ padding: '8px', borderRadius: '4px', marginBottom: '8px', backgroundColor: bg, borderLeft: `4px solid ${border}`, fontSize: '0.9em' }}
+    >
+      <strong>{WARNING_ICONS[warning.type]}</strong> {warning.message}
+    </div>
+  )
+}
+
+function validateInput(input: FeatureInputType, value: string, isDerived: boolean): string | null {
+  if (isDerived || !value) return input.required && !isDerived ? 'Required' : null
+  if (input.type === 'pin' && !PIN_REGEX.test(value)) return 'Invalid pin (e.g. B2, F4)'
+  if (input.type === 'number') {
+    const n = parseFloat(value)
+    if (Number.isNaN(n)) return 'Must be a number'
+    if (input.validation?.min !== undefined && n < input.validation.min) return `Min ${input.validation.min}`
+    if (input.validation?.max !== undefined && n > input.validation.max) return `Max ${input.validation.max}`
+  }
+  return null
+}
 
 interface FeatureTogglePanelProps {
-  layoutMeta: KeyboardLayoutMeta;
+  layoutMeta: KeyboardLayoutMeta
 }
 
 export const FeatureTogglePanel: React.FC<FeatureTogglePanelProps> = ({ layoutMeta }) => {
-  const [features, setFeatures] =
-    useState<FeatureConfig[]>(() => initializeFeatures(layoutMeta, featureDefinitions));
+  const config = useKeyboardStore((s) => s.config)
+  const toggleFeature = useKeyboardStore((s) => s.toggleFeature)
+  const setFeatureInputValue = useKeyboardStore((s) => s.setFeatureInputValue)
+
+  const [features, setFeatures] = useState<FeatureConfig[]>(() =>
+    initializeFeatures(layoutMeta, featureDefinitions)
+  )
 
   useEffect(() => {
-    setFeatures(initializeFeatures(layoutMeta, featureDefinitions));
-  }, [layoutMeta]);
+    setFeatures(
+      initializeFeatures(layoutMeta, featureDefinitions).map((def) => ({
+        ...def,
+        enabled: config.features[def.id] ?? def.enabled,
+      }))
+    )
+  }, [layoutMeta, config.features])
 
-  const toggleFeature = (id: string) => {
-    setFeatures((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f))
-    );
-  };
+  const handleToggle = (id: string) => {
+    toggleFeature(id)
+    setFeatures((prev) => prev.map((f) => (f.id === id ? { ...f, enabled: !f.enabled } : f)))
+  }
 
-  const updateInputValue = (featureId: string, inputId: string, value: string) => {
-    setFeatures((prev) =>
-      prev.map((f) => {
-        if (f.id === featureId && f.inputs) {
-          return {
-            ...f,
-            inputs: f.inputs.map((i) =>
-              i.id === inputId ? { ...i, defaultValue: value } : i
-            ),
-          };
-        }
-        return f;
-      })
-    );
-  };
-
-  const sortedFeatures = [...features].sort((a, b) => b.usagePercent - a.usagePercent);
+  const sortedFeatures = [...features].sort((a, b) => b.usagePercent - a.usagePercent)
 
   return (
     <div className="feature-toggle-panel">
-      {sortedFeatures.map((feature) => (
-        <FeatureCard
-          key={feature.id}
-          feature={feature}
-          onToggle={() => toggleFeature(feature.id)}
-          isLocked={feature.lockedOn}
-          onInputChange={(inputId, value) => updateInputValue(feature.id, inputId, value)}
-          layoutMeta={layoutMeta}
-        />
-      ))}
+      {sortedFeatures.map((feature) => {
+        const storedValues = config.featureInputValues[feature.id] ?? {}
+        return (
+          <FeatureCard
+            key={feature.id}
+            feature={feature}
+            onToggle={() => handleToggle(feature.id)}
+            storedValues={storedValues}
+            onInputChange={(inputId, value) => setFeatureInputValue(feature.id, inputId, value)}
+            layoutMeta={layoutMeta}
+          />
+        )
+      })}
     </div>
-  );
-};
+  )
+}
 
 interface FeatureCardProps {
-  feature: FeatureConfig;
-  onToggle: () => void;
-  isLocked: boolean;
-  onInputChange: (inputId: string, value: string) => void;
-  layoutMeta: KeyboardLayoutMeta;
+  feature: FeatureConfig
+  onToggle: () => void
+  storedValues: Record<string, string>
+  onInputChange: (inputId: string, value: string) => void
+  layoutMeta: KeyboardLayoutMeta
+}
+
+interface ExpandedInput {
+  input: FeatureInputType
+  renderId: string
+  renderLabel: string
+}
+
+function expandInputs(
+  inputs: FeatureInputType[],
+  siblingValues: Record<string, string>,
+  isSplit: boolean
+): ExpandedInput[] {
+  const result: ExpandedInput[] = []
+  for (const input of inputs) {
+    if (!input.repeatPerCount) {
+      result.push({ input, renderId: input.id, renderLabel: input.label })
+      continue
+    }
+    const countStr = siblingValues[input.repeatPerCount.countField] ?? '1'
+    const count = Math.max(1, Math.min(parseInt(countStr, 10) || 1, 8))
+    for (let n = 1; n <= count; n++) {
+      let label: string
+      if (count === 1) {
+        label = input.label
+      } else if (isSplit && count === 2) {
+        label = input.repeatPerCount.labelTemplate.replace('{n}', n === 1 ? 'Left Half' : 'Right Half')
+      } else {
+        label = input.repeatPerCount.labelTemplate.replace('{n}', String(n))
+      }
+      result.push({
+        input,
+        renderId: count === 1 ? input.id : `${input.id}_${n}`,
+        renderLabel: label,
+      })
+    }
+  }
+  return result
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({
   feature,
   onToggle,
-  isLocked,
+  storedValues,
   onInputChange,
   layoutMeta,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(feature.enabled);
+  // Build sibling value map: inputId → current value (stored > layout-prefilled default)
+  const siblingValues: Record<string, string> = {}
+  feature.inputs?.forEach((inp) => {
+    siblingValues[inp.id] = storedValues[inp.id] ?? inp.defaultValue ?? ''
+  })
 
-  useEffect(() => {
-    setIsExpanded(feature.enabled);
-  }, [feature.enabled]);
+  const expandedInputs = expandInputs(feature.inputs ?? [], siblingValues, !!layoutMeta.isSplit)
 
   return (
     <div className={`feature-card ${feature.enabled ? 'expanded' : ''}`}>
-      <div 
-        className="feature-card-header" 
-        onClick={() => !isLocked && onToggle()}
-        style={{ cursor: isLocked ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
+      <div
+        className="feature-card-header"
+        style={{ cursor: feature.lockedOn ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: '10px' }}
       >
         <input
           type="checkbox"
           checked={feature.enabled}
-          disabled={isLocked}
-          onChange={onToggle}
-          aria-label={`${feature.name} toggle`}
+          disabled={feature.lockedOn}
+          aria-disabled={feature.lockedOn}
+          aria-label={
+            feature.lockedOn
+              ? `${feature.name} (required by keyboard layout)`
+              : `${feature.name} toggle`
+          }
+          title={feature.lockedOn ? 'Required by your keyboard layout — cannot be disabled' : undefined}
+          onChange={(e) => { e.stopPropagation(); onToggle() }}
+          onClick={(e) => e.stopPropagation()}
         />
         <div className="feature-title-group" style={{ flexGrow: 1 }}>
           <span className="feature-name" style={{ fontWeight: 'bold' }}>{feature.name}</span>
@@ -96,95 +179,151 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
             {feature.usagePercent}% usage
           </span>
         </div>
-        {isLocked && <span className="lock-icon" title="Required by your keyboard layout">🔒</span>}
+        {feature.lockedOn && (
+          <div className="lock-container" title="Required by your keyboard layout">
+            <span style={{ fontSize: '1.2em' }}>🔒</span>
+          </div>
+        )}
       </div>
 
-      <p className="feature-description" style={{ opacity: 0.8, margin: '4px 0' }}>{feature.description}</p>
+      <p className="feature-description" style={{ opacity: 0.8, margin: '4px 0' }}>
+        {feature.description}
+      </p>
 
       {feature.enabled && (
         <div className="feature-expanded-content" style={{ marginTop: '12px', paddingLeft: '24px' }}>
           {feature.warnings?.map((warning, idx) => (
-            <div
-              key={idx}
-              className={`warning-banner warning-${warning.type}`}
-              role="alert"
-              style={{ 
-                padding: '8px', 
-                borderRadius: '4px', 
-                marginBottom: '8px',
-                backgroundColor: warning.type === 'hardware' ? '#fffbeb' : warning.type === 'caution' ? '#fef2f2' : '#eff6ff',
-                borderLeft: `4px solid ${warning.type === 'hardware' ? '#f59e0b' : warning.type === 'caution' ? '#ef4444' : '#3b82f6'}`,
-                fontSize: '0.9em'
-              }}
-            >
-              <strong>⚠️</strong> {warning.message}
-            </div>
+            <WarningBanner key={idx} warning={warning} />
           ))}
 
-          {feature.inputs?.map((input) => (
-            <FeatureInput
-              key={input.id}
+          {expandedInputs.map(({ input, renderId, renderLabel }) => (
+            <FeatureInputField
+              key={renderId}
               input={input}
+              renderId={renderId}
+              renderLabel={renderLabel}
               layoutMeta={layoutMeta}
+              storedValue={storedValues[renderId]}
+              siblingValues={siblingValues}
               onInputChange={onInputChange}
             />
           ))}
         </div>
       )}
     </div>
-  );
-};
-
-interface FeatureInputProps {
-  input: any;
-  layoutMeta: KeyboardLayoutMeta;
-  onInputChange: (id: string, val: string) => void;
+  )
 }
 
-const FeatureInput: React.FC<FeatureInputProps> = ({ input, layoutMeta, onInputChange }) => {
-  const layoutValue = (layoutMeta as any)[input.layoutKey || ''];
-  const isDerived = input.derivedFromLayout && layoutValue !== undefined;
-  const isPrefilled = !isDerived && layoutValue !== undefined;
+interface FeatureInputFieldProps {
+  input: FeatureInputType
+  renderId: string
+  renderLabel: string
+  layoutMeta: KeyboardLayoutMeta
+  storedValue: string | undefined
+  siblingValues: Record<string, string>
+  onInputChange: (id: string, val: string) => void
+}
+
+const FeatureInputField: React.FC<FeatureInputFieldProps> = ({
+  input,
+  renderId,
+  renderLabel,
+  layoutMeta,
+  storedValue,
+  siblingValues,
+  onInputChange,
+}) => {
+  // Conditional visibility: check sibling field value (not layoutMeta)
+  if (input.conditionalOn) {
+    const depValue = siblingValues[input.conditionalOn.field] ?? ''
+    if (!input.conditionalOn.values.includes(depValue)) return null
+  }
+
+  const layoutValue = input.layoutKey ? (layoutMeta as Record<string, unknown>)[input.layoutKey] : undefined
+  const isDerived = !!input.derivedFromLayout && layoutValue !== undefined
+  const isPrefilled = !isDerived && layoutValue !== undefined
+
+  const currentValue =
+    storedValue ?? input.defaultValue ?? (layoutValue !== undefined ? String(layoutValue) : '')
+
+  const [error, setError] = useState<string | null>(() => validateInput(input, currentValue, isDerived))
+
+  const handleChange = useCallback((value: string) => {
+    setError(validateInput(input, value, isDerived))
+    onInputChange(renderId, value)
+  }, [input, isDerived, renderId, onInputChange])
+
+  const helpId = `${renderId}-help`
+  const errorId = `${renderId}-error`
+  const describedBy = [helpId, error ? errorId : ''].filter(Boolean).join(' ')
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '4px',
+    marginTop: '4px',
+    borderColor: error ? '#ef4444' : undefined,
+    outline: error ? '1px solid #ef4444' : undefined,
+  }
 
   return (
     <div className="feature-input-group" style={{ marginBottom: '12px' }}>
-      <label htmlFor={input.id} className="feature-input-label" style={{ display: 'block', fontSize: '0.9em', fontWeight: 500 }}>
-        {input.label}
+      <label htmlFor={renderId} className="feature-input-label" style={{ display: 'block', fontSize: '0.9em', fontWeight: 500 }}>
+        {renderLabel}{input.required && !isDerived && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
       </label>
 
       {input.type === 'select' ? (
         <select
-          id={input.id}
+          id={renderId}
           disabled={isDerived}
-          defaultValue={input.defaultValue || String(layoutValue || '')}
-          onChange={(e) => onInputChange(input.id, e.target.value)}
-          style={{ width: '100%', padding: '4px', marginTop: '4px' }}
+          aria-disabled={isDerived}
+          aria-describedby={describedBy}
+          aria-invalid={!!error}
+          value={currentValue}
+          onChange={(e) => { e.stopPropagation(); handleChange(e.target.value) }}
+          style={inputStyle}
         >
-          {input.options?.map((opt: any) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+          {input.options?.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
       ) : (
         <input
-          id={input.id}
+          id={renderId}
           type={input.type === 'number' ? 'number' : 'text'}
-          placeholder={input.placeholder}
           disabled={isDerived}
-          defaultValue={input.defaultValue || String(layoutValue || '').replace('undefined', '')}
-          onChange={(e) => onInputChange(input.id, e.target.value)}
-          style={{ width: '100%', padding: '4px', marginTop: '4px' }}
+          aria-disabled={isDerived}
+          aria-describedby={describedBy}
+          aria-invalid={!!error}
+          value={currentValue}
+          placeholder={input.placeholder}
+          min={input.validation?.min}
+          max={input.validation?.max}
+          onChange={(e) => { e.stopPropagation(); handleChange(e.target.value) }}
+          style={inputStyle}
         />
       )}
 
-      {(isDerived || isPrefilled) && (
-        <p className="layout-note" style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0' }}>
-          {isDerived ? 'Derived from keyboard layout' : 'Pre-filled from keyboard layout'}
+      {error && (
+        <p id={errorId} role="alert" style={{ fontSize: '0.75em', color: '#ef4444', margin: '2px 0' }}>
+          {error}
         </p>
       )}
 
-      {input.helpText && <p className="help-text" style={{ fontSize: '0.75em', opacity: 0.6, marginTop: '2px' }}>{input.helpText}</p>}
+      <div id={helpId}>
+        {isDerived && (
+          <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0', color: '#ef4444' }}>
+            Derived from keyboard layout — read only
+          </p>
+        )}
+        {isPrefilled && !isDerived && (
+          <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0' }}>
+            Pre-filled from keyboard layout
+          </p>
+        )}
+        {input.helpText && (
+          <p style={{ fontSize: '0.75em', opacity: 0.6, marginTop: '2px' }}>{input.helpText}</p>
+        )}
+      </div>
     </div>
-  );
-};
+  )
+}

@@ -23,7 +23,7 @@ const KEY_SIZES: { label: string; w: number; h: number; shape?: KeyShapeType }[]
 ]
 
 export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggleGrid, onFitView, onImportQMK }: Props) {
-  const { config, selectedKeyIds, addKey, removeKey } = useKeyboardStore()
+  const { config, selectedKeyIds, addKey, removeKey, addEncoder, addOled, addTrackball } = useKeyboardStore()
 
   const WRAP_U = 15
 
@@ -89,6 +89,13 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
             </button>
           ))}
         </div>
+      </div>
+
+      <div className={styles.group}>
+        <span className={styles.groupLabel}>Add Peripheral</span>
+        <button className={styles.sizeBtn} onClick={addEncoder} title="Add rotary encoder">Encoder</button>
+        <button className={styles.sizeBtn} onClick={addOled} title="Add OLED display">OLED</button>
+        <button className={styles.sizeBtn} onClick={addTrackball} title="Add trackball">Trackball</button>
       </div>
 
       <div className={styles.group}>

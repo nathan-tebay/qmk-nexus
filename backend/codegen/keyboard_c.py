@@ -10,6 +10,7 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
     cols = matrix_cols(config)
     rgb_enabled = config.features.get("rgb_matrix", False)
     split_enabled = config.features.get("split_keyboard", False)
+    fc = config.feature_configs or {}
 
     lines: list[str] = ["#include QMK_KEYBOARD_H"]
     if rgb_enabled:
@@ -21,7 +22,7 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
     if rgb_enabled:
         led_keys = [k for k in keys if k.led_index is not None] or keys
 
-        # Matrix → LED index mapping
+        # Matrix -> LED index mapping
         matrix_led: list[list[str]] = [["NO_LED"] * cols for _ in range(rows)]
         for k in led_keys:
             idx = k.led_index if k.led_index is not None else led_keys.index(k)
@@ -45,9 +46,25 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         lines.append("} };")
         lines.append("")
 
+        # RGB matrix default config from featureConfigs
+        rgb_config = fc.get("rgb_matrix", {})
+        default_mode = rgb_config.get("RGB_MATRIX_DEFAULT_MODE", "RGB_MATRIX_EFFECT_BREATHING")
+        max_bright = int(rgb_config.get("RGB_MATRIX_MAXIMUM_BRIGHTNESS", "255"))
+        lines.append(f"#define RGB_MATRIX_DEFAULT_MODE {default_mode}")
+        lines.append(f"#define RGB_MATRIX_MAXIMUM_BRIGHTNESS {max_bright}")
+        lines.append("")
+
     if split_enabled:
+        split_config = fc.get("split_keyboard", {})
         lines.append("void keyboard_post_init_kb(void) {")
         lines.append("    split_post_init();")
+
+        # Split-specific settings
+        if split_config.get("SPLIT_TRANSPORT_MIRROR", "no") == "yes":
+            lines.append("    split_transport_mirror = true;")
+        if split_config.get("SPLIT_LAYER_STATE_ENABLE", "no") == "yes":
+            lines.append("    split_layer_state_enable = true;")
+
         lines.append("    keyboard_post_init_user();")
         lines.append("}")
         lines.append("")

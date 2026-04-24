@@ -1,4 +1,4 @@
-import { KeyboardLayoutMeta, FeatureConfig } from './types';
+import { FeatureConfig } from './types';
 
 export const featureDefinitions: FeatureConfig[] = [
   {
@@ -186,7 +186,7 @@ export const featureDefinitions: FeatureConfig[] = [
     ],
   },
   {
-    id: 'split',
+    id: 'split_keyboard',
     name: 'Split Keyboard',
     description: 'Bidirectional split keyboard communication over TRRS/USART.',
     usagePercent: 9,
@@ -277,6 +277,49 @@ export const featureDefinitions: FeatureConfig[] = [
         validation: { min: 1, max: 4 },
         helpText: 'Number of OLED displays. Split keyboards may have one per half.',
       },
+      {
+        id: 'oled_driver',
+        label: 'Driver',
+        type: 'select',
+        required: true,
+        layoutKey: 'oledDriver',
+        options: [{ value: 'ssd1306', label: 'SSD1306' }],
+        helpText: 'OLED driver IC. SSD1306 is standard for most QMK OLEDs.',
+        repeatPerCount: { countField: 'oled_count', labelTemplate: 'OLED {n} — Driver' },
+      },
+      {
+        id: 'oled_i2c_sda',
+        label: 'I2C SDA Pin',
+        type: 'pin',
+        placeholder: 'e.g. D1',
+        required: true,
+        layoutKey: 'oledI2cSda',
+        helpText: 'GPIO pin for I2C data line (SDA).',
+        repeatPerCount: { countField: 'oled_count', labelTemplate: 'OLED {n} — I2C SDA Pin' },
+      },
+      {
+        id: 'oled_i2c_scl',
+        label: 'I2C SCL Pin',
+        type: 'pin',
+        placeholder: 'e.g. D0',
+        required: true,
+        layoutKey: 'oledI2cScl',
+        helpText: 'GPIO pin for I2C clock line (SCL).',
+        repeatPerCount: { countField: 'oled_count', labelTemplate: 'OLED {n} — I2C SCL Pin' },
+      },
+      {
+        id: 'oled_display_size',
+        label: 'Display Size',
+        type: 'select',
+        required: true,
+        layoutKey: 'oledDisplaySize',
+        options: [
+          { value: '128x32', label: '128×32' },
+          { value: '128x64', label: '128×64' },
+        ],
+        helpText: 'Physical resolution of the OLED panel.',
+        repeatPerCount: { countField: 'oled_count', labelTemplate: 'OLED {n} — Display Size' },
+      },
     ],
   },
   {
@@ -303,8 +346,8 @@ export const featureDefinitions: FeatureConfig[] = [
         placeholder: '3',
         required: false,
         defaultValue: '3',
-        validation: { min: 1, max: 15 },
-        helpText: 'Number of brightness steps the user can cycle through.',
+        validation: { min: 1, max: 31 },
+        helpText: 'Number of brightness steps (1–31). Default is 3.',
       },
     ],
   },

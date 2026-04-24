@@ -2,12 +2,14 @@ import { KeyboardLayoutMeta, FeatureConfig } from './types';
 
 export function initializeFeatures(layoutMeta: KeyboardLayoutMeta, currentConfigs: FeatureConfig[]): FeatureConfig[] {
   // Deep clone to avoid mutating the original definitions
-  const newConfigs = JSON.parse(JSON.stringify(currentConfigs)) as FeatureConfig[];
+  let newConfigs = JSON.parse(JSON.stringify(currentConfigs)) as FeatureConfig[];
 
   // 1. Pre-calculate required features set for O(1) lookup
   const requiredIds = new Set(layoutMeta.requiredFeatures || []);
 
   // 2. Apply rules: Auto-enable, Lock, and Pre-fill
+  const processedConfigs: FeatureConfig[] = [];
+
   newConfigs.forEach((feature) => {
     // Check if this feature is explicitly required by layout
     if (requiredIds.has(feature.id)) {
@@ -16,8 +18,7 @@ export function initializeFeatures(layoutMeta: KeyboardLayoutMeta, currentConfig
     }
 
     // 3. Inference Rules: Auto-enable based on hardware presence
-    // Note: We only lock if it's a physical property like encoderCount or isSplit
-    if (feature.id === 'split' && layoutMeta.isSplit) {
+    if (feature.id === 'split_keyboard' && layoutMeta.isSplit) {
       feature.enabled = true;
       feature.lockedOn = true;
     }
@@ -45,6 +46,10 @@ export function initializeFeatures(layoutMeta: KeyboardLayoutMeta, currentConfig
       feature.enabled = true;
       feature.lockedOn = true;
     }
+    if (feature.id === 'pointing_device' && (layoutMeta.trackballCount ?? 0) >= 1) {
+      feature.enabled = true;
+      feature.lockedOn = true;
+    }
 
     // 4. Pre-fill inputs from layoutKey
     if (feature.inputs) {
@@ -57,21 +62,18 @@ export function initializeFeatures(layoutMeta: KeyboardLayoutMeta, currentConfig
             if (typeof layoutValue === 'string' || typeof layoutValue === 'number') {
               input.defaultValue = String(layoutValue);
             } else if (Array.isArray(layoutValue)) {
-                // For things like encoderPadA, we might want the first one or a joined string
                 input.defaultValue = layoutValue.join(', ');
             }
 
-            // Handle derived/disabled logic
-            if (input.derivedFromLayout) {
-              // We use a special convention for "disabled" in the UI, 
-              // but here we just ensure the value is set.
-              // The component will check 'derivedFromLayout' and 'layoutKey' presence.
-            }
+            // Flag as pre-filled so the UI can show the "Pre-filled" note
+            input.isPrefilled = true;
           }
         }
       });
     }
+
+    processedConfigs.push(feature);
   });
 
-  return newConfigs;
+  return processedConfigs;
 }

@@ -4,7 +4,6 @@ import { LayerManager } from './LayerManager'
 import { KeycodePicker } from './KeycodePicker'
 import KeymapCanvas from './KeymapCanvas'
 import styles from './KeymapStage.module.css'
-import { FeatureTogglePanel } from './components/FeatureTogglePanel'
 
 interface Tooltip { code: string; x: number; y: number }
 
@@ -14,12 +13,8 @@ export default function KeymapStage() {
     setActiveLayer, setKeycode, addLayer, removeLayer, renameLayer,
   } = useKeyboardStore()
 
-  // We need to extract layoutMeta from the config for the FeatureTogglePanel.
-  // For now, we'll cast or assume it exists in the config metadata/custom fields if available.
-  const layoutMeta = (config as any).layoutMeta || {}
-
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [pickerKeyId, setPickerKeyID] = useState<string | null>(null) // wait I had a typo in my head? No.
+  const [pickerKeyId, setPickerKeyId] = useState<string | null>(null)
   // Let's stick to what was there.
   const [tooltip, setTooltip] = useState<Tooltip | null>(null)
 
@@ -59,6 +54,29 @@ export default function KeymapStage() {
     )
   }
 
+  if (config.layers.length === 0) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.empty}>
+          <div className={styles.welcomeCard}>
+            <h3>No Layers Found</h3>
+            <p>You haven't created any layers yet. Go to Stage 1 to define your keys, then come back here to assign keycodes.</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!activeLayer) {
+    return (
+      <div className={styles.root}>
+        <div className={styles.empty}>
+          <span className={styles.error}>Active layer not found. Please ensure a layer is selected.</span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={styles.root}>
       <div className={styles.sidebar}>
@@ -70,8 +88,6 @@ export default function KeymapStage() {
           onRemove={removeLayer}
           onRename={renameLayer}
         />
-        <hr style={{ opacity: 0.2 }} />
-        <FeatureTogglePanel layoutMeta={layoutMeta} />
       </div>
 
       <div className={styles.mainContent}>

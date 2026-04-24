@@ -37,6 +37,10 @@ export interface KeyboardLayoutMeta {
   // Audio
   audioPin?: string;
 
+  // Pointing device / trackball
+  trackballCount?: number;
+  trackballDriver?: string;
+
   // Features the layout explicitly requires
   requiredFeatures?: string[];    // Array of feature IDs, e.g. ["split", "oled", "encoder"]
 }
@@ -56,6 +60,7 @@ export interface FeatureInput {
   helpText?: string;
   defaultValue?: string;
   derivedFromLayout?: boolean;     // If true AND layout provides value: disable field
+  isPrefilled?: boolean;            // New: Flag to show "Pre-filled from keyboard layout" note
   layoutKey?: string;              // Key in KeyboardLayoutMeta to read from
   validation?: {
     pattern?: string;
