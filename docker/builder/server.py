@@ -62,6 +62,17 @@ def spawn_build(build_id: str, payload: dict) -> None:
     build_dir.mkdir(parents=True, exist_ok=True)
     (build_dir / "output").mkdir(exist_ok=True)
 
+    # When a caller-provided build_id is used, the backend pre-places source
+    # files in src/ before posting here.  Fail fast rather than spawning a
+    # container against an empty directory.
+    src_dir = build_dir / "src"
+    if not src_dir.exists() or not any(src_dir.iterdir()):
+        with build_locks[build_id]:
+            builds[build_id]["status"] = "failed"
+            builds[build_id]["error"] = "src/ directory missing or empty — codegen may not have completed"
+            builds[build_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
+        return
+
     env_vars = payload.get("env", {})
     extra_args = payload.get("args", [])
     if isinstance(extra_args, str):

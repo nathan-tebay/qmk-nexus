@@ -395,7 +395,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   addLayer: () =>
     set((s) => {
       const n = s.config.layers.length
-      const id = `layer${n}`
+      const id = `layer_${uid()}`
       return {
         config: { ...s.config, layers: [...s.config.layers, { id, name: `Layer ${n}`, keycodes: {} }] },
         activeLayerId: id,
@@ -538,12 +538,21 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 }), {
   name: 'keyboard-store',
   onRehydrateStorage: () => (state) => {
-    // After restoring from localStorage, ensure all enabled features have config defaults
-    if (state?.config) {
-      const newFeatureConfigs = ensureFeatureConfigs(state.config.features, state.config.featureConfigs);
-      if (Object.keys(newFeatureConfigs).length !== Object.keys(state.config.featureConfigs).length) {
-        state.config = { ...state.config, featureConfigs: newFeatureConfigs };
-      }
+    if (!state?.config) return
+    // Deep-merge defaults into each stored feature config so newly-added keys
+    // are backfilled even when the feature entry already existed in storage.
+    const merged: Record<string, Record<string, string>> = {}
+    let changed = false
+    for (const [feat, enabled] of Object.entries(state.config.features)) {
+      if (!enabled) continue
+      const stored = state.config.featureConfigs[feat] ?? {}
+      const defaults = featureDefaults[feat] ?? {}
+      const entry: Record<string, string> = { ...defaults, ...stored }
+      merged[feat] = entry
+      if (Object.keys(entry).length !== Object.keys(stored).length) changed = true
+    }
+    if (changed || Object.keys(merged).length !== Object.keys(state.config.featureConfigs).length) {
+      state.config = { ...state.config, featureConfigs: merged }
     }
   },
 }))

@@ -23,6 +23,7 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
 
         for i in range(0, len(keycodes), cols):
             chunk = keycodes[i : i + cols]
+            chunk += ['KC_TRNS'] * (cols - len(chunk))  # pad short last row
             is_last = i + cols >= len(keycodes)
             sep = "" if is_last else ","
             lines.append("        " + ", ".join(chunk) + sep)

@@ -16,8 +16,12 @@ QMK_HOME="${QMK_HOME:-/qmk_firmware}"
 KEYBOARD_NAME="${KEYBOARD_NAME:-keyboard}"
 MCU="${TARGET_MCU:-atmega32u4}"
 
-# Sanitize: lowercase letters, digits, underscores only
-KB_NAME=$(echo "$KEYBOARD_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_' '_' | sed 's/_*$//')
+# Sanitize: lowercase letters, digits, underscores only; must start with a letter
+KB_NAME=$(echo "$KEYBOARD_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_' '_' | sed 's/^[_0-9]*//' | sed 's/_*$//')
+if [[ -z "$KB_NAME" ]]; then
+  echo "[builder] ERROR: keyboard name '$KEYBOARD_NAME' produces an empty identifier after sanitisation"
+  exit 1
+fi
 
 mkdir -p "$OUT_DIR"
 

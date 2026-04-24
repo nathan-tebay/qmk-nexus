@@ -112,10 +112,9 @@ def generate_config_h(config: KeyboardConfig) -> str:
     if features.get('encoder'):
         enc = fc.get('encoder', {})
         count = enc.get('ENCODER_COUNT', '1')
-        resolution = enc.get('ENCODER_RESOLUTION', '4')
         lines += [
             f'#define NUM_ENCODERS {count}',
-            f'#define ENCODER_RESOLUTION {resolution}',
+            # ENCODER_RESOLUTION is a make variable — set in rules.mk, not here
         ]
         for i in range(int(count)):
             pad_a = enc.get(f'ENCODER_PAD_A_{i}', 'B6')

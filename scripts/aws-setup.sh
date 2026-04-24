@@ -279,19 +279,21 @@ EOF
 apply_iam_policy() {
   local policy_json="$1"
   if aws iam get-policy --policy-arn "$POLICY_ARN" >/dev/null 2>&1; then
-    info "Policy exists; creating new version..."
-    aws iam create-policy-version \
-      --policy-arn "$POLICY_ARN" \
-      --policy-document "$policy_json" \
-      --set-as-default >/dev/null
+    info "Policy exists; pruning old versions then creating new..."
+    # Delete non-default versions first — IAM cap is 5; create fails if full
     aws iam list-policy-versions --policy-arn "$POLICY_ARN" \
       --query 'Versions[?!IsDefaultVersion].VersionId' \
       --output text \
     | tr '\t' '\n' \
     | while read -r vid; do
+        [[ -z "$vid" ]] && continue
         aws iam delete-policy-version \
           --policy-arn "$POLICY_ARN" --version-id "$vid" >/dev/null 2>&1 || true
       done
+    aws iam create-policy-version \
+      --policy-arn "$POLICY_ARN" \
+      --policy-document "$policy_json" \
+      --set-as-default >/dev/null
     ok "Updated $POLICY_ARN"
   else
     aws iam create-policy \

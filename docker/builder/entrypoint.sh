@@ -16,7 +16,9 @@ echo "building" > /tmp/build_status
     fi
 ) &
 
-# Kill container if not downloaded within 10 minutes
-(sleep 600 && kill -TERM $$) &
+# Self-destruct after 10 minutes whether or not the artifact was downloaded.
+# Use PID 1 (this script, before exec) so the signal reaches socat after exec.
+_self=$$
+(sleep 600 && kill -TERM "$_self") &
 
 exec socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/api.sh

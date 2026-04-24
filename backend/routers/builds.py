@@ -52,7 +52,8 @@ def _set_build_cookie(response: Response, build_id: str, keyboard_id: str, **ext
 
 
 def _clear_build_cookie(response: Response) -> None:
-    response.delete_cookie('build_token', path='/api/builds')
+    response.delete_cookie('build_token', path='/api/builds',
+                            secure=settings.is_prod, samesite='lax')
 
 
 def _decode_build_cookie(build_token: str | None) -> dict | None:

@@ -9,7 +9,7 @@ from models import User
 
 bearer = HTTPBearer(auto_error=False)
 
-ACCESS_EXPIRE = timedelta(minutes=15)
+ACCESS_EXPIRE = timedelta(days=7)
 
 
 def create_access_token(user: User) -> str:
@@ -55,8 +55,8 @@ def set_auth_cookies(response: Response, user: User) -> None:
 
 
 def clear_auth_cookies(response: Response) -> None:
-    response.delete_cookie('access_token', path='/')
-    response.delete_cookie('refresh_token', path='/')
+    response.delete_cookie('access_token', path='/',
+                            secure=settings.is_prod, samesite='lax')
 
 
 def get_current_user(
