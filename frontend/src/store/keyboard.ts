@@ -128,6 +128,8 @@ export interface EncoderElement {
   id: string
   x: number
   y: number
+  hasSwitch: boolean
+  diameter: number
 }
 
 export interface OledElement {
@@ -136,12 +138,22 @@ export interface OledElement {
   y: number
   rotation: number
   displaySize: '64_32' | '64_48' | '128_32' | '128_64'
+  contentMode: 'preset' | 'custom'
+  startupBlocks: string[]
+  activeBlocks: string[]
+  idleBlocks: string[]
+  startupDuration: number
+  idleTimeout: number
+  customCode: string
+  logoImage: string
+  logoBytes: number[]
 }
 
 export interface TrackballElement {
   id: string
   x: number
   y: number
+  diameter: number
   driver: 'pmw3360' | 'pmw3389' | 'adns9800' | 'cirque_pinnacle_spi' | 'pimoroni_trackball'
 }
 
@@ -166,6 +178,8 @@ export interface KeyboardConfig {
   encoders: EncoderElement[]
   oleds: OledElement[]
   trackballs: TrackballElement[]
+  customFiles: Record<string, string>
+  encoderKeycodes: Record<string, string>
 }
 
 const featureDefaults: Record<string, Record<string, string>> = {
@@ -221,15 +235,6 @@ function syncPeripheralFeatures(
   return { features, featureConfigs: fc }
 }
 
-function ensureFeatureConfigs(features: Record<string, boolean>, featureConfigs: Record<string, Record<string, string>>): Record<string, Record<string, string>> {
-  const result = { ...featureConfigs }
-  for (const [featureId, enabled] of Object.entries(features)) {
-    if (enabled && !result[featureId] && featureDefaults[featureId]) {
-      result[featureId] = { ...featureDefaults[featureId] }
-    }
-  }
-  return result
-}
 
 const defaultConfig: KeyboardConfig = {
   id: null,
@@ -261,6 +266,8 @@ const defaultConfig: KeyboardConfig = {
   encoders: [],
   oleds: [],
   trackballs: [],
+  customFiles: {},
+  encoderKeycodes: {},
 }
 
 interface KeyboardStore {
@@ -297,6 +304,8 @@ interface KeyboardStore {
   addTrackball: () => void
   removeTrackball: (id: string) => void
   updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
+  setCustomFiles: (files: Record<string, string>) => void
+  setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw' | 'press', keycode: string) => void
 }
 
 export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
@@ -378,7 +387,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   toggleFeature: (feature) =>
     set((s) => {
       const isEnabling = !s.config.features[feature];
-      const newFeatures = { ...s.config.features, [feature]: !s.config.features[feature] };
+      const newFeatures = { ...s.config.features, [feature]: isEnabling };
       const newFeatureConfigs = { ...s.config.featureConfigs };
 
       if (isEnabling) {
@@ -406,8 +415,11 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
     set((s) => {
       if (id === 'layer0') return s
       const layers = s.config.layers.filter((l) => l.id !== id)
+      const encoderKeycodes = Object.fromEntries(
+        Object.entries(s.config.encoderKeycodes ?? {}).filter(([k]) => k.split(':')[0] !== id)
+      )
       return {
-        config: { ...s.config, layers },
+        config: { ...s.config, layers, encoderKeycodes },
         activeLayerId: s.activeLayerId === id ? 'layer0' : s.activeLayerId,
       }
     }),
@@ -439,7 +451,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addEncoder: () =>
     set((s) => {
-      const enc: EncoderElement = { id: uid(), x: 0, y: 0 }
+      const enc: EncoderElement = { id: uid(), x: 0, y: 0, hasSwitch: false, diameter: 14 }
       const encoders = [...(s.config.encoders ?? []), enc]
       const synced = syncPeripheralFeatures({ ...s.config, encoders })
       return {
@@ -454,9 +466,12 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   removeEncoder: (id) =>
     set((s) => {
       const encoders = (s.config.encoders ?? []).filter((e) => e.id !== id)
+      const encoderKeycodes = Object.fromEntries(
+        Object.entries(s.config.encoderKeycodes ?? {}).filter(([k]) => k.split(':')[1] !== id)
+      )
       const synced = syncPeripheralFeatures({ ...s.config, encoders })
       return {
-        config: { ...s.config, encoders, ...synced },
+        config: { ...s.config, encoders, encoderKeycodes, ...synced },
         selectedPeripheralId: s.selectedPeripheralId === id ? null : s.selectedPeripheralId,
         selectedPeripheralType: s.selectedPeripheralId === id ? null : s.selectedPeripheralType,
       }
@@ -472,7 +487,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addOled: () =>
     set((s) => {
-      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32' }
+      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', logoImage: '', logoBytes: [] }
       const oleds = [...(s.config.oleds ?? []), oled]
       const synced = syncPeripheralFeatures({ ...s.config, oleds })
       return {
@@ -505,7 +520,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addTrackball: () =>
     set((s) => {
-      const tb: TrackballElement = { id: uid(), x: 0, y: 0, driver: 'pmw3360' }
+      const tb: TrackballElement = { id: uid(), x: 0, y: 0, diameter: 34, driver: 'pmw3360' }
       const trackballs = [...(s.config.trackballs ?? []), tb]
       const synced = syncPeripheralFeatures({ ...s.config, trackballs })
       return {
@@ -535,6 +550,20 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
         trackballs: (s.config.trackballs ?? []).map((t) => t.id === id ? { ...t, ...updates } : t),
       },
     })),
+
+  setCustomFiles: (files) =>
+    set((s) => ({ config: { ...s.config, customFiles: files } })),
+
+  setEncoderKeycode: (layerId, encoderId, dir, keycode) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        encoderKeycodes: {
+          ...s.config.encoderKeycodes,
+          [`${layerId}:${encoderId}:${dir}`]: keycode,
+        },
+      },
+    })),
 }), {
   name: 'keyboard-store',
   onRehydrateStorage: () => (state) => {
@@ -553,6 +582,42 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
     }
     if (changed || Object.keys(merged).length !== Object.keys(state.config.featureConfigs).length) {
       state.config = { ...state.config, featureConfigs: merged }
+    }
+    // Backfill EncoderElement fields added after initial release
+    if (state.config.encoders) {
+      state.config.encoders = (state.config.encoders as unknown as Partial<EncoderElement>[]).map((e) => ({
+        hasSwitch: false,
+        diameter: 14,
+        ...e,
+      } as EncoderElement))
+    }
+    // Backfill OledElement fields, migrate contentBlocks → activeBlocks
+    if (state.config.oleds) {
+      state.config.oleds = (state.config.oleds as unknown as Array<Partial<OledElement> & { contentBlocks?: string[] }>).map((o) => {
+        const { contentBlocks, ...rest } = o as Record<string, unknown> & { contentBlocks?: string[] }
+        return {
+          contentMode: 'preset' as const,
+          startupBlocks: [] as string[],
+          activeBlocks: (contentBlocks ?? []) as string[],
+          idleBlocks: [] as string[],
+          startupDuration: 15000,
+          idleTimeout: 10000,
+          customCode: '',
+          logoImage: '',
+          logoBytes: [] as number[],
+          ...rest,
+        } as OledElement
+      })
+    }
+    if (!state.config.encoderKeycodes) {
+      state.config.encoderKeycodes = {}
+    }
+    // Backfill TrackballElement diameter
+    if (state.config.trackballs) {
+      state.config.trackballs = (state.config.trackballs as unknown as Partial<TrackballElement>[]).map((t) => ({
+        diameter: 34,
+        ...t,
+      } as TrackballElement))
     }
   },
 }))

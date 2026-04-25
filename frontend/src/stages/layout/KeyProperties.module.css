@@ -1,10 +1,9 @@
 .panel {
-  padding: 14px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
   overflow-y: auto;
-  height: 100%;
 }
 
 .empty {
@@ -19,38 +18,42 @@
 }
 
 .title {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
+  margin: 2px 0 0;
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
+  padding: 3px 7px;
+  font-size: 12px;
 }
 
 .label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
 .row {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .divider {
   height: 1px;
   background: var(--border);
-  margin: 4px 0;
+  margin: 3px 0;
 }
 
 .note {
@@ -62,11 +65,11 @@
 }
 
 .removeBtn {
-  padding: 6px 10px;
+  padding: 4px 10px;
   background: transparent;
   border: 1px solid var(--danger, #e05454);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--danger, #e05454);
   cursor: pointer;
   transition: background 0.15s;
@@ -76,6 +79,3 @@
   background: rgba(224, 84, 84, 0.1);
 }
 
-.field select {
-  width: 100%;
-}

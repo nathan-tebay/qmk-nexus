@@ -1,3 +1,10 @@
+.inlineRoot {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 .overlay {
   position: fixed;
   inset: 0;

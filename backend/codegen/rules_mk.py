@@ -82,8 +82,16 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
     if features.get('encoder'):
         enc = fc.get('encoder', {})
         resolution = enc.get('ENCODER_RESOLUTION', '4')
+        lines.append('ENCODER_MAP_ENABLE = yes')
         lines.append(f'ENCODER_RESOLUTION = {resolution}')
         lines.append('')
+
+    if features.get('oled'):
+        oleds = config.oleds or []
+        all_blocks = [b for o in oleds for b in (o.startup_blocks + o.active_blocks + o.idle_blocks)]
+        if 'wpm' in all_blocks:
+            lines.append('WPM_ENABLE = yes')
+            lines.append('')
 
     if features.get('audio'):
         aud = fc.get('audio', {})

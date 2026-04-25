@@ -22,7 +22,7 @@ export function validateMatrices(config: KeyboardConfig): MatrixValidationResult
 
   const matrixOk = missingRow.length === 0 && missingCol.length === 0
 
-  const ledEnabled = !!(config.features['rgb_matrix'] || config.features['backlight'])
+  const ledEnabled = !!config.features['rgb_matrix']
   let ledOk = true
 
   if (ledEnabled) {

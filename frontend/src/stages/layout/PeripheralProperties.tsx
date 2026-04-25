@@ -1,4 +1,5 @@
 import { useKeyboardStore, type OledElement, type TrackballElement } from '@/store/keyboard'
+import { ENCODER_DIAMETER_OPTIONS, TRACKBALL_DIAMETER_OPTIONS } from '../peripheralSizes'
 import styles from './KeyProperties.module.css'
 
 export default function PeripheralProperties() {
@@ -44,6 +45,16 @@ export default function PeripheralProperties() {
               onChange={(e) => updateEncoder(enc.id, { y: num(e.target.value, 0) })} />
           </Field>
         </div>
+        <Field label="Diameter">
+          <select
+            value={enc.diameter}
+            onChange={(e) => updateEncoder(enc.id, { diameter: Number(e.target.value) })}
+          >
+            {ENCODER_DIAMETER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </Field>
         <span className={styles.note}>Pin config in Features + Build → Encoder</span>
         <div className={styles.divider} />
         <button
@@ -115,6 +126,16 @@ export default function PeripheralProperties() {
               onChange={(e) => updateTrackball(tb.id, { y: num(e.target.value, 0) })} />
           </Field>
         </div>
+        <Field label="Ball Diameter">
+          <select
+            value={tb.diameter}
+            onChange={(e) => updateTrackball(tb.id, { diameter: Number(e.target.value) })}
+          >
+            {TRACKBALL_DIAMETER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </Field>
         <Field label="Driver">
           <select
             value={tb.driver}

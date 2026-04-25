@@ -58,6 +58,8 @@ class EncoderElement(BaseModel):
     id: str
     x: float = 0.0
     y: float = 0.0
+    has_switch: bool = False
+    diameter: float = 14.0
 
 
 class OledElement(BaseModel):
@@ -67,6 +69,15 @@ class OledElement(BaseModel):
     y: float = 0.0
     rotation: float = 0.0
     display_size: str = '128_32'
+    content_mode: str = 'preset'
+    startup_blocks: list[str] = Field(default_factory=list)
+    active_blocks: list[str] = Field(default_factory=list)
+    idle_blocks: list[str] = Field(default_factory=list)
+    startup_duration: int = 15000
+    idle_timeout: int = 10000
+    custom_code: str = ''
+    logo_image: str = ''
+    logo_bytes: list[int] = Field(default_factory=list)
 
 
 class TrackballElement(BaseModel):
@@ -74,6 +85,7 @@ class TrackballElement(BaseModel):
     id: str
     x: float = 0.0
     y: float = 0.0
+    diameter: float = 34.0
     driver: str = 'pmw3360'
 
 
@@ -110,6 +122,8 @@ class KeyboardConfig(BaseModel):
     encoders: list[EncoderElement] = Field(default_factory=list)
     oleds: list[OledElement] = Field(default_factory=list)
     trackballs: list[TrackballElement] = Field(default_factory=list)
+    custom_files: dict[str, str] = Field(default_factory=dict)
+    encoder_keycodes: dict[str, str] = Field(default_factory=dict)
 
 
 class BuildStatus(BaseModel):

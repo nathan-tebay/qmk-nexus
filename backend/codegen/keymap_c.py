@@ -34,4 +34,24 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
     lines.append("};")
     lines.append("")
 
+    if config.encoders and config.features.get('encoder'):
+        enc_count = len(config.encoders)
+        layer_count = len(config.layers)
+        enc_keycodes = config.encoder_keycodes or {}
+        lines.append('#if defined(ENCODER_MAP_ENABLE)')
+        lines.append(f'const uint16_t PROGMEM encoder_map[{layer_count}][{enc_count}][2] = {{')
+        for layer_idx, layer in enumerate(config.layers):
+            lines.append(f'    /* Layer {layer_idx}: {layer.name} */')
+            layer_comma = ',' if layer_idx < layer_count - 1 else ''
+            lines.append(f'    [{layer_idx}] = {{')
+            for enc_idx, enc in enumerate(config.encoders):
+                cw  = enc_keycodes.get(f'{layer.id}:{enc.id}:cw',  'KC_TRNS')
+                ccw = enc_keycodes.get(f'{layer.id}:{enc.id}:ccw', 'KC_TRNS')
+                enc_comma = ',' if enc_idx < enc_count - 1 else ''
+                lines.append(f'        [{enc_idx}] = {{ENCODER_CCW_CW({ccw}, {cw})}}{enc_comma}')
+            lines.append(f'    }}{layer_comma}')
+        lines.append('};')
+        lines.append('#endif')
+        lines.append('')
+
     return "\n".join(lines)

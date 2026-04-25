@@ -1,0 +1,486 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  width: 82vw;
+  height: 80vh;
+  max-width: 1260px;
+  max-height: 920px;
+  min-width: 700px;
+  min-height: 480px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Header ── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.resBtns {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+}
+
+.resBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.resBtnActive {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-elevated));
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Mode row ── */
+
+.modeRow {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.modeBtn {
+  padding: 4px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.modeBtnActive {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ── Body ── */
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.configPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+
+/* ── Preset layout: available left, states right ── */
+
+.presetLayout {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* Available panel */
+
+.availablePanel {
+  width: 180px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sectionHeader {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.addingTo {
+  font-size: 9px;
+  color: var(--accent);
+  text-transform: none;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.blockList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.blockItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.blockItem:hover {
+  border-color: var(--accent);
+}
+
+.blockLabel {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.blockAdd {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* States panel */
+
+.statesPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.stateSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  min-height: 0;
+}
+
+.stateSection:last-of-type {
+  border-bottom: none;
+}
+
+.stateFocused {
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+}
+
+.stateHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.stateHeader:hover {
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-surface));
+}
+
+.stateFocused .stateHeader {
+  border-left: 3px solid var(--accent);
+  padding-left: 7px;
+}
+
+.stateLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.stateBadge {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.durationInput {
+  width: 70px;
+  padding: 2px 5px !important;
+  font-size: 11px;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--accent) !important;
+}
+
+.stateBlockList {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.activeEntry {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.activeBlock {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.activeBlockArrows {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.arrowBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 8px;
+  cursor: pointer;
+  padding: 1px 3px;
+  line-height: 1;
+}
+
+.arrowBtn:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.removeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  margin-left: auto;
+  line-height: 1;
+}
+
+.emptyHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  text-align: center;
+}
+
+/* Logo upload */
+
+.logoSection {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+}
+
+.fileInput {
+  display: none;
+}
+
+.uploadBtn {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.uploadBtn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.clearBtn {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  border: 1px solid #5a2a2a;
+  background: color-mix(in srgb, #8b2020 15%, var(--bg-elevated));
+  color: #d06060;
+  cursor: pointer;
+}
+
+.uploadError {
+  font-size: 11px;
+  color: #d06060;
+  width: 100%;
+}
+
+/* Custom mode */
+
+.customLayout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px 16px;
+  gap: 8px;
+}
+
+.customHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.customHint code {
+  font-family: monospace;
+  background: var(--bg-elevated);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.codeArea {
+  flex: 1;
+  resize: none;
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
+.codeArea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ── Preview panel ── */
+
+.previewPanel {
+  width: 320px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.previewStateTabs {
+  display: flex;
+  gap: 3px;
+}
+
+.previewTab {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  text-transform: capitalize;
+}
+
+.previewTabActive {
+  background: color-mix(in srgb, var(--accent) 20%, var(--bg-elevated));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.previewDims {
+  font-size: 10px;
+  font-family: monospace;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.previewCanvasWrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: #111;
+  overflow: hidden;
+}
+
+.previewCanvas {
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 1px solid #2a2a2a;
+  box-shadow: 0 0 12px rgba(0, 180, 100, 0.08);
+}

@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import { LayerManager } from './LayerManager'
 import { KeycodePicker } from './KeycodePicker'
+import { EncoderPicker } from './EncoderPicker'
+import { OledConfigurator } from './OledConfigurator'
 import KeymapCanvas from './KeymapCanvas'
 import styles from './KeymapStage.module.css'
 
@@ -15,7 +17,10 @@ export default function KeymapStage() {
 
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerKeyId, setPickerKeyId] = useState<string | null>(null)
-  // Let's stick to what was there.
+  const [encoderPickerOpen, setEncoderPickerOpen] = useState(false)
+  const [encoderPickerId, setEncoderPickerId] = useState<string | null>(null)
+  const [oledConfigOpen, setOledConfigOpen] = useState(false)
+  const [oledConfigId, setOledConfigId] = useState<string | null>(null)
   const [tooltip, setTooltip] = useState<Tooltip | null>(null)
 
   const canvasContainerRef = useRef<HTMLDivElement>(null)
@@ -35,6 +40,16 @@ export default function KeymapStage() {
   function handleKeyClick(keyId: string) {
     setPickerKeyId(keyId)
     setPickerOpen(true)
+  }
+
+  function handleEncoderClick(encoderId: string) {
+    setEncoderPickerId(encoderId)
+    setEncoderPickerOpen(true)
+  }
+
+  function handleOledClick(oledId: string) {
+    setOledConfigId(oledId)
+    setOledConfigOpen(true)
   }
 
   function handleSelect(code: string) {
@@ -92,7 +107,7 @@ export default function KeymapStage() {
 
       <div className={styles.mainContent}>
         <div className={styles.hint}>
-          Click any key to assign a keycode · Double-key a layer tab to rename
+          Click any key to assign a keycode · Click encoder or OLED to configure · Double-click a layer tab to rename
         </div>
 
         <div className={styles.canvas} ref={canvasContainerRef} style={{ position: 'relative' }}>
@@ -100,6 +115,8 @@ export default function KeymapStage() {
             width={canvasSize.width}
             height={canvasSize.height}
             onKeyClick={handleKeyClick}
+            onEncoderClick={handleEncoderClick}
+            onOledClick={handleOledClick}
             onTooltip={(code, x, y) => setTooltip({ code, x, y })}
             onTooltipHide={() => setTooltip(null)}
           />
@@ -133,6 +150,22 @@ export default function KeymapStage() {
           onSelect={handleSelect}
           onClose={() => setPickerOpen(false)}
           layerCount={config.layers.length}
+        />
+      )}
+
+      {encoderPickerOpen && encoderPickerId && (
+        <EncoderPicker
+          encoderId={encoderPickerId}
+          encoderIndex={config.encoders.findIndex((e) => e.id === encoderPickerId)}
+          onClose={() => setEncoderPickerOpen(false)}
+        />
+      )}
+
+      {oledConfigOpen && oledConfigId && (
+        <OledConfigurator
+          oledId={oledConfigId}
+          oledIndex={config.oleds.findIndex((o) => o.id === oledConfigId)}
+          onClose={() => setOledConfigOpen(false)}
         />
       )}
     </div>
