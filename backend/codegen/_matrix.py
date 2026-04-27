@@ -2,8 +2,18 @@ from __future__ import annotations
 from models import KeyboardConfig, KeyDef
 
 
+def is_single_key_direct(config: KeyboardConfig) -> bool:
+    """A one-key board can be generated as a 1x1 matrix without wiring edges."""
+    if len(config.keys) != 1:
+        return False
+    key = config.keys[0]
+    return key.row is None and key.col is None and bool(config.row_pins) and bool(config.col_pins)
+
+
 def matrix_keys(config: KeyboardConfig) -> list[KeyDef]:
     """Keys with row/col assigned, sorted by (row, col). Undefined keys excluded."""
+    if is_single_key_direct(config):
+        return [config.keys[0].model_copy(update={'row': 0, 'col': 0})]
     defined = [k for k in config.keys if k.row is not None and k.col is not None]
     return sorted(defined, key=lambda k: (k.row, k.col))  # type: ignore[arg-type]
 

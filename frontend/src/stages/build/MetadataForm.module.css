@@ -15,7 +15,7 @@
 }
 
 .label {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -27,5 +27,5 @@
   border-radius: 4px;
   padding: 6px 10px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 16.25px;
 }

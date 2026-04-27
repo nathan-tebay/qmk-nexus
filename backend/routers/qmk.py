@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from models import ColPin, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin
+from validation import canonical_feature_id, sanitize_keyboard_config
 
 logger = logging.getLogger('qmk-nexus.qmk')
 
@@ -88,7 +89,25 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     ]
 
     features_raw: dict[str, Any] = info.get('features', {})
-    features = {k: bool(v) for k, v in features_raw.items() if isinstance(v, bool)}
+    features: dict[str, bool] = {}
+    for key, value in features_raw.items():
+        if isinstance(value, bool):
+            canonical = canonical_feature_id(key)
+            features[canonical] = bool(value) or features.get(canonical, False)
+    split = info.get('split') or {}
+    if split.get('enabled'):
+        features['split_keyboard'] = True
+
+    feature_configs: dict[str, dict[str, str]] = {}
+    if split.get('enabled'):
+        split_config: dict[str, str] = {}
+        serial_pin = (split.get('serial') or {}).get('pin')
+        if serial_pin:
+            split_config['SOFT_SERIAL_PIN'] = str(serial_pin)
+        transport = (split.get('transport') or {}).get('protocol')
+        if transport:
+            split_config['SPLIT_TRANSPORT'] = str(transport)
+        feature_configs['split_keyboard'] = split_config
 
     # Build matrix edges by chaining keys within each row/col group
     row_groups: dict[int, list[KeyDef]] = defaultdict(list)
@@ -128,7 +147,7 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     else:
         layers = [Layer(id='layer0', name='Base', keycodes={})]
 
-    return KeyboardConfig(
+    config = KeyboardConfig(
         id=None,
         name=info.get('keyboard_name', kb_path.split('/')[-1]),
         mcu=str(processor).lower(),
@@ -141,8 +160,14 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
         matrix_edges=matrix_edges,
         layers=layers,
         features=features,
+        feature_configs=feature_configs,
+        layout_macro=layout_name,
+        source_mode=(info.get('_nexus') or {}).get('source_mode', 'generated'),
+        upstream_keyboard=(info.get('_nexus') or {}).get('upstream_keyboard'),
+        upstream_files=(info.get('_nexus') or {}).get('upstream_files', {}),
         soft_serial_pin='D0',
     )
+    return sanitize_keyboard_config(config)
 
 
 @router.get('/import/{kb_path:path}', response_model=KeyboardConfig)

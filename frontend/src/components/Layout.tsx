@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { useKeyboardStore } from '@/store/keyboard'
+import { applyTheme, getStoredTheme, storeTheme, themes, type ThemeId } from '@/theme'
 import styles from './Layout.module.css'
 
 const stages = [
@@ -11,15 +12,56 @@ const stages = [
   { path: '/build', label: '3. Features + Build' },
 ]
 
+const instructions = {
+  layout: {
+    title: 'Layout + Wiring',
+    items: [
+      'Add keys to the canvas and position them in keyboard units.',
+      'Use Matrix Mode to connect keys that share row and column wires.',
+      'For a single-key keyboard, skip matrix wiring and define Pin A and Pin B on the Pins tab.',
+      'Use the Pins tab to assign each generated row and column to an MCU pin.',
+      'Add encoders, OLEDs, and trackballs before moving to keymap setup.',
+    ],
+  },
+  keymap: {
+    title: 'Keymap / Layers',
+    items: [
+      'Click a key to assign its QMK keycode on the active layer.',
+      'Use layers for Fn keys, media controls, symbols, or alternate layouts.',
+      'Configure encoder clockwise and counterclockwise actions from this stage.',
+      'For OLEDs, Preset Blocks generate common display behavior and Custom C Code lets you edit the generated starting point.',
+    ],
+  },
+  build: {
+    title: 'Features + Build',
+    items: [
+      'Set keyboard metadata, USB IDs, MCU, and manufacturer details first.',
+      'Enable only the QMK features your keyboard actually uses.',
+      'Fill required feature pins and counts before building.',
+      'Use Build Firmware for a hosted compile, or Download QMK Files to build inside your own QMK_firmware checkout.',
+    ],
+  },
+} as const
+
+function instructionKey(pathname: string): keyof typeof instructions {
+  if (pathname.startsWith('/keymap')) return 'keymap'
+  if (pathname.startsWith('/build')) return 'build'
+  return 'layout'
+}
+
 export default function Layout() {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
+  const location = useLocation()
   const kbName = useKeyboardStore((s) => s.config.name)
   const setConfig = useKeyboardStore((s) => s.setConfig)
   const { save, saving, error, warning } = useKeyboardSync()
   const [editingName, setEditingName] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
+  const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme())
   const [nameValue, setNameValue] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
+  const currentInstructions = instructions[instructionKey(location.pathname)]
 
   function handleLogout() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
@@ -45,10 +87,21 @@ export default function Layout() {
     if (e.key === 'Escape') setEditingName(false)
   }
 
+  function handleThemeChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const nextTheme = e.target.value as ThemeId
+    setTheme(nextTheme)
+    applyTheme(nextTheme)
+    storeTheme(nextTheme)
+  }
+
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-        <span className={styles.logo}>QMK Nexus</span>
+      <span className={styles.logo}> <img
+      className={styles.smallHeroImage}
+      src="/qmk-nexus-small.png"
+      alt="QMK Nexus split keyboard circuit artwork"
+      /></span>
         <nav className={styles.nav}>
           {stages.map((s) => (
             <NavLink
@@ -88,6 +141,23 @@ export default function Layout() {
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
+          <button
+            className={styles.instructionsBtn}
+            onClick={() => setShowInstructions(true)}
+          >
+            Instructions
+          </button>
+          <select
+            className={styles.themeSelect}
+            value={theme}
+            onChange={handleThemeChange}
+            aria-label="Theme"
+            title="Theme"
+          >
+            {themes.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
         </div>
         <div className={styles.user}>
           {user?.avatarUrl && (
@@ -102,6 +172,21 @@ export default function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+      {showInstructions && (
+        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowInstructions(false) }}>
+          <div className={styles.instructionsModal} role="dialog" aria-modal="true" aria-labelledby="instructions-title">
+            <div className={styles.modalHeader}>
+              <h2 id="instructions-title">{currentInstructions.title}</h2>
+              <button className={styles.modalClose} onClick={() => setShowInstructions(false)}>x</button>
+            </div>
+            <ol className={styles.instructionsList}>
+              {currentInstructions.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

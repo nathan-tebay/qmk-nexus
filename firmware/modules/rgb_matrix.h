@@ -3,7 +3,7 @@
 /*
  * RGB Matrix module — per-key RGB via matrix driver
  *
- * This header defines the configuration interface that tebay-qmk's codegen
+ * This header defines the configuration interface that QMK Nexus codegen
  * uses when rgb_matrix is enabled. Fill in the defines below in config.h;
  * they will be emitted by config_h.py.
  *

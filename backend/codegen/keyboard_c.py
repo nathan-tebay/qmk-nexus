@@ -4,6 +4,10 @@ from models import KeyboardConfig, OledElement
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
+def _c_string(text: str) -> str:
+    return text.replace('\\', '\\\\').replace('"', '\\"').replace('\r', ' ').replace('\n', ' ')
+
+
 def _oled_block_snippet(block_id: str, indent: str, config: KeyboardConfig, oled_idx: int = 0, oled: OledElement | None = None) -> list[str]:
     if block_id == 'logo':
         if oled and oled.logo_bytes:
@@ -14,7 +18,7 @@ def _oled_block_snippet(block_id: str, indent: str, config: KeyboardConfig, oled
     snippets: dict[str, list[str]] = {
         'layer_name': [
             f'{indent}switch (get_highest_layer(layer_state)) {{',
-            *[f'{indent}    case {i}: oled_write_P(PSTR("{layer.name:<6}"), false); break;'
+            *[f'{indent}    case {i}: oled_write_P(PSTR("{_c_string(f"{layer.name:<6}")}"), false); break;'
               for i, layer in enumerate(config.layers)],
             f'{indent}    default:  oled_write_P(PSTR("???   "), false); break;',
             f'{indent}}}',
@@ -172,14 +176,15 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         lines.append('bool oled_task_user(void) {')
         if len(config.oleds) == 1:
             lines.extend(_emit_oled_body(config.oleds[0], '    ', config, 0))
-        else:
+        elif split_enabled and len(config.oleds) >= 2:
             # Split dispatch: OLED 0 = master side, OLED 1 = slave side.
-            # Only two OLEDs supported in the split dispatch path.
-            lines.extend(_emit_oled_body(config.oleds[0], '    ', config, 0))
-            # Unreachable guard keeps the slave body valid when master_slave block is absent.
-            lines.append('    if (!is_keyboard_master()) {')
+            lines.append('    if (is_keyboard_master()) {')
+            lines.extend(_emit_oled_body(config.oleds[0], '        ', config, 0))
+            lines.append('    } else {')
             lines.extend(_emit_oled_body(config.oleds[1], '        ', config, 1))
             lines.append('    }')
+        else:
+            lines.extend(_emit_oled_body(config.oleds[0], '    ', config, 0))
         lines.append('    return false;')
         lines.append('}')
         lines.append('')

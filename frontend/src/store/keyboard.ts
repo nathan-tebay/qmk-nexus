@@ -145,6 +145,7 @@ export interface OledElement {
   startupDuration: number
   idleTimeout: number
   customCode: string
+  customCodeTemplate: string
   logoImage: string
   logoBytes: number[]
 }
@@ -174,6 +175,10 @@ export interface KeyboardConfig {
   features: Record<string, boolean>
   featureConfigs: Record<string, Record<string, string>>
   featureInputValues: Record<string, Record<string, string>>
+  layoutMacro: string
+  sourceMode: 'generated' | 'qmk_native'
+  upstreamKeyboard: string | null
+  upstreamFiles: Record<string, string>
   softSerialPin: string
   encoders: EncoderElement[]
   oleds: OledElement[]
@@ -196,6 +201,95 @@ const featureDefaults: Record<string, Record<string, string>> = {
   combo: { COMBO_TERM: '65' },
   audio: { AUDIO_PIN: 'C6', AUDIO_CLICKY: 'no' },
   pointing_device: { POINTING_DEVICE_DRIVER: 'pmw3360', POINTING_DEVICE_ROTATION_90: 'no', POINTING_DEVICE_INVERT_X: 'no', POINTING_DEVICE_INVERT_Y: 'no' },
+}
+
+const featureAliases: Record<string, string> = {
+  extrakey: 'extrakeys',
+  mousekey: 'mousekeys',
+}
+
+function normalizeFeatureId(feature: string): string {
+  return featureAliases[feature] ?? feature
+}
+
+function normalizeFeatureFlags(features: Record<string, boolean>): Record<string, boolean> {
+  const next: Record<string, boolean> = {}
+  for (const [feature, enabled] of Object.entries(features ?? {})) {
+    const canonical = normalizeFeatureId(feature)
+    next[canonical] = !!enabled || !!next[canonical]
+  }
+  return next
+}
+
+function normalizeNestedFeatureConfig(
+  configs: Record<string, Record<string, string>>,
+): Record<string, Record<string, string>> {
+  const next: Record<string, Record<string, string>> = {}
+  for (const [feature, values] of Object.entries(configs ?? {})) {
+    const canonical = normalizeFeatureId(feature)
+    next[canonical] = { ...(next[canonical] ?? {}), ...(values ?? {}) }
+  }
+  return next
+}
+
+function sanitizeEncoderKeycodes(
+  encoderKeycodes: Record<string, string>,
+  layers: Layer[],
+  encoders: EncoderElement[],
+): Record<string, string> {
+  const layerIds = new Set(layers.map((layer) => layer.id))
+  const encoderIds = new Set(encoders.map((encoder) => encoder.id))
+  const next: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(encoderKeycodes ?? {})) {
+    const [layerId, encoderId, dir] = key.split(':')
+    if (!layerId || !encoderId || !dir) continue
+    if (!layerIds.has(layerId) || !encoderIds.has(encoderId)) continue
+    if (dir !== 'cw' && dir !== 'ccw') continue
+    next[key] = value
+  }
+
+  return next
+}
+
+function matrixExtent(keys: KeyDef[], field: 'row' | 'col'): number | null {
+  const values = keys
+    .map((key) => key[field])
+    .filter((value): value is number => value !== null && value !== undefined)
+  return values.length ? Math.max(...values) + 1 : null
+}
+
+function trimMatrixPins(
+  keys: KeyDef[],
+  rowPins: MatrixPin[],
+  colPins: ColPin[],
+): Pick<KeyboardConfig, 'rowPins' | 'colPins'> {
+  const rowCount = matrixExtent(keys, 'row')
+  const colCount = matrixExtent(keys, 'col')
+  return {
+    rowPins: rowCount === null ? rowPins : rowPins.filter((pin) => pin.row >= 0 && pin.row < rowCount),
+    colPins: colCount === null ? colPins : colPins.filter((pin) => pin.col >= 0 && pin.col < colCount),
+  }
+}
+
+function normalizeKeyboardConfig(config: KeyboardConfig): KeyboardConfig {
+  const pins = trimMatrixPins(config.keys ?? [], config.rowPins ?? [], config.colPins ?? [])
+  return {
+    ...config,
+    features: normalizeFeatureFlags(config.features ?? {}),
+    featureConfigs: normalizeNestedFeatureConfig(config.featureConfigs ?? {}),
+    featureInputValues: normalizeNestedFeatureConfig(config.featureInputValues ?? {}),
+    layoutMacro: config.layoutMacro || 'LAYOUT',
+    sourceMode: config.sourceMode || 'generated',
+    upstreamKeyboard: config.upstreamKeyboard ?? null,
+    upstreamFiles: config.upstreamFiles ?? {},
+    ...pins,
+    encoderKeycodes: sanitizeEncoderKeycodes(
+      config.encoderKeycodes ?? {},
+      config.layers ?? [],
+      config.encoders ?? [],
+    ),
+  }
 }
 
 function uid() {
@@ -262,6 +356,10 @@ const defaultConfig: KeyboardConfig = {
   },
   featureConfigs: {},
   featureInputValues: {},
+  layoutMacro: 'LAYOUT',
+  sourceMode: 'generated',
+  upstreamKeyboard: null,
+  upstreamFiles: {},
   softSerialPin: 'D0',
   encoders: [],
   oleds: [],
@@ -305,7 +403,7 @@ interface KeyboardStore {
   removeTrackball: (id: string) => void
   updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
   setCustomFiles: (files: Record<string, string>) => void
-  setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw' | 'press', keycode: string) => void
+  setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw', keycode: string) => void
 }
 
 export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
@@ -317,7 +415,10 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   selectedPeripheralType: null,
 
   setConfig: (updates) =>
-    set((s) => ({ config: { ...s.config, ...updates } })),
+    set((s) => {
+      const config = normalizeKeyboardConfig({ ...s.config, ...updates })
+      return { config }
+    }),
 
   setSelectedKey: (id) =>
     set({ selectedKeyId: id, selectedKeyIds: id ? [id] : [] }),
@@ -339,19 +440,19 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
     set((s) => ({ config: { ...s.config, keys: [...s.config.keys, key] } })),
 
   updateKey: (id, updates) =>
-    set((s) => ({
-      config: {
-        ...s.config,
-        keys: s.config.keys.map((k) => (k.id === id ? { ...k, ...updates } : k)),
-      },
-    })),
+    set((s) => {
+      const keys = s.config.keys.map((k) => (k.id === id ? { ...k, ...updates } : k))
+      const pins = trimMatrixPins(keys, s.config.rowPins, s.config.colPins)
+      return { config: { ...s.config, keys, ...pins } }
+    }),
 
   removeKey: (id) =>
     set((s) => {
       const edges = (s.config.matrixEdges ?? []).filter((e) => e.from !== id && e.to !== id)
       const keys = deriveIndices(s.config.keys.filter((k) => k.id !== id), edges)
+      const pins = trimMatrixPins(keys, s.config.rowPins, s.config.colPins)
       return {
-        config: { ...s.config, keys, matrixEdges: edges },
+        config: { ...s.config, keys, matrixEdges: edges, ...pins },
         selectedKeyIds: s.selectedKeyIds.filter((k) => k !== id),
         selectedKeyId: s.selectedKeyId === id ? null : s.selectedKeyId,
       }
@@ -371,6 +472,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   setFeatureConfig: (feature, key, value) =>
     set((s) => {
+      feature = normalizeFeatureId(feature)
       const fc = { ...s.config.featureConfigs };
       fc[feature] = { ...(fc[feature] || {}), [key]: value };
       return { config: { ...s.config, featureConfigs: fc } };
@@ -378,6 +480,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   setFeatureInputValue: (featureId, inputId, value) =>
     set((s) => {
+      featureId = normalizeFeatureId(featureId)
       const fiv = { ...s.config.featureInputValues };
       fiv[featureId] = { ...(fiv[featureId] || {}), [inputId]: value };
       return { config: { ...s.config, featureInputValues: fiv } };
@@ -386,6 +489,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   toggleFeature: (feature) =>
     set((s) => {
+      feature = normalizeFeatureId(feature)
       const isEnabling = !s.config.features[feature];
       const newFeatures = { ...s.config.features, [feature]: isEnabling };
       const newFeatureConfigs = { ...s.config.featureConfigs };
@@ -435,7 +539,9 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   addMatrixEdge: (edge) =>
     set((s) => {
       const edges = [...(s.config.matrixEdges ?? []), edge]
-      return { config: { ...s.config, matrixEdges: edges, keys: deriveIndices(s.config.keys, edges) } }
+      const keys = deriveIndices(s.config.keys, edges)
+      const pins = trimMatrixPins(keys, s.config.rowPins, s.config.colPins)
+      return { config: { ...s.config, matrixEdges: edges, keys, ...pins } }
     }),
 
   removeMatrixEdge: (from, to, type) =>
@@ -443,7 +549,9 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       const edges = (s.config.matrixEdges ?? []).filter(
         (e) => !(e.type === type && ((e.from === from && e.to === to) || (e.from === to && e.to === from)))
       )
-      return { config: { ...s.config, matrixEdges: edges, keys: deriveIndices(s.config.keys, edges) } }
+      const keys = deriveIndices(s.config.keys, edges)
+      const pins = trimMatrixPins(keys, s.config.rowPins, s.config.colPins)
+      return { config: { ...s.config, matrixEdges: edges, keys, ...pins } }
     }),
 
   setSelectedPeripheral: (id, type) =>
@@ -487,7 +595,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addOled: () =>
     set((s) => {
-      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', logoImage: '', logoBytes: [] }
+      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', customCodeTemplate: '', logoImage: '', logoBytes: [] }
       const oleds = [...(s.config.oleds ?? []), oled]
       const synced = syncPeripheralFeatures({ ...s.config, oleds })
       return {
@@ -603,6 +711,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
           startupDuration: 15000,
           idleTimeout: 10000,
           customCode: '',
+          customCodeTemplate: '',
           logoImage: '',
           logoBytes: [] as number[],
           ...rest,
@@ -612,6 +721,11 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
     if (!state.config.encoderKeycodes) {
       state.config.encoderKeycodes = {}
     }
+    state.config.encoderKeycodes = sanitizeEncoderKeycodes(
+      state.config.encoderKeycodes,
+      state.config.layers ?? [],
+      state.config.encoders ?? [],
+    )
     // Backfill TrackballElement diameter
     if (state.config.trackballs) {
       state.config.trackballs = (state.config.trackballs as unknown as Partial<TrackballElement>[]).map((t) => ({
@@ -619,5 +733,6 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
         ...t,
       } as TrackballElement))
     }
+    state.config = normalizeKeyboardConfig(state.config)
   },
 }))

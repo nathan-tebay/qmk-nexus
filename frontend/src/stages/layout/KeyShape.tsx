@@ -140,11 +140,11 @@ export default function KeyShape({
         const { tap, hold } = parseAssignedCode(labelText)
         return hold ? (
           <>
-            <Text x={4} y={4} width={w - 8} text={hold} fontSize={9} fill="#888" align="center" listening={false} />
-            <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={13} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+            <Text x={4} y={4} width={w - 8} text={hold} fontSize={11.25} fill="#888" align="center" listening={false} />
+            <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
           </>
         ) : (
-          <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={13} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+          <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
         )
       })()}
     </Group>

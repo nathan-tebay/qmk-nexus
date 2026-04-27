@@ -116,4 +116,6 @@ async def logout(response: Response, refresh_token: str | None = Cookie(default=
     if refresh_token:
         revoke_refresh_token(refresh_token)
     clear_auth_cookies(response)
+    response.delete_cookie('refresh_token', path='/api/auth',
+                           secure=settings.is_prod, samesite='lax')
     return {'ok': True}

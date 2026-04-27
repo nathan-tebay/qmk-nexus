@@ -4,7 +4,7 @@ import { KeycodePicker } from './KeycodePicker'
 import { keycodeMap } from './keycodes'
 import styles from './EncoderPicker.module.css'
 
-type Dir = 'cw' | 'ccw' | 'press'
+type Dir = 'cw' | 'ccw'
 
 interface Props {
   encoderId: string
@@ -12,7 +12,7 @@ interface Props {
   onClose: () => void
 }
 
-const DIR_LABELS: Record<Dir, string> = { cw: 'CW ↻', ccw: 'CCW ↺', press: 'Press ●' }
+const DIR_LABELS: Record<Dir, string> = { cw: 'CW ↻', ccw: 'CCW ↺' }
 
 export function EncoderPicker({ encoderId, encoderIndex, onClose }: Props) {
   const { config, activeLayerId, setEncoderKeycode, updateEncoder } = useKeyboardStore()
@@ -21,7 +21,7 @@ export function EncoderPicker({ encoderId, encoderIndex, onClose }: Props) {
 
   const encoder = config.encoders.find((e) => e.id === encoderId)
   const hasSwitch = encoder?.hasSwitch ?? false
-  const dirs: Dir[] = hasSwitch ? ['cw', 'ccw', 'press'] : ['cw', 'ccw']
+  const dirs: Dir[] = ['cw', 'ccw']
 
   function getCode(dir: Dir) {
     return config.encoderKeycodes?.[`${localLayerId}:${encoderId}:${dir}`] ?? 'KC_TRNS'
@@ -41,7 +41,6 @@ export function EncoderPicker({ encoderId, encoderIndex, onClose }: Props) {
 
   function toggleSwitch() {
     updateEncoder(encoderId, { hasSwitch: !hasSwitch })
-    if (hasSwitch) setActiveSlot((s) => s === 'press' ? null : s)
   }
 
   return (

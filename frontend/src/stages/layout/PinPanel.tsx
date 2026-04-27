@@ -8,6 +8,9 @@ export default function PinPanel() {
     k.row !== null ? Math.max(max, k.row + 1) : max, 0)
   const colCount = config.keys.reduce((max, k) =>
     k.col !== null ? Math.max(max, k.col + 1) : max, 0)
+  const singleKeyDirect = config.keys.length === 1 && rowCount === 0 && colCount === 0
+  const pinRowCount = singleKeyDirect ? 1 : rowCount
+  const pinColCount = singleKeyDirect ? 1 : colCount
 
   function setRowPin(row: number, pin: string) {
     const pins = [...config.rowPins]
@@ -33,7 +36,7 @@ export default function PinPanel() {
     return config.colPins.find((p) => p.col === col)?.pin ?? ''
   }
 
-  if (rowCount === 0 && colCount === 0) {
+  if (pinRowCount === 0 && pinColCount === 0) {
     return (
       <div className={styles.empty}>
         Assign row/col to keys first, then map pins here.
@@ -43,12 +46,12 @@ export default function PinPanel() {
 
   return (
     <div className={styles.panel}>
-      {rowCount > 0 && (
+      {pinRowCount > 0 && (
         <section>
-          <h4 className={styles.sectionTitle}>Row Pins</h4>
-          {Array.from({ length: rowCount }, (_, i) => (
+          <h4 className={styles.sectionTitle}>{singleKeyDirect ? 'Switch Pins' : 'Row Pins'}</h4>
+          {Array.from({ length: pinRowCount }, (_, i) => (
             <div key={i} className={styles.pinRow}>
-              <span className={styles.pinLabel}>Row {i}</span>
+              <span className={styles.pinLabel}>{singleKeyDirect ? 'Pin A' : `Row ${i}`}</span>
               <input
                 value={getRowPin(i)}
                 onChange={(e) => setRowPin(i, e.target.value)}
@@ -60,12 +63,12 @@ export default function PinPanel() {
         </section>
       )}
 
-      {colCount > 0 && (
+      {pinColCount > 0 && (
         <section>
-          <h4 className={styles.sectionTitle}>Col Pins</h4>
-          {Array.from({ length: colCount }, (_, i) => (
+          <h4 className={styles.sectionTitle}>{singleKeyDirect ? 'Return Pin' : 'Col Pins'}</h4>
+          {Array.from({ length: pinColCount }, (_, i) => (
             <div key={i} className={styles.pinRow}>
-              <span className={styles.pinLabel}>Col {i}</span>
+              <span className={styles.pinLabel}>{singleKeyDirect ? 'Pin B' : `Col ${i}`}</span>
               <input
                 value={getColPin(i)}
                 onChange={(e) => setColPin(i, e.target.value)}

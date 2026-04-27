@@ -13,7 +13,7 @@ from codegen.keyboard_c import generate_keyboard_c
 from codegen.keymap_c import generate_keymap_c
 from codegen.config_h import generate_config_h
 from codegen.rules_mk import generate_rules_mk
-from models import KeyboardConfig
+from models import ColPin, KeyboardConfig, KeyDef, Layer, MatrixPin
 
 GOLDENS = Path(__file__).parent / 'goldens'
 UPDATE = False  # set via --snapshot-update flag in conftest
@@ -65,6 +65,25 @@ def test_layout_param_count_matches_defined_keys(minimal_avr_kb):
     params = [p.strip() for p in match.group(1).split(',')]
     defined_keys = [k for k in minimal_avr_kb.keys if k.row is not None and k.col is not None]
     assert len(params) == len(defined_keys)
+
+
+def test_single_key_without_matrix_edges_generates_one_key_layout():
+    kb = KeyboardConfig(
+        id='single',
+        name='Single',
+        mcu='atmega32u4',
+        keys=[KeyDef(id='only', x=0, y=0)],
+        row_pins=[MatrixPin(row=0, pin='B0')],
+        col_pins=[ColPin(col=0, pin='D0')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'only': 'KC_A'})],
+    )
+
+    h = generate_keyboard_h(kb)
+    c = generate_keymap_c(kb)
+
+    assert '#define LAYOUT(k0000)' in h
+    assert '{ k0000 }' in h
+    assert 'KC_A' in c
 
 
 # ── Snapshot tests ─────────────────────────────────────────────────────────────

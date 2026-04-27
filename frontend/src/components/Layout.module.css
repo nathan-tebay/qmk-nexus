@@ -9,7 +9,7 @@
   align-items: center;
   gap: 24px;
   padding: 0 20px;
-  height: 52px;
+  height: 64px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
@@ -17,7 +17,7 @@
 
 .logo {
   font-weight: 700;
-  font-size: 16px;
+  font-size: 20px;
   color: var(--accent);
   letter-spacing: -0.5px;
   white-space: nowrap;
@@ -34,7 +34,7 @@
   border-radius: 6px;
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 16.25px;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -45,14 +45,21 @@
 
 .navLink.active {
   color: var(--accent);
-  background: rgba(79, 142, 247, 0.12);
+  background: var(--accent-soft);
+}
+
+.smallHeroImage {
+  display: block;
+  width: auto;
+  height: 50px;
+  filter: var(--small-hero-filter);
 }
 
 .user {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text-muted);
 }
 
@@ -66,7 +73,7 @@
   padding: 4px 10px;
   border-radius: 4px;
   border: 1px solid var(--border);
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
   transition: color 0.15s, border-color 0.15s;
 }
@@ -89,7 +96,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: 17.5px;
   cursor: pointer;
   padding: 3px 8px;
   line-height: 1;
@@ -121,20 +128,20 @@
 }
 
 .kbName {
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text-muted);
   font-weight: 500;
 }
 
 .pencilIcon {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   opacity: 0;
   transition: opacity 0.15s;
 }
 
 .kbNameInput {
-  font-size: 13px;
+  font-size: 16.25px;
   font-weight: 500;
   color: var(--text);
   background: var(--bg-elevated);
@@ -142,20 +149,50 @@
   border-radius: 4px;
   padding: 3px 8px;
   outline: none;
-  width: 180px;
+  width: 225px;
 }
 
 .saveBtn {
   padding: 4px 12px;
   border-radius: 4px;
   border: 1px solid var(--accent);
-  font-size: 12px;
+  font-size: 15px;
   color: var(--accent);
   transition: background 0.15s;
 }
 
 .saveBtn:hover:not(:disabled) {
-  background: rgba(79, 142, 247, 0.12);
+  background: var(--accent-soft);
+}
+
+.instructionsBtn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  font-size: 15px;
+  color: var(--accent);
+  transition: background 0.15s;
+}
+
+.instructionsBtn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.themeSelect {
+  height: 28px;
+  min-width: 118px;
+  padding: 3px 26px 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  background: var(--bg-surface);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.themeSelect:hover,
+.themeSelect:focus {
+  background: var(--accent-soft);
 }
 
 .saveBtn:disabled {
@@ -164,14 +201,14 @@
 }
 
 .saveError {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--danger);
 }
 
 .saveWarning {
-  font-size: 11px;
-  color: #f59e0b;
-  max-width: 300px;
+  font-size: 13.75px;
+  color: var(--warning);
+  max-width: 375px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -181,4 +218,60 @@
   flex: 1;
   overflow: hidden;
   display: flex;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.instructionsModal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.modalHeader h2 {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modalClose {
+  color: var(--text-muted);
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+.modalClose:hover {
+  color: var(--text);
+}
+
+.instructionsList {
+  padding: 18px 24px 22px 42px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.instructionsList li + li {
+  margin-top: 8px;
 }

@@ -117,7 +117,7 @@ export default function SelectionTransformer({ stageRef }: Props) {
           x={labelPos.x}
           y={labelPos.y - 28}
           text={`${liveRotation}°`}
-          fontSize={13}
+          fontSize={16.25}
           fontStyle="bold"
           fill="#ffffff"
           padding={4}

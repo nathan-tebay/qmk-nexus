@@ -27,7 +27,7 @@ export function EncoderShape({ el, selected, onSelect, onChange }: EncoderShapeP
     onChange(el.id, { x, y })
   }
 
-  const accent = '#4fc3f7'
+  const accent = '#d18a00'
 
   return (
     <Group
@@ -39,14 +39,14 @@ export function EncoderShape({ el, selected, onSelect, onChange }: EncoderShapeP
     >
       <Circle
         x={r} y={r} radius={r}
-        fill={selected ? 'rgba(79,195,247,0.18)' : 'rgba(255,255,255,0.05)'}
+        fill={selected ? 'rgba(209,138,0,0.18)' : 'rgba(255,255,255,0.05)'}
         stroke={selected ? accent : 'rgba(255,255,255,0.22)'}
         strokeWidth={selected ? 2 : 1.5}
       />
       {/* inner ring */}
       <Circle
         x={r} y={r} radius={r * 0.45}
-        fill={selected ? 'rgba(79,195,247,0.12)' : 'rgba(255,255,255,0.06)'}
+        fill={selected ? 'rgba(209,138,0,0.12)' : 'rgba(255,255,255,0.06)'}
         stroke={selected ? accent : 'rgba(255,255,255,0.15)'}
         strokeWidth={1}
       />
@@ -62,7 +62,7 @@ export function EncoderShape({ el, selected, onSelect, onChange }: EncoderShapeP
         x={0} y={r * 1.35}
         width={r * 2}
         align="center"
-        fontSize={9}
+        fontSize={11.25}
         fill={selected ? accent : '#666'}
         fontStyle="bold"
       />
@@ -121,7 +121,7 @@ export function OledShape({ el, selected, onSelect, onChange }: OledShapeProps) 
         x={0} y={ph - 11}
         width={pw}
         align="center"
-        fontSize={8}
+        fontSize={10}
         fill={selected ? accent : '#666'}
         fontStyle="bold"
       />
@@ -174,7 +174,7 @@ export function TrackballShape({ el, selected, onSelect, onChange }: TrackballSh
         x={0} y={r * 1.35}
         width={r * 2}
         align="center"
-        fontSize={9}
+        fontSize={11.25}
         fill={selected ? accent : '#666'}
         fontStyle="bold"
       />

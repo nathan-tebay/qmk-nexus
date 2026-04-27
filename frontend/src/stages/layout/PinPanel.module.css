@@ -9,13 +9,13 @@
 
 .empty {
   padding: 14px;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
   line-height: 1.5;
 }
 
 .sectionTitle {
-  font-size: 10px;
+  font-size: 12.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -31,13 +31,13 @@
 }
 
 .pinLabel {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
-  width: 44px;
+  width: 55px;
   flex-shrink: 0;
 }
 
 .pinInput {
   flex: 1;
-  font-size: 12px;
+  font-size: 15px;
 }

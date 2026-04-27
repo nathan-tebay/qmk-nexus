@@ -1,6 +1,7 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useMemo, useState } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import type { Layer } from '@/store/keyboard'
+import type { OledElement } from '@/store/keyboard'
 import { OLED_BLOCKS, OLED_PIXEL_SIZES, OLED_DISPLAY_OPTIONS, getBlockPreviewLines } from './oledBlocks'
 import styles from './OledConfigurator.module.css'
 
@@ -84,6 +85,107 @@ function imageToOledBytes(img: HTMLImageElement, w: number, h: number): number[]
   return bytes
 }
 
+function cString(text: string): string {
+  return text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r|\n/g, ' ')
+}
+
+function blockCode(blockId: string, indent: string, layers: Layer[], hasLogoBytes: boolean, oledIndex: number): string[] {
+  switch (blockId) {
+    case 'logo':
+      return hasLogoBytes
+        ? [`${indent}oled_write_raw_P(_oled${oledIndex}_logo, sizeof(_oled${oledIndex}_logo));`]
+        : [`${indent}oled_write_P(PSTR("QMK Nexus\\n"), false);`]
+    case 'layer_name':
+      return [
+        `${indent}switch (get_highest_layer(layer_state)) {`,
+        ...layers.map((layer, i) => `${indent}    case ${i}: oled_write_P(PSTR("${cString(layer.name.padEnd(6, ' '))}"), false); break;`),
+        `${indent}    default: oled_write_P(PSTR("???   "), false); break;`,
+        `${indent}}`,
+      ]
+    case 'wpm':
+      return [
+        `${indent}oled_write_P(PSTR("WPM: "), false);`,
+        `${indent}oled_write(get_u8_str(get_current_wpm(), '0'), false);`,
+        `${indent}oled_write_P(PSTR("\\n"), false);`,
+      ]
+    case 'host_leds':
+      return [
+        `${indent}{`,
+        `${indent}    led_t led_state = host_keyboard_led_state();`,
+        `${indent}    oled_write_P(led_state.num_lock ? PSTR("NUM ") : PSTR("    "), false);`,
+        `${indent}    oled_write_P(led_state.caps_lock ? PSTR("CAP ") : PSTR("    "), false);`,
+        `${indent}    oled_write_P(led_state.scroll_lock ? PSTR("SCR ") : PSTR("    "), false);`,
+        `${indent}}`,
+      ]
+    case 'mod_indicators':
+      return [
+        `${indent}{`,
+        `${indent}    uint8_t mods = get_mods() | get_oneshot_mods();`,
+        `${indent}    oled_write_P(mods & MOD_MASK_SHIFT ? PSTR("SFT ") : PSTR("    "), false);`,
+        `${indent}    oled_write_P(mods & MOD_MASK_CTRL ? PSTR("CTL ") : PSTR("    "), false);`,
+        `${indent}    oled_write_P(mods & MOD_MASK_ALT ? PSTR("ALT ") : PSTR("    "), false);`,
+        `${indent}    oled_write_P(mods & MOD_MASK_GUI ? PSTR("GUI ") : PSTR("    "), false);`,
+        `${indent}}`,
+      ]
+    case 'keylog':
+      return [
+        `${indent}// keylog: implement keylog_str in your keymap, then:`,
+        `${indent}// oled_write(keylog_str, false);`,
+      ]
+    case 'master_slave':
+      return [
+        `${indent}oled_write_P(is_keyboard_master() ? PSTR("Master") : PSTR("Slave "), false);`,
+        `${indent}oled_write_P(PSTR("\\n"), false);`,
+      ]
+    default:
+      return [`${indent}// Unknown block: ${blockId}`]
+  }
+}
+
+function appendBlocks(lines: string[], blocks: string[], indent: string, layers: Layer[], hasLogoBytes: boolean, oledIndex: number) {
+  for (const blockId of blocks) lines.push(...blockCode(blockId, indent, layers, hasLogoBytes, oledIndex))
+}
+
+function generateCustomCodeFromPreset(oled: OledElement, layers: Layer[], oledIndex: number): string {
+  const lines = ['// Generated from Preset Blocks. Edit freely.']
+  const hasLogoBytes = oled.logoBytes.length > 0
+  const hasStartup = oled.startupBlocks.length > 0
+  const hasIdle = oled.idleBlocks.length > 0
+  const hasActive = oled.activeBlocks.length > 0
+
+  if (hasLogoBytes) {
+    lines.push('// Logo data is emitted by QMK Nexus outside oled_task_user().')
+  }
+
+  if (hasStartup) {
+    lines.push('static uint32_t startup_timer = 0;')
+    lines.push('if (!startup_timer) startup_timer = timer_read32();')
+    lines.push(`if (timer_elapsed32(startup_timer) < ${oled.startupDuration}U) {`)
+    appendBlocks(lines, oled.startupBlocks, '    ', layers, hasLogoBytes, oledIndex)
+    lines.push('    return false;')
+    lines.push('}')
+    lines.push('')
+  }
+
+  if (hasIdle) {
+    lines.push(`if (last_input_activity_elapsed() > ${oled.idleTimeout}U) {`)
+    appendBlocks(lines, oled.idleBlocks, '    ', layers, hasLogoBytes, oledIndex)
+    lines.push('    return false;')
+    lines.push('}')
+    lines.push('')
+  }
+
+  if (hasActive) {
+    appendBlocks(lines, oled.activeBlocks, '', layers, hasLogoBytes, oledIndex)
+  }
+
+  if (!hasStartup && !hasIdle && !hasActive) {
+    lines.push('oled_write_P(PSTR("Hello!\\n"), false);')
+  }
+
+  return lines.join('\n')
+}
+
 export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
   const { config, updateOled, activeLayerId } = useKeyboardStore()
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -100,9 +202,10 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
   const startupDuration = oled?.startupDuration ?? 15000
   const idleTimeout    = oled?.idleTimeout    ?? 10000
   const customCode     = oled?.customCode     ?? ''
+  const customCodeTemplate = oled?.customCodeTemplate ?? ''
   const displaySize    = oled?.displaySize    ?? '128_32'
   const logoImage      = oled?.logoImage      ?? ''
-  const pixelSize      = OLED_PIXEL_SIZES[displaySize] ?? { w: 128, h: 32 }
+  const pixelSize      = useMemo(() => OLED_PIXEL_SIZES[displaySize] ?? OLED_PIXEL_SIZES['128_32'], [displaySize])
 
   useEffect(() => {
     if (!logoImage) { setLogoImg(null); return }
@@ -186,6 +289,16 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
 
   const logoInAnyState = startupBlocks.includes('logo') || activeBlocks.includes('logo') || idleBlocks.includes('logo')
 
+  function switchToCustomMode() {
+    if (!oled) return
+    const generated = generateCustomCodeFromPreset(oled, config.layers, oledIndex)
+    const shouldRefresh = !customCode.trim() || customCode === customCodeTemplate
+    updateOled(oledId, {
+      contentMode: 'custom',
+      ...(shouldRefresh ? { customCode: generated, customCodeTemplate: generated } : {}),
+    })
+  }
+
   const STATE_DEFS: { id: OledState; label: string; badge?: string }[] = [
     { id: 'startup', label: 'Startup', badge: `${startupDuration / 1000}s on boot` },
     { id: 'active',  label: 'Active',  badge: 'while typing' },
@@ -224,7 +337,7 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
           </button>
           <button
             className={`${styles.modeBtn} ${contentMode === 'custom' ? styles.modeBtnActive : ''}`}
-            onClick={() => updateOled(oledId, { contentMode: 'custom' })}
+            onClick={switchToCustomMode}
           >
             Custom C Code
           </button>
@@ -338,6 +451,11 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
                   onChange={(e) => updateOled(oledId, { customCode: e.target.value })}
                   placeholder={`oled_write_P(PSTR("Hello!\\n"), false);\n// return false; is added automatically`}
                   spellCheck={false}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  data-gramm="false"
+                  data-gramm_editor="false"
+                  data-enable-grammarly="false"
                 />
               </div>
             )}

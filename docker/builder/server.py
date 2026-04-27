@@ -10,7 +10,9 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
+import sys
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -18,13 +20,14 @@ from http.client import HTTPConnection
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-PORT = int(os.environ.get("DEV_SERVER_PORT", "8080"))
+PORT = int(os.environ.get("DEV_SERVER_PORT", "8088"))
 BIND_HOST = os.environ.get("BIND_HOST", "127.0.0.1")  # nginx proxies from same host
 BUILD_IMAGE = os.environ.get("BUILD_IMAGE", "qmk-nexus-builder")
 BUILDS_ROOT = Path(os.environ.get("BUILDS_ROOT", "/tmp/tebay-builds"))
 BUILD_TIMEOUT = int(os.environ.get("BUILD_TIMEOUT", "600"))
 PODMAN_BIN = os.environ.get("PODMAN_BIN", "podman")
 CONTAINER_HOST = os.environ.get("CONTAINER_HOST", "")
+BUILDER_CONTAINER_PORT = os.environ.get("BUILDER_CONTAINER_PORT", "8099")
 
 # {build_id: {build_id, status, container_id, port, started_at, finished_at, error, cached_status}}
 builds: dict[str, dict] = {}
@@ -42,6 +45,12 @@ def podman(*args, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run([*_podman_base(), *args], **kwargs)
 
 
+def _free_host_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
+
+
 def _container_get(port: str, path: str, timeout: int = 5) -> tuple[int, bytes, dict]:
     """HTTP GET to container socat server. Returns (status_code, body, headers)."""
     conn = HTTPConnection("localhost", int(port), timeout=timeout)
@@ -55,21 +64,33 @@ def _container_get(port: str, path: str, timeout: int = 5) -> tuple[int, bytes, 
 
 def spawn_build(build_id: str, payload: dict) -> None:
     """
-    Spawn builder container detached with a random host port mapped to :8080.
-    Container mounts build_dir at /build and serves socat HTTP on :8080.
+    Spawn builder container detached with a random host port mapped to the
+    builder HTTP API port.
+    Container mounts build_dir at /build and serves socat HTTP on that port.
     """
-    build_dir = BUILDS_ROOT / build_id
-    build_dir.mkdir(parents=True, exist_ok=True)
-    (build_dir / "output").mkdir(exist_ok=True)
+    try:
+        build_dir = BUILDS_ROOT / build_id
+        build_dir.mkdir(parents=True, exist_ok=True)
+        build_dir.chmod(0o777)
+        (build_dir / "output").mkdir(exist_ok=True)
+        (build_dir / "output").chmod(0o777)
 
-    # When a caller-provided build_id is used, the backend pre-places source
-    # files in src/ before posting here.  Fail fast rather than spawning a
-    # container against an empty directory.
-    src_dir = build_dir / "src"
-    if not src_dir.exists() or not any(src_dir.iterdir()):
+        # When a caller-provided build_id is used, the backend pre-places source
+        # files in src/ before posting here.  Fail fast rather than spawning a
+        # container against an empty directory.
+        src_dir = build_dir / "src"
+        if not src_dir.exists() or not any(src_dir.iterdir()):
+            with build_locks[build_id]:
+                builds[build_id]["status"] = "failed"
+                builds[build_id]["error"] = "src/ directory missing or empty - codegen may not have completed"
+                builds[build_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
+            return
+
+        src_dir.chmod(0o777)
+    except OSError as exc:
         with build_locks[build_id]:
             builds[build_id]["status"] = "failed"
-            builds[build_id]["error"] = "src/ directory missing or empty — codegen may not have completed"
+            builds[build_id]["error"] = str(exc)
             builds[build_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
         return
 
@@ -80,8 +101,8 @@ def spawn_build(build_id: str, payload: dict) -> None:
 
     cmd = [
         *_podman_base(), "run", "-d",
-        "-p", "0:8080",
-        "-v", f"{build_dir}:/build:Z",
+        "-p", f"{_free_host_port()}:{BUILDER_CONTAINER_PORT}",
+        "-v", f"{build_dir}:/build:z",
     ]
     for key, val in env_vars.items():
         cmd += ["-e", f"{key}={val}"]
@@ -93,7 +114,7 @@ def spawn_build(build_id: str, payload: dict) -> None:
         container_id = result.stdout.strip()
 
         port_out = subprocess.run(
-            [*_podman_base(), "port", container_id, "8080"],
+            [*_podman_base(), "port", container_id, BUILDER_CONTAINER_PORT],
             capture_output=True, text=True, check=True,
         )
         port = port_out.stdout.strip().rsplit(":", 1)[-1]
@@ -168,7 +189,14 @@ class BuildHandler(BaseHTTPRequestHandler):
     ROUTE_BUILD    = re.compile(r"^/builds/([\w-]+)/?$")
 
     def log_message(self, format, *args):
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] {self.command} {self.path} → {args[1]}")
+        try:
+            print(
+                f"[{datetime.now().strftime('%H:%M:%S')}] {self.command} {self.path} -> {args[1]}",
+                file=sys.stderr,
+                flush=True,
+            )
+        except OSError:
+            pass
 
     def _send_json(self, status: int, data: dict) -> None:
         body = json.dumps(data, default=str).encode()

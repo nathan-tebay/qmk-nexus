@@ -9,7 +9,7 @@
 }
 
 .modal {
-  width: 640px;
+  width: 800px;
   max-height: 72vh;
   background: var(--bg-surface);
   border: 1px solid var(--border);
@@ -30,7 +30,7 @@
 }
 
 .title {
-  font-size: 14px;
+  font-size: 17.5px;
   font-weight: 600;
 }
 
@@ -38,7 +38,7 @@
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: 22.5px;
   cursor: pointer;
   line-height: 1;
 }
@@ -54,7 +54,7 @@
 .tab {
   flex: 1;
   padding: 10px 16px;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text-muted);
   background: none;
@@ -84,7 +84,7 @@
 .empty {
   padding: 24px;
   text-align: center;
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text-muted);
 }
 
@@ -102,7 +102,7 @@
 }
 
 .row.active {
-  background: rgba(79, 142, 247, 0.08);
+  background: var(--accent-faint);
   border-left: 3px solid var(--accent);
 }
 
@@ -115,7 +115,7 @@
 }
 
 .name {
-  font-size: 13px;
+  font-size: 16.25px;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -130,7 +130,7 @@
 }
 
 .meta > span {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
 }
 
@@ -139,12 +139,12 @@
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 1px 5px;
-  font-size: 10px !important;
+  font-size: 12.5px !important;
   color: var(--text-muted);
 }
 
 .path {
-  font-size: 10px !important;
+  font-size: 12.5px !important;
   color: #444 !important;
   font-family: monospace;
 }
@@ -161,7 +161,7 @@
 .loadBtn {
   padding: 4px 10px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 15px;
   border: 1px solid var(--accent);
   color: var(--accent);
   cursor: pointer;
@@ -169,11 +169,11 @@
 }
 
 .loadBtn:hover {
-  background: rgba(79, 142, 247, 0.12);
+  background: var(--accent-soft);
 }
 
 .current {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--accent);
   padding: 4px 10px;
 }
@@ -181,7 +181,7 @@
 .deleteBtn {
   padding: 4px 8px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 15px;
   border: 1px solid var(--border);
   color: var(--text-muted);
   cursor: pointer;
@@ -210,7 +210,7 @@
 .newBtn {
   padding: 6px 14px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 16.25px;
   font-weight: 500;
   border: 1px solid var(--accent);
   color: var(--accent);
@@ -219,7 +219,7 @@
 }
 
 .newBtn:hover:not(:disabled) {
-  background: rgba(79, 142, 247, 0.12);
+  background: var(--accent-soft);
 }
 
 .newBtn:disabled {
@@ -228,13 +228,13 @@
 }
 
 .count {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   margin-left: auto;
 }
 
 .limitNote {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
 }
 
@@ -254,7 +254,7 @@
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text);
-  font-size: 13px;
+  font-size: 16.25px;
 }
 
 .importBtn {
@@ -262,8 +262,8 @@
   padding: 5px 14px;
   border-radius: 4px;
   background: var(--accent);
-  color: #fff;
-  font-size: 12px;
+  color: var(--on-accent);
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
   border: none;
@@ -276,7 +276,7 @@
 
 .error {
   padding: 8px 16px;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--danger, #ef4444);
   flex-shrink: 0;
 }

@@ -1,7 +1,7 @@
 """Per-user SQLite storage on S3 with If-Match conditional writes.
 
 Dev (is_prod=False): local files under /tmp/qmk-nexus-dbs/.
-Prod: S3 bucket, with ETag tracked per-request so push fails on concurrent writes.
+Prod: S3 bucket, with ETag tracked per pulled temp DB so push fails on concurrent writes.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from config import settings
 
 _LOCAL_DB_DIR = Path(tempfile.gettempdir()) / 'qmk-nexus-dbs'
 _etag_lock = threading.Lock()
-_etags: dict[str, str] = {}  # user_id → last-seen etag (process-local cache)
+_etags: dict[str, str | None] = {}  # temp db path -> last-seen etag (None means object did not exist)
 
 
 class S3ConflictError(Exception):
@@ -43,17 +43,14 @@ def _error_code(exc: Exception) -> str | None:
     return None
 
 
-def _set_etag(user_id: str, etag: str | None) -> None:
+def _set_etag(db_path: Path, etag: str | None) -> None:
     with _etag_lock:
-        if etag:
-            _etags[user_id] = etag
-        else:
-            _etags.pop(user_id, None)
+        _etags[str(db_path)] = etag
 
 
-def _get_etag(user_id: str) -> str | None:
+def _get_etag(db_path: Path) -> str | None:
     with _etag_lock:
-        return _etags.get(user_id)
+        return _etags.get(str(db_path))
 
 
 def pull_user_db(user_id: str) -> Path:
@@ -72,11 +69,11 @@ def pull_user_db(user_id: str) -> Path:
         with open(tmp_path, 'wb') as f:
             for chunk in resp['Body'].iter_chunks():
                 f.write(chunk)
-        _set_etag(user_id, resp.get('ETag'))
+        _set_etag(tmp_path, resp.get('ETag'))
     except Exception as e:
         if _error_code(e) in ('NoSuchKey', '404'):
             _init_db(tmp_path)
-            _set_etag(user_id, None)
+            _set_etag(tmp_path, None)
         else:
             raise
     return tmp_path
@@ -88,7 +85,7 @@ def push_user_db(user_id: str, db_path: Path) -> None:
 
     s3 = _s3_client()
     key = _user_key(user_id)
-    etag = _get_etag(user_id)
+    etag = _get_etag(db_path)
     extra_args = {'IfMatch': etag} if etag else {'IfNoneMatch': '*'}
 
     try:
@@ -98,10 +95,10 @@ def push_user_db(user_id: str, db_path: Path) -> None:
             Body=db_path.read_bytes(),
             **extra_args,
         )
-        _set_etag(user_id, resp.get('ETag'))
+        _set_etag(db_path, resp.get('ETag'))
     except Exception as e:
         if _error_code(e) in ('PreconditionFailed', '412'):
-            _set_etag(user_id, None)
+            _set_etag(db_path, None)
             raise S3ConflictError('User db changed since pull — retry the request') from e
         raise
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
+import socket
 import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -20,6 +21,7 @@ from config import settings
 from models import BuildStatus, User
 from s3 import pull_user_db
 from utils import jsonable_out, safe_name
+from validation import sanitize_keyboard_config, validate_build_ready
 
 logger = logging.getLogger('qmk-nexus.builds')
 
@@ -68,6 +70,7 @@ def _decode_build_cookie(build_token: str | None) -> dict | None:
 # ── Direct podman helpers (fallback when BUILD_PROXY_URL is not set) ──────────
 
 DOCKER_IMAGE = 'qmk-nexus-builder'
+BUILDER_CONTAINER_PORT = '8099'
 
 
 def _podman_cmd() -> list[str]:
@@ -88,6 +91,12 @@ def _podman_env() -> dict:
     return base
 
 
+def _free_host_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(('127.0.0.1', 0))
+        return sock.getsockname()[1]
+
+
 def _spawn_direct(build_dir: Path, config) -> tuple[str, str]:
     """Returns (container_id, 'host:port')."""
     env = _podman_env()
@@ -95,8 +104,8 @@ def _spawn_direct(build_dir: Path, config) -> tuple[str, str]:
         result = subprocess.run(
             _podman_cmd() + [
                 'run', '-d',
-                '-p', '0:8080',
-                '-v', f'{build_dir}:/build:Z',
+                '-p', f'{_free_host_port()}:{BUILDER_CONTAINER_PORT}',
+                '-v', f'{build_dir}:/build:z',
                 '-e', f'TARGET_MCU={config.mcu}',
                 '-e', f'KEYBOARD_NAME={safe_name(config.name)}',
                 DOCKER_IMAGE,
@@ -110,7 +119,7 @@ def _spawn_direct(build_dir: Path, config) -> tuple[str, str]:
 
     try:
         port_out = subprocess.run(
-            _podman_cmd() + ['port', container_id, '8080'],
+            _podman_cmd() + ['port', container_id, BUILDER_CONTAINER_PORT],
             capture_output=True, text=True, check=True, env=env,
         )
     except subprocess.CalledProcessError as exc:
@@ -146,18 +155,25 @@ async def trigger_build(
     config = database.get_keyboard(db_path, keyboard_id)
     if not config:
         raise HTTPException(status_code=404, detail='Keyboard not found')
+    config = sanitize_keyboard_config(config)
 
-    if config.mcu not in _AVR_MCUS:
+    config_errors = validate_build_ready(config)
+    if config_errors:
+        raise HTTPException(status_code=422, detail=config_errors)
+
+    if config.source_mode != 'qmk_native' and config.mcu not in _AVR_MCUS:
         raise HTTPException(status_code=400, detail=f'MCU {config.mcu} not yet supported')
 
     build_id = str(uuid.uuid4())
     build_dir = _BUILDS_ROOT / build_id
     build_dir.mkdir(parents=True)
+    build_dir.chmod(0o777)
 
     status = BuildStatus(id=build_id, keyboard_id=keyboard_id, status='building', log=['Build started'])
 
     try:
         generate_all(config, build_dir)
+        (build_dir / 'src').chmod(0o777)
         status.log.append('Code generation complete')
     except Exception as exc:
         logger.exception('Codegen failed for build %s', build_id)
@@ -172,6 +188,13 @@ async def trigger_build(
         # ── Proxy mode: delegate to build proxy (server.py) on the host ──────
         try:
             async with httpx.AsyncClient() as client:
+                try:
+                    health = await client.get(f'{proxy_url}/builds', timeout=3)
+                    health.raise_for_status()
+                except httpx.HTTPError as exc:
+                    raise RuntimeError(
+                        f'Build proxy unavailable at {proxy_url}. Restart it with ./run.sh build-proxy.'
+                    ) from exc
                 r = await client.post(
                     f'{proxy_url}/builds',
                     json={

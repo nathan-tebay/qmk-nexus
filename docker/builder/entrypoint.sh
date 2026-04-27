@@ -1,5 +1,5 @@
 #!/bin/bash
-# Starts build in background, serves HTTP on :8080 via socat for status/download polling.
+# Starts build in background, serves HTTP on :8099 via socat for status/download polling.
 
 echo "building" > /tmp/build_status
 : > /tmp/build_log
@@ -21,4 +21,4 @@ echo "building" > /tmp/build_status
 _self=$$
 (sleep 600 && kill -TERM "$_self") &
 
-exec socat TCP-LISTEN:8080,reuseaddr,fork EXEC:/api.sh
+exec socat TCP-LISTEN:8099,reuseaddr,fork EXEC:/api.sh

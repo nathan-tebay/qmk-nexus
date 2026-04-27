@@ -168,13 +168,13 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     searchRef.current?.focus()
     doSearch('')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => doSearch(query), 250)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
-  }, [query]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [query])
 
   async function doSearch(q: string) {
     setLoading(true)
@@ -220,7 +220,7 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
           <div className={styles.empty}>
             No keyboards found.
             {!query && (
-              <span style={{ display: 'block', marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+              <span style={{ display: 'block', marginTop: 6, fontSize: 13.75, color: 'var(--text-muted)' }}>
                 The QMK keyboard index is empty. Populate <code>qmk_firmware/keyboards/</code> to enable import.
               </span>
             )}

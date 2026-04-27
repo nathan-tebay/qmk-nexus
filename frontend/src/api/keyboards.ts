@@ -31,6 +31,16 @@ export const keyboardsApi = {
   update: (id: string, config: KeyboardConfig) =>
     api.put<KeyboardConfig>(`/keyboards/${id}`, config),
 
+  downloadSources: async (id: string, filename: string) => {
+    const blob = await api.blob(`/keyboards/${id}/sources`)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  },
+
   delete: (id: string) =>
     api.delete<{ deleted: string }>(`/keyboards/${id}`),
 }

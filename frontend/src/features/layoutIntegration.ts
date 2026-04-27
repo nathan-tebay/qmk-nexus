@@ -2,7 +2,7 @@ import { KeyboardLayoutMeta, FeatureConfig } from './types';
 
 export function initializeFeatures(layoutMeta: KeyboardLayoutMeta, currentConfigs: FeatureConfig[]): FeatureConfig[] {
   // Deep clone to avoid mutating the original definitions
-  let newConfigs = JSON.parse(JSON.stringify(currentConfigs)) as FeatureConfig[];
+  const newConfigs = JSON.parse(JSON.stringify(currentConfigs)) as FeatureConfig[];
 
   // 1. Pre-calculate required features set for O(1) lookup
   const requiredIds = new Set(layoutMeta.requiredFeatures || []);

@@ -138,11 +138,11 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
 
               {hold ? (
                 <>
-                  <Text x={4} y={4} width={w - 8} text={hold} fontSize={9} fill="#888" align="center" listening={false} />
-                  <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 13 : 10} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
+                  <Text x={4} y={4} width={w - 8} text={hold} fontSize={11.25} fill="#888" align="center" listening={false} />
+                  <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 16.25 : 12.5} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
                 </>
               ) : (
-                <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 13 : 10} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
+                <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 16.25 : 12.5} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
               )}
             </Group>
           )
@@ -167,8 +167,8 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
               <Circle radius={r} fill="#1a2a1a" stroke="#3a7a3a" strokeWidth={2} />
               <Circle radius={r * 0.45} fill="#112211" stroke="#2a5a2a" strokeWidth={1} />
               {enc.hasSwitch && <Circle radius={r * 0.15} fill="#3a7a3a" />}
-              <Text text={`E${encIdx}`} width={r * 2} x={-r} y={-r * 0.6} align="center" fontSize={9} fill="#6dbf6d" listening={false} />
-              <Text text={cwLabel} width={r * 2} x={-r} y={-r * 0.1} align="center" fontSize={8} fill={cwCode ? LABEL_COLOR : '#444'} listening={false} />
+              <Text text={`E${encIdx}`} width={r * 2} x={-r} y={-r * 0.6} align="center" fontSize={11.25} fill="#6dbf6d" listening={false} />
+              <Text text={cwLabel} width={r * 2} x={-r} y={-r * 0.1} align="center" fontSize={10} fill={cwCode ? LABEL_COLOR : '#444'} listening={false} />
             </Group>
           )
         })}
@@ -179,7 +179,7 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
             <Group key={tb.id} x={tb.x * UNIT} y={tb.y * UNIT}>
               <Circle radius={r} fill="#1a1a2e" stroke="#4a4a8a" strokeWidth={2} />
               <Circle radius={r * 0.55} fill="#2a2a4a" stroke="#5a5a9a" strokeWidth={1} />
-              <Text text={`TB${tbIdx}`} width={r * 2} x={-r} y={-r * 0.25} align="center" fontSize={9} fill="#9a9adf" listening={false} />
+              <Text text={`TB${tbIdx}`} width={r * 2} x={-r} y={-r * 0.25} align="center" fontSize={11.25} fill="#9a9adf" listening={false} />
             </Group>
           )
         })}
@@ -199,8 +199,8 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
               style={{ cursor: 'pointer' }}
             >
               <Rect width={size.w} height={size.h} fill="#0d0d0d" stroke="#555" strokeWidth={1} cornerRadius={3} />
-              <Text text={`OLED ${oledIdx}`} x={4} y={3} fontSize={8} fill="#aaa" listening={false} />
-              <Text text={sublabel} x={4} y={size.h - 11} fontSize={7} fill="#666" listening={false} />
+              <Text text={`OLED ${oledIdx}`} x={4} y={3} fontSize={10} fill="#aaa" listening={false} />
+              <Text text={sublabel} x={4} y={size.h - 11} fontSize={8.75} fill="#666" listening={false} />
             </Group>
           )
         })}

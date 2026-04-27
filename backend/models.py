@@ -76,6 +76,7 @@ class OledElement(BaseModel):
     startup_duration: int = 15000
     idle_timeout: int = 10000
     custom_code: str = ''
+    custom_code_template: str = ''
     logo_image: str = ''
     logo_bytes: list[int] = Field(default_factory=list)
 
@@ -118,6 +119,10 @@ class KeyboardConfig(BaseModel):
     features: dict[str, bool] = Field(default_factory=dict)
     feature_configs: dict[str, dict[str, str]] = Field(default_factory=dict)
     feature_input_values: dict[str, dict[str, str]] = Field(default_factory=dict)
+    layout_macro: str = 'LAYOUT'
+    source_mode: str = 'generated'
+    upstream_keyboard: str | None = None
+    upstream_files: dict[str, str] = Field(default_factory=dict)
     soft_serial_pin: str = 'D0'
     encoders: list[EncoderElement] = Field(default_factory=list)
     oleds: list[OledElement] = Field(default_factory=list)

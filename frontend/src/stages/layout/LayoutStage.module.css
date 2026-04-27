@@ -6,7 +6,7 @@
 }
 
 .left {
-  width: 180px;
+  width: 225px;
   flex-shrink: 0;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
@@ -20,7 +20,7 @@
 }
 
 .right {
-  width: 220px;
+  width: 275px;
   flex-shrink: 0;
   background: var(--bg-surface);
   border-left: 1px solid var(--border);
@@ -37,7 +37,7 @@
 .tab {
   flex: 1;
   padding: 10px;
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
@@ -72,7 +72,7 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 36px 40px;
-  max-width: 480px;
+  max-width: 600px;
   width: 100%;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4);
   display: flex;
@@ -81,7 +81,7 @@
 }
 
 .welcomeTitle {
-  font-size: 22px;
+  font-size: 27.5px;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: -0.5px;
@@ -89,7 +89,7 @@
 }
 
 .welcomeTagline {
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text-muted);
   margin: -12px 0 0;
 }
@@ -107,13 +107,13 @@
 }
 
 .stepNum {
-  width: 22px;
-  height: 22px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  background: rgba(79, 142, 247, 0.15);
+  background: var(--accent-soft);
   border: 1px solid var(--accent);
   color: var(--accent);
-  font-size: 11px;
+  font-size: 13.75px;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -129,12 +129,12 @@
 }
 
 .welcomeStep strong {
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text);
 }
 
 .welcomeStep span {
-  font-size: 12px;
+  font-size: 15px;
   color: var(--text-muted);
 }
 
@@ -148,10 +148,10 @@
   flex: 1;
   padding: 9px 16px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 16.25px;
   font-weight: 500;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -165,7 +165,7 @@
   flex: 1;
   padding: 9px 16px;
   border-radius: 6px;
-  font-size: 13px;
+  font-size: 16.25px;
   font-weight: 500;
   background: none;
   color: var(--text-muted);
@@ -180,7 +180,7 @@
 }
 
 .welcomeCredits {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   margin: 0;
   text-align: center;
@@ -207,7 +207,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   pointer-events: all;
   backdrop-filter: blur(4px);
@@ -215,6 +215,6 @@
 
 .matrixInfo strong {
   color: var(--text);
-  font-size: 12px;
+  font-size: 15px;
   margin-bottom: 2px;
 }

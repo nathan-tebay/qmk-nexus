@@ -7,7 +7,7 @@
 }
 
 .hint {
-  font-size: 11px;
+  font-size: 13.75px;
   color: var(--text-muted);
   padding: 4px 16px;
   background: var(--bg-surface);
@@ -25,6 +25,6 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  font-size: 13px;
+  font-size: 16.25px;
   color: var(--text-muted);
 }

@@ -3,6 +3,7 @@ import { FEATURE_MODULES, incompatMap, ConfigField } from './modules'
 import styles from './FeatureToggles.module.css'
 
 const GROUPS = Array.from(new Set(FEATURE_MODULES.map((m) => m.group)))
+const MAX_REPEATED_FIELDS = 16
 
 function evalConditional(
   conditionalOn: Record<string, string | string[]>,
@@ -11,6 +12,36 @@ function evalConditional(
   return Object.entries(conditionalOn).every(([k, v]) => {
     const current = cfg[k] ?? ''
     return Array.isArray(v) ? v.includes(current) : current === v
+  })
+}
+
+function repeatKey(key: string, index: number): string {
+  return key.replace(/_0$/, `_${index}`)
+}
+
+function repeatDescription(field: ConfigField, index: number): string {
+  if (field.description.includes('0')) {
+    return field.description.replace(/\b0\b/g, String(index))
+  }
+  return field.key.startsWith('ENCODER_')
+    ? field.description.replace('Encoder ', `Encoder ${index} `)
+    : `${field.description} ${index}`
+}
+
+function expandConfigFields(fields: readonly ConfigField[], cfg: Record<string, string>): ConfigField[] {
+  return fields.flatMap((field) => {
+    if (!field.repeatPerCount) return [field]
+    const rawCount = cfg[field.repeatPerCount] ?? '1'
+    const parsed = Number.parseInt(rawCount, 10)
+    const count = Number.isFinite(parsed) && parsed > 0
+      ? Math.min(parsed, MAX_REPEATED_FIELDS)
+      : 0
+    return Array.from({ length: count }, (_, index) => ({
+      ...field,
+      key: repeatKey(field.key, index),
+      description: repeatDescription(field, index),
+      repeatPerCount: undefined,
+    }))
   })
 }
 
@@ -96,7 +127,7 @@ export default function FeatureToggles() {
 
                     {enabled && mod.inputs.length > 0 && (
                       <div className={styles.configPanel}>
-                        {mod.inputs.map((field) => {
+                        {expandConfigFields(mod.inputs, cfg).map((field) => {
                           if (field.conditionalOn && !evalConditional(field.conditionalOn, cfg)) {
                             return null
                           }

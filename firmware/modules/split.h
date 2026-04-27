@@ -4,7 +4,7 @@
  * Split keyboard module — bidirectional half communication
  *
  * This header defines the configuration interface for split keyboards.
- * tebay-qmk's codegen emits these defines in config.h when split_keyboard
+ * QMK Nexus codegen emits these defines in config.h when split_keyboard
  * is enabled. The transport layer (serial / I2C) is selected via defines.
  *
  * QMK reference: quantum/split_common/transport.h

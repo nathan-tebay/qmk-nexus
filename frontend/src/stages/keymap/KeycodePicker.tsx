@@ -145,7 +145,7 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
             <div className={styles.layerRow}>
               <span className={styles.sectionLabel}>or Layer:</span>
               <div className={styles.layerBtns}>
-                {Array.from({ length: layerCount }, (_, i) => i + 1).map((n) => (
+                {Array.from({ length: Math.max(0, layerCount - 1) }, (_, i) => i + 1).map((n) => (
                   <button
                     key={n}
                     className={`${styles.modBtn} ${holdLayer === n ? styles.modActive : ''}`}

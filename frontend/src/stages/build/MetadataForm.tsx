@@ -26,7 +26,7 @@ export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, onChange
         <select className={styles.input} value={mcu} onChange={(e) => onChange('mcu', e.target.value)}>
           {MCU_LIST.map((o) => (
             <option key={o.id} value={o.id}>
-              {o.label}{!o.supported ? ' (coming soon)' : ''}
+              {o.label}
             </option>
           ))}
         </select>

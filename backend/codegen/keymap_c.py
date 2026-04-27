@@ -4,10 +4,14 @@ from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
+def _c_comment(text: str) -> str:
+    return text.replace('*/', '* /').replace('\r', ' ').replace('\n', ' ')
+
+
 def generate_keymap_c(config: KeyboardConfig) -> str:
     keys = matrix_keys(config)
     rows = matrix_rows(config)
-    cols = matrix_cols(config)
+    cols = matrix_cols(config) or 1
 
     lines: list[str] = [
         "#include QMK_KEYBOARD_H",
@@ -16,8 +20,9 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
     ]
 
     for layer_idx, layer in enumerate(config.layers):
-        lines.append(f"    /* Layer {layer_idx}: {layer.name} */")
-        lines.append(f"    [{layer_idx}] = LAYOUT(")
+        lines.append(f"    /* Layer {layer_idx}: {_c_comment(layer.name)} */")
+        layout_macro = config.layout_macro or 'LAYOUT'
+        lines.append(f"    [{layer_idx}] = {layout_macro}(")
 
         keycodes = [layer.keycodes.get(k.id, "KC_TRNS") for k in keys]
 
@@ -41,7 +46,7 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
         lines.append('#if defined(ENCODER_MAP_ENABLE)')
         lines.append(f'const uint16_t PROGMEM encoder_map[{layer_count}][{enc_count}][2] = {{')
         for layer_idx, layer in enumerate(config.layers):
-            lines.append(f'    /* Layer {layer_idx}: {layer.name} */')
+            lines.append(f'    /* Layer {layer_idx}: {_c_comment(layer.name)} */')
             layer_comma = ',' if layer_idx < layer_count - 1 else ''
             lines.append(f'    [{layer_idx}] = {{')
             for enc_idx, enc in enumerate(config.encoders):

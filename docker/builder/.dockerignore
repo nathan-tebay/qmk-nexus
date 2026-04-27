@@ -1,0 +1,5 @@
+*
+!Dockerfile
+!api.sh
+!build.sh
+!entrypoint.sh

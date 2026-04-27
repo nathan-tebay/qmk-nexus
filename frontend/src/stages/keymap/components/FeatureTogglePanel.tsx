@@ -15,7 +15,7 @@ const WARNING_ICONS: Record<Warning['type'], string> = {
 
 const WARNING_COLORS: Record<Warning['type'], { bg: string; border: string }> = {
   hardware: { bg: 'rgba(245, 158, 11, 0.1)', border: '#f59e0b' },
-  info:     { bg: 'rgba(59, 130, 246, 0.1)',  border: '#3b82f6' },
+  info:     { bg: 'rgba(209, 138, 0, 0.1)',  border: '#d18a00' },
   caution:  { bg: 'rgba(239, 68, 68, 0.1)',   border: '#ef4444' },
 }
 
@@ -25,7 +25,7 @@ function WarningBanner({ warning }: { warning: Warning }) {
     <div
       role="alert"
       className={`warning-banner warning-${warning.type}`}
-      style={{ padding: '8px', borderRadius: '4px', marginBottom: '8px', backgroundColor: bg, borderLeft: `4px solid ${border}`, fontSize: '0.9em' }}
+      style={{ padding: '8px', borderRadius: '4px', marginBottom: '8px', backgroundColor: bg, borderLeft: `4px solid ${border}`, fontSize: '1.125em' }}
     >
       <strong>{WARNING_ICONS[warning.type]}</strong> {warning.message}
     </div>
@@ -175,13 +175,13 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         />
         <div className="feature-title-group" style={{ flexGrow: 1 }}>
           <span className="feature-name" style={{ fontWeight: 'bold' }}>{feature.name}</span>
-          <span className="feature-usage" style={{ opacity: 0.7, fontSize: '0.85em', marginLeft: '8px' }}>
+          <span className="feature-usage" style={{ opacity: 0.7, fontSize: '1.0625em', marginLeft: '8px' }}>
             {feature.usagePercent}% usage
           </span>
         </div>
         {feature.lockedOn && (
           <div className="lock-container" title="Required by your keyboard layout">
-            <span style={{ fontSize: '1.2em' }}>🔒</span>
+            <span style={{ fontSize: '1.5em' }}>🔒</span>
           </div>
         )}
       </div>
@@ -234,10 +234,8 @@ const FeatureInputField: React.FC<FeatureInputFieldProps> = ({
   onInputChange,
 }) => {
   // Conditional visibility: check sibling field value (not layoutMeta)
-  if (input.conditionalOn) {
-    const depValue = siblingValues[input.conditionalOn.field] ?? ''
-    if (!input.conditionalOn.values.includes(depValue)) return null
-  }
+  const depValue = input.conditionalOn ? siblingValues[input.conditionalOn.field] ?? '' : ''
+  const isHidden = !!input.conditionalOn && !input.conditionalOn.values.includes(depValue)
 
   const layoutValue = input.layoutKey ? (layoutMeta as Record<string, unknown>)[input.layoutKey] : undefined
   const isDerived = !!input.derivedFromLayout && layoutValue !== undefined
@@ -265,9 +263,11 @@ const FeatureInputField: React.FC<FeatureInputFieldProps> = ({
     outline: error ? '1px solid #ef4444' : undefined,
   }
 
+  if (isHidden) return null
+
   return (
     <div className="feature-input-group" style={{ marginBottom: '12px' }}>
-      <label htmlFor={renderId} className="feature-input-label" style={{ display: 'block', fontSize: '0.9em', fontWeight: 500 }}>
+      <label htmlFor={renderId} className="feature-input-label" style={{ display: 'block', fontSize: '1.125em', fontWeight: 500 }}>
         {renderLabel}{input.required && !isDerived && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
       </label>
 
@@ -304,24 +304,24 @@ const FeatureInputField: React.FC<FeatureInputFieldProps> = ({
       )}
 
       {error && (
-        <p id={errorId} role="alert" style={{ fontSize: '0.75em', color: '#ef4444', margin: '2px 0' }}>
+        <p id={errorId} role="alert" style={{ fontSize: '0.9375em', color: '#ef4444', margin: '2px 0' }}>
           {error}
         </p>
       )}
 
       <div id={helpId}>
         {isDerived && (
-          <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0', color: '#ef4444' }}>
+          <p style={{ fontSize: '0.9375em', opacity: 0.6, margin: '2px 0', color: '#ef4444' }}>
             Derived from keyboard layout — read only
           </p>
         )}
         {isPrefilled && !isDerived && (
-          <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0' }}>
+          <p style={{ fontSize: '0.9375em', opacity: 0.6, margin: '2px 0' }}>
             Pre-filled from keyboard layout
           </p>
         )}
         {input.helpText && (
-          <p style={{ fontSize: '0.75em', opacity: 0.6, marginTop: '2px' }}>{input.helpText}</p>
+          <p style={{ fontSize: '0.9375em', opacity: 0.6, marginTop: '2px' }}>{input.helpText}</p>
         )}
       </div>
     </div>

@@ -35,7 +35,7 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
           <div
             key={layer.id}
             onClick={() => onSelect(layer.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', cursor: 'pointer', borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`, color: isActive ? 'var(--accent)' : 'var(--text-muted)', fontSize: 13, whiteSpace: 'nowrap', userSelect: 'none' }}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '8px 12px', cursor: 'pointer', borderBottom: `2px solid ${isActive ? 'var(--accent)' : 'transparent'}`, color: isActive ? 'var(--accent)' : 'var(--text-muted)', fontSize: 16.25, whiteSpace: 'nowrap', userSelect: 'none' }}
           >
             {isEditing ? (
               <input
@@ -45,7 +45,7 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
                 onBlur={commitEdit}
                 onKeyDown={(e) => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingId(null) }}
                 onClick={(e) => e.stopPropagation()}
-                style={{ width: 80, padding: '1px 4px', fontSize: 12, background: 'var(--bg-elevated)', border: '1px solid var(--accent)', borderRadius: 3, color: 'var(--text)' }}
+                style={{ width: 80, padding: '1px 4px', fontSize: 15, background: 'var(--bg-elevated)', border: '1px solid var(--accent)', borderRadius: 3, color: 'var(--text)' }}
               />
             ) : (
               <span onDoubleClick={(e) => { e.stopPropagation(); startEdit(layer.id, layer.name) }}>
@@ -55,7 +55,7 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
             {!isBase && (
               <button
                 onClick={(e) => { e.stopPropagation(); onRemove(layer.id) }}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer', lineHeight: 1, padding: '0 2px', opacity: 0.6 }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 17.5, cursor: 'pointer', lineHeight: 1, padding: '0 2px', opacity: 0.6 }}
                 title="Remove layer"
               >×</button>
             )}
@@ -64,7 +64,7 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
       })}
       <button
         onClick={onAdd}
-        style={{ padding: '6px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text-muted)', fontSize: 14, cursor: 'pointer', margin: '0 4px', flexShrink: 0 }}
+        style={{ padding: '6px 10px', background: 'none', border: '1px solid var(--border)', borderRadius: 4, color: 'var(--text-muted)', fontSize: 17.5, cursor: 'pointer', margin: '0 4px', flexShrink: 0 }}
         title="Add layer"
       >+</button>
     </div>

@@ -11,3 +11,5 @@ venv/
 *.bin
 *.elf
 .DS_Store
+.codex
+.*.kate-swp

@@ -31,9 +31,50 @@ check_env() {
   fi
 }
 
+prepare_builds_dir() {
+  local builds_root="${BUILDS_ROOT:-/tmp/tebay-builds}"
+  mkdir -p "$builds_root"
+  chmod 0777 "$builds_root"
+}
+
+prepare_local_db_dir() {
+  local db_root="${LOCAL_DB_ROOT:-/tmp/qmk-nexus-dbs}"
+  mkdir -p "$db_root"
+  chmod 0777 "$db_root"
+}
+
+prepare_local_dirs() {
+  prepare_builds_dir
+  prepare_local_db_dir
+}
+
+start_build_proxy_background() {
+  local log_file="${BUILD_PROXY_LOG:-/tmp/tebay-build-proxy.log}"
+  if [[ -f /tmp/tebay-build-proxy.pid ]]; then
+    local old_pid
+    old_pid="$(cat /tmp/tebay-build-proxy.pid)"
+    if kill -0 "$old_pid" 2>/dev/null; then
+      echo "Build proxy already running: pid ${old_pid}"
+      return
+    fi
+    rm -f /tmp/tebay-build-proxy.pid
+  fi
+
+  setsid env \
+    PODMAN_BIN="${PODMAN_BIN:-$(command -v podman || echo podman)}" \
+    BUILD_IMAGE="${BUILD_IMAGE:-qmk-nexus-builder}" \
+    BUILDS_ROOT="${BUILDS_ROOT:-/tmp/tebay-builds}" \
+    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8088}" \
+    BIND_HOST="${BIND_HOST:-0.0.0.0}" \
+    python3 "$ROOT/docker/builder/server.py" >> "$log_file" 2>&1 < /dev/null &
+  echo $! > /tmp/tebay-build-proxy.pid
+  echo "Build proxy: http://localhost:${DEV_SERVER_PORT:-8088} (log: ${log_file})"
+}
+
 case "${1:-help}" in
   dev)
     check_env
+    prepare_local_dirs
     echo "Starting dev stack (hot reload)..."
     $COMPOSE up --build frontend backend
     ;;
@@ -48,14 +89,9 @@ case "${1:-help}" in
     ;;
   up)
     check_env
+    prepare_local_dirs
     echo "Starting build proxy in background..."
-    BUILD_IMAGE="${BUILD_IMAGE:-qmk-nexus-builder}" \
-    BUILDS_ROOT="${BUILDS_ROOT:-/tmp/tebay-builds}" \
-    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8080}" \
-    BIND_HOST="${BIND_HOST:-0.0.0.0}" \
-    python3 "$ROOT/docker/builder/server.py" &
-    echo $! > /tmp/tebay-build-proxy.pid
-    echo "Build proxy: http://localhost:${DEV_SERVER_PORT:-8080}"
+    start_build_proxy_background
 
     echo "Starting stack in background..."
     $COMPOSE up -d --build frontend backend
@@ -76,16 +112,18 @@ case "${1:-help}" in
     ;;
   backend)
     check_env
+    prepare_local_dirs
     $COMPOSE up --build backend
     ;;
   frontend)
     $COMPOSE up --build frontend
     ;;
   build-proxy)
-    echo "Starting local build proxy on http://localhost:${DEV_SERVER_PORT:-8080} ..."
+    prepare_builds_dir
+    echo "Starting local build proxy on http://localhost:${DEV_SERVER_PORT:-8088} ..."
     BUILD_IMAGE="${BUILD_IMAGE:-qmk-nexus-builder}" \
     BUILDS_ROOT="${BUILDS_ROOT:-/tmp/tebay-builds}" \
-    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8080}" \
+    DEV_SERVER_PORT="${DEV_SERVER_PORT:-8088}" \
     BIND_HOST="${BIND_HOST:-127.0.0.1}" \
     python3 "$ROOT/docker/builder/server.py"
     ;;

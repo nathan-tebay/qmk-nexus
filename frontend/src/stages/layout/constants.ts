@@ -1,9 +1,9 @@
 export const UNIT = 60        // px per 1u keycap
 export const GAP = 4          // px gap between keys
-export const CANVAS_BG = '#161616'
-export const KEY_FILL = '#2a2a2a'
-export const KEY_STROKE = '#444'
-export const KEY_SELECTED_STROKE = '#4f8ef7'
+export const CANVAS_BG = '#080704'
+export const KEY_FILL = '#1d1509'
+export const KEY_STROKE = '#4a3512'
+export const KEY_SELECTED_STROKE = '#d18a00'
 export const KEY_RADIUS = 6
-export const LABEL_COLOR = '#e8e8e8'
-export const MATRIX_LABEL_COLOR = '#4f8ef7'
+export const LABEL_COLOR = '#f0dfbc'
+export const MATRIX_LABEL_COLOR = '#ffb21a'

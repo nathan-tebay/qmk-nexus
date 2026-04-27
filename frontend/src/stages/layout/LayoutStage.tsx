@@ -143,14 +143,14 @@ export default function LayoutStage() {
             <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
               <button
                 onClick={handleValidate}
-                style={{ padding: '3px 8px', fontSize: 11, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', cursor: 'pointer' }}
+                style={{ padding: '3px 8px', fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', cursor: 'pointer' }}
               >
                 Validate
               </button>
               <select
                 value={colorScheme}
                 onChange={(e) => setColorScheme(e.target.value as ColorScheme)}
-                style={{ fontSize: 11, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', padding: '2px 4px', cursor: 'pointer' }}
+                style={{ fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', padding: '2px 4px', cursor: 'pointer' }}
               >
                 {(Object.keys(COLOR_SCHEME_LABELS) as ColorScheme[]).map((s) => (
                   <option key={s} value={s}>{COLOR_SCHEME_LABELS[s]}</option>
@@ -158,7 +158,7 @@ export default function LayoutStage() {
               </select>
             </div>
             {validation && (
-              <div style={{ marginTop: 4, fontSize: 11 }}>
+              <div style={{ marginTop: 4, fontSize: 13.75 }}>
                 {validation.errors.length === 0 ? (
                   <span style={{ color: SCHEME_COLORS[colorScheme].col }}>✓ Matrix valid</span>
                 ) : (

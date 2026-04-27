@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 
 from models import KeyboardConfig
-from codegen._matrix import matrix_rows, matrix_cols
+from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
 def generate_info_json(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
+    keys = matrix_keys(config)
 
     enabled_features = [k for k, v in (config.features or {}).items() if v]
 
@@ -40,8 +41,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
                         **({'h': round(k.h, 4)} if k.h != 1.0 else {}),
                         **({'label': k.label} if k.label else {}),
                     }
-                    for k in config.keys
-                    if k.row is not None and k.col is not None
+                    for k in keys
                 ],
             },
         },

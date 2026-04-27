@@ -8,12 +8,28 @@ export default function LoginPage() {
   return (
     <div className={styles.root}>
       <div className={styles.card}>
-        <h1 className={styles.title}>QMK Nexus</h1>
-        <p className={styles.sub}>Unified QMK keyboard firmware editor</p>
+        <div className={styles.heroFrame}>
+          <img
+            className={styles.heroImage}
+            src="/qmk-nexus-hero.png"
+            alt="QMK Nexus split keyboard circuit artwork"
+          />
+        </div>
+        <p className={styles.sub}>A unified QMK keyboard editor</p>
+        <p className={styles.credit}>
+          Brought to you by:{' '}
+          <a href="https://tebay.dev" target="_blank" rel="noreferrer">
+            tebay.dev
+          </a>
+        </p>
+        <p>
+        Welcome to QMK Nexus, the nexus of several QMK tools to make creating firmware for your hand wired or custom keyboard a more enjoyable experience. I created the site while building my Cosmso split keyboard. The process of laying out the keys, building the wiring matrix and laying out the keys to finally build across three different sites showed me the need to unify the these tools into one interface. I also made adding features like rotatory encodes, oleds and trackballs achievable without coding. This supports most of the existing QMK keyboards, all updated to json layouts and keymaps. Please take a minute to look through my personal site linked above and let me know what you think. Still a work in progress, I'm very interested in ideas for improvement.
+        </p>
         <button className={styles.googleBtn} onClick={handleGoogleLogin}>
           <GoogleIcon />
           Continue with Google
         </button>
+
       </div>
     </div>
   )

@@ -130,7 +130,7 @@ export default function KeymapStage() {
                 border: '1px solid #444',
                 borderRadius: 4,
                 padding: '4px 8px',
-                fontSize: 11,
+                fontSize: 13.75,
                 color: '#ccc',
                 fontFamily: 'monospace',
                 pointerEvents: 'none',
