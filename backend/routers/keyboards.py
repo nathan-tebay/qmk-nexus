@@ -32,6 +32,7 @@ def _validated_config(config: KeyboardConfig) -> KeyboardConfig:
     return config
 
 
+@router.get('', include_in_schema=False)
 @router.get('/')
 async def list_keyboards(user: User = Depends(get_current_user)):
     path = pull_user_db(user.id)
@@ -41,6 +42,7 @@ async def list_keyboards(user: User = Depends(get_current_user)):
 MAX_KEYBOARDS = 20
 
 
+@router.post('', include_in_schema=False)
 @router.post('/')
 async def create_keyboard(config: KeyboardConfig, user: User = Depends(get_current_user)):
     config = _validated_config(config)

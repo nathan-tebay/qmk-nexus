@@ -8,9 +8,9 @@
 #   3. Optionally creates the S3 bucket and configures CORS + public-access block.
 #   4. Optionally creates the DynamoDB build/refresh-token tables and enables TTL.
 #   5. Optionally creates private VPC endpoints for Fargate build tasks.
-#   6. Optionally creates a Lambda function from a deployment zip.
-#   7. Optionally creates or updates a Lambda Function URL and wires it as a
-#      CloudFront origin, adding a /api/* cache behavior to the distribution.
+#   6. Optionally creates backend/frontend Lambda functions from container images.
+#   7. Optionally creates or updates Lambda Function URLs and wires them as
+#      CloudFront origins.
 #   8. Optionally writes key variables to your shell rc file.
 #
 # Usage:
@@ -24,11 +24,15 @@
 #     [--create-bucket] \
 #     [--create-dynamodb] \
 #     [--lambda-name qmk-nexus-api] \
-#     [--lambda-zip path/to/function.zip] \
+#     [--lambda-image-uri 123456789012.dkr.ecr.us-east-1.amazonaws.com/qmk-nexus-api:latest] \
 #     [--create-lambda] \
+#     [--frontend-lambda-name qmk-nexus-frontend] \
+#     [--frontend-lambda-image-uri 123456789012.dkr.ecr.us-east-1.amazonaws.com/qmk-nexus-frontend:latest] \
+#     [--create-frontend-lambda] \
 #     [--cf-dist-id EXXXXXXXXXX] \
 #     [--backend-cf-dist-id EXXXXXXXXXX] \
-#     [--create-cf --frontend-bucket qmk-nexus-frontend --cert-arn arn:aws:acm:...] \
+#     [--create-cf --cert-arn arn:aws:acm:...] \
+#     [--create-cf-without-aliases] \
 #     [--domain qmknexus.tebay.dev] \
 #     [--backend-domain qmknexus-back.tebay.dev] \
 #     [--build-domain qmknexus-build.tebay.dev] \
@@ -62,12 +66,22 @@
 #                  Create qmk-nexus-builds and qmk-nexus-refresh as on-demand
 #                  DynamoDB tables and enable TTL on their ttl attribute.
 #   --lambda-name  Name of the Lambda function (default: qmk-nexus-api).
-#   --lambda-zip   Path to a deployment zip built by the CI pipeline.
+#   --lambda-image-uri
+#                  ECR image URI for the backend Lambda container image.
 #                  Required when --create-lambda is set.
 #   --create-lambda
-#                  Create the Lambda function from --lambda-zip.  If the
-#                  function already exists the code is updated in-place.
+#                  Create the Lambda function from --lambda-image-uri.  If the
+#                  image-package function already exists the code is updated
+#                  in-place.
 #                  Attaches the execution role and sets ENVIRONMENT=production.
+#   --frontend-lambda-name
+#                  Name of the frontend Lambda function (default:
+#                  qmk-nexus-frontend).
+#   --frontend-lambda-image-uri
+#                  ECR image URI for the frontend Lambda container image.
+#                  Required when --create-frontend-lambda is set.
+#   --create-frontend-lambda
+#                  Create/update the frontend Lambda function and Function URL.
 #   --cf-dist-id   Existing CloudFront distribution ID.  When set without
 #                  --create-cf, the script adds the Lambda Function URL as
 #                  an origin and wires a /api/* cache behavior.
@@ -75,11 +89,12 @@
 #                  Existing CloudFront distribution ID for --backend-domain.
 #                  When set, its default origin is updated to the Lambda
 #                  Function URL.
-#   --create-cf    Create a new CloudFront distribution.  Requires
-#                  --frontend-bucket and --cert-arn.
-#   --frontend-bucket
-#                  S3 bucket that hosts the compiled React frontend.
-#                  Used as the default CloudFront origin.
+#   --create-cf    Create new CloudFront distributions for the frontend and
+#                  backend Lambda Function URLs. Requires --cert-arn.
+#   --create-cf-without-aliases
+#                  Create distributions without alternate domain names first.
+#                  Use this when DNS currently points the desired hostnames at
+#                  another CloudFront distribution.
 #   --cert-arn     ACM certificate ARN (must be in us-east-1) for --domain.
 #   --domain       Custom domain for the CloudFront distribution.
 #                  (default: qmknexus.tebay.dev)
@@ -117,30 +132,44 @@
 #                  Defaults to --ecs-security-groups.
 #                  Must allow inbound TCP 443 from the Fargate task security
 #                  group, otherwise private ECR/CloudWatch access will fail.
-#   --save-env     Persist key variables to ~/.bashrc / ~/.zshrc.
+#   --save-env     Persist key variables to ~/.bashrc / ~/.zshrc using the
+#                  environment variable names listed below.
 #   --dry-run      Print actions without making any AWS API calls.
 #
-# Environment variable equivalents:
+# Parameters can also be set as environment variables:
 #   AWS_ACCOUNT_ID, AWS_REGION, AWS_BUCKET, AWS_PRINCIPAL, AWS_POLICY_NAME,
-#   LAMBDA_NAME, CF_DIST_ID, BACKEND_CF_DIST_ID, FRONTEND_BUCKET, CERT_ARN,
-#   DOMAIN, BACKEND_DOMAIN, BUILD_DOMAIN, ECS_CLUSTER, ECS_TASK_DEFINITION,
-#   ECS_CONTAINER_NAME, ECS_TASK_ROLE_ARN, ECS_EXECUTION_ROLE_ARN, ECS_SUBNETS,
-#   ECS_SECURITY_GROUPS, ECS_ASSIGN_PUBLIC_IP, VPC_ID, ROUTE_TABLE_IDS,
+#   TRUST_ENTITY, LAMBDA_NAME, LAMBDA_IMAGE_URI, CF_DIST_ID, BACKEND_CF_DIST_ID,
+#   FRONTEND_BUCKET, CERT_ARN, DOMAIN, BACKEND_DOMAIN, BUILD_DOMAIN,
+#   ECS_CLUSTER, ECS_TASK_DEFINITION, ECS_CONTAINER_NAME, ECS_TASK_ROLE_ARN,
+#   ECS_EXECUTION_ROLE_ARN, ECS_SUBNETS, ECS_SECURITY_GROUPS,
+#   ECS_ASSIGN_PUBLIC_IP, BUILDER_TASK_POLICY_NAME, VPC_ID, ROUTE_TABLE_IDS,
 #   ENDPOINT_SECURITY_GROUPS
+#
+# Backward-compatible aliases are also accepted:
+#   QMK_NEXUS_BUCKET, QMK_NEXUS_PRINCIPAL, QMK_NEXUS_POLICY_NAME,
+#   QMK_NEXUS_LAMBDA,
+#   QMK_NEXUS_FRONTEND_DOMAIN, QMK_NEXUS_BACKEND_DOMAIN,
+#   QMK_NEXUS_BUILD_DOMAIN, QMK_NEXUS_CF_DIST, QMK_NEXUS_BACKEND_CF_DIST
 
 set -euo pipefail
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
-AWS_POLICY_NAME="${AWS_POLICY_NAME:-qmk-nexus-lambda-policy}"
-LAMBDA_NAME="${LAMBDA_NAME:-qmk-nexus-api}"
-CF_DIST_ID="${CF_DIST_ID:-}"
-BACKEND_CF_DIST_ID="${BACKEND_CF_DIST_ID:-}"
+AWS_BUCKET="${QMK_NEXUS_BUCKET:-${AWS_BUCKET:-}}"
+AWS_PRINCIPAL="${QMK_NEXUS_PRINCIPAL:-${AWS_PRINCIPAL:-}}"
+AWS_POLICY_NAME="${QMK_NEXUS_POLICY_NAME:-${AWS_POLICY_NAME:-qmk-nexus-lambda-policy}}"
+LAMBDA_NAME="${QMK_NEXUS_LAMBDA:-${LAMBDA_NAME:-qmk-nexus-api}}"
+LAMBDA_IMAGE_URI="${LAMBDA_IMAGE_URI:-}"
+FRONTEND_LAMBDA_NAME="${FRONTEND_LAMBDA_NAME:-${FRONTEND_LAMBDA_FUNCTION:-qmk-nexus-frontend}}"
+FRONTEND_LAMBDA_IMAGE_URI="${FRONTEND_LAMBDA_IMAGE_URI:-}"
+CF_DIST_ID="${QMK_NEXUS_CF_DIST:-${CF_DIST_ID:-}}"
+BACKEND_CF_DIST_ID="${QMK_NEXUS_BACKEND_CF_DIST:-${BACKEND_CF_DIST_ID:-}}"
 FRONTEND_BUCKET="${FRONTEND_BUCKET:-}"
 CERT_ARN="${CERT_ARN:-}"
-DOMAIN="${DOMAIN:-qmknexus.tebay.dev}"
-BACKEND_DOMAIN="${BACKEND_DOMAIN:-qmknexus-back.tebay.dev}"
-BUILD_DOMAIN="${BUILD_DOMAIN:-qmknexus-build.tebay.dev}"
+DOMAIN="${QMK_NEXUS_FRONTEND_DOMAIN:-${DOMAIN:-qmknexus.tebay.dev}}"
+BACKEND_DOMAIN="${QMK_NEXUS_BACKEND_DOMAIN:-${BACKEND_DOMAIN:-qmknexus-back.tebay.dev}}"
+BUILD_DOMAIN="${QMK_NEXUS_BUILD_DOMAIN:-${BUILD_DOMAIN:-qmknexus-build.tebay.dev}}"
 ECS_CLUSTER="${ECS_CLUSTER:-}"
 ECS_TASK_DEFINITION="${ECS_TASK_DEFINITION:-}"
 ECS_CONTAINER_NAME="${ECS_CONTAINER_NAME:-qmk-nexus-builder}"
@@ -153,13 +182,14 @@ VPC_ID="${VPC_ID:-}"
 ROUTE_TABLE_IDS="${ROUTE_TABLE_IDS:-}"
 ENDPOINT_SECURITY_GROUPS="${ENDPOINT_SECURITY_GROUPS:-}"
 BUILDER_TASK_POLICY_NAME="${BUILDER_TASK_POLICY_NAME:-qmk-nexus-builder-task-policy}"
-LAMBDA_ZIP=""
-TRUST_ENTITY="lambda.amazonaws.com"
+TRUST_ENTITY="${TRUST_ENTITY:-lambda.amazonaws.com}"
 CREATE_ROLE=0
 CREATE_BUCKET=0
 CREATE_DYNAMODB=0
 CREATE_LAMBDA=0
+CREATE_FRONTEND_LAMBDA=0
 CREATE_CF=0
+CREATE_CF_ALIASES=1
 CREATE_VPC_ENDPOINTS=0
 SAVE_ENV=0
 DRY_RUN=0
@@ -182,11 +212,15 @@ while [[ "$#" -gt 0 ]]; do
     --create-bucket)   CREATE_BUCKET=1;        shift   ;;
     --create-dynamodb) CREATE_DYNAMODB=1;      shift   ;;
     --lambda-name)     LAMBDA_NAME="$2";       shift 2 ;;
-    --lambda-zip)      LAMBDA_ZIP="$2";        shift 2 ;;
+    --lambda-image-uri) LAMBDA_IMAGE_URI="$2"; shift 2 ;;
     --create-lambda)   CREATE_LAMBDA=1;        shift   ;;
+    --frontend-lambda-name) FRONTEND_LAMBDA_NAME="$2"; shift 2 ;;
+    --frontend-lambda-image-uri) FRONTEND_LAMBDA_IMAGE_URI="$2"; shift 2 ;;
+    --create-frontend-lambda) CREATE_FRONTEND_LAMBDA=1; shift ;;
     --cf-dist-id)      CF_DIST_ID="$2";        shift 2 ;;
     --backend-cf-dist-id) BACKEND_CF_DIST_ID="$2"; shift 2 ;;
     --create-cf)       CREATE_CF=1;            shift   ;;
+    --create-cf-without-aliases) CREATE_CF_ALIASES=0; shift ;;
     --frontend-bucket) FRONTEND_BUCKET="$2";   shift 2 ;;
     --cert-arn)        CERT_ARN="$2";          shift 2 ;;
     --domain)          DOMAIN="$2";            shift 2 ;;
@@ -227,12 +261,16 @@ if [[ "$AWS_PRINCIPAL" != *:role/* ]]; then
   echo "Error: --principal must be a full IAM role ARN containing ':role/'"
   exit 1
 fi
-if [[ "$CREATE_LAMBDA" == "1" && -z "$LAMBDA_ZIP" ]]; then
-  echo "Error: --create-lambda requires --lambda-zip"
+if [[ "$CREATE_LAMBDA" == "1" && -z "$LAMBDA_IMAGE_URI" ]]; then
+  echo "Error: --create-lambda requires --lambda-image-uri"
   exit 1
 fi
-if [[ "$CREATE_CF" == "1" && (-z "$FRONTEND_BUCKET" || -z "$CERT_ARN") ]]; then
-  echo "Error: --create-cf requires --frontend-bucket and --cert-arn"
+if [[ "$CREATE_FRONTEND_LAMBDA" == "1" && -z "$FRONTEND_LAMBDA_IMAGE_URI" ]]; then
+  echo "Error: --create-frontend-lambda requires --frontend-lambda-image-uri"
+  exit 1
+fi
+if [[ "$CREATE_CF" == "1" && "$CREATE_CF_ALIASES" == "1" && -z "$CERT_ARN" ]]; then
+  echo "Error: --create-cf requires --cert-arn"
   exit 1
 fi
 if [[ "$CREATE_VPC_ENDPOINTS" == "1" ]]; then
@@ -427,7 +465,10 @@ build_iam_policy() {
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ],
-      "Resource": "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:${LOG_GROUP}:*"
+      "Resource": [
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/${LAMBDA_NAME}:*",
+        "arn:aws:logs:${AWS_REGION}:${AWS_ACCOUNT_ID}:log-group:/aws/lambda/${FRONTEND_LAMBDA_NAME}:*"
+      ]
     }
   ]
 }
@@ -589,6 +630,33 @@ create_iam_role() {
   fi
 }
 
+cf_aliases_json() {
+  local domain="$1"
+  if [[ "$CREATE_CF_ALIASES" == "1" ]]; then
+    printf '"Aliases": {"Quantity": 1, "Items": ["%s"]},' "$domain"
+  else
+    printf '"Aliases": {"Quantity": 0},'
+  fi
+}
+
+cf_viewer_certificate_json() {
+  if [[ "$CREATE_CF_ALIASES" == "1" ]]; then
+    cat <<JSON
+"ViewerCertificate": {
+  "ACMCertificateArn": "${CERT_ARN}",
+  "SSLSupportMethod": "sni-only",
+  "MinimumProtocolVersion": "TLSv1.2_2021"
+},
+JSON
+  else
+    cat <<'JSON'
+"ViewerCertificate": {
+  "CloudFrontDefaultCertificate": true
+},
+JSON
+  fi
+}
+
 # ── S3 helpers ────────────────────────────────────────────────────────────────
 create_s3_bucket() {
   if aws s3api head-bucket --bucket "$AWS_BUCKET" 2>/dev/null; then
@@ -721,18 +789,28 @@ create_vpc_endpoints() {
 # ── Lambda helpers ────────────────────────────────────────────────────────────
 create_or_update_lambda() {
   if aws lambda get-function --function-name "$LAMBDA_NAME" >/dev/null 2>&1; then
-    info "Function exists; updating code..."
+    local package_type
+    package_type=$(aws lambda get-function-configuration \
+      --function-name "$LAMBDA_NAME" \
+      --query 'PackageType' \
+      --output text)
+    if [[ "$package_type" == "Zip" ]]; then
+      err "Lambda $LAMBDA_NAME is PackageType=Zip and cannot be updated to an image in place."
+      err "Delete/recreate it, or create a new image-package Lambda name."
+      exit 1
+    fi
+    info "Function exists; updating image..."
     aws lambda update-function-code \
       --function-name "$LAMBDA_NAME" \
-      --zip-file "fileb://${LAMBDA_ZIP}" \
+      --image-uri "$LAMBDA_IMAGE_URI" \
       --query 'FunctionArn' --output text >/dev/null
-    ok "Updated code for $LAMBDA_NAME"
+    ok "Updated image for $LAMBDA_NAME"
     warn "Existing Lambda environment was left intact. Ensure it contains:"
     warn "  ENVIRONMENT=production"
-    warn "  AWS_REGION=${AWS_REGION}"
+    warn "  AWS_REGION is provided by Lambda"
     warn "  S3_BUCKET=${AWS_BUCKET}"
     warn "  FRONTEND_URL=https://${DOMAIN}"
-    warn "  API_BASE_URL=https://${BACKEND_DOMAIN}"
+    warn "  API_BASE_URL=https://${DOMAIN}"
     warn "  BUILD_RUNNER=ecs"
     warn "  ECS_CLUSTER=${ECS_CLUSTER}"
     warn "  ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION}"
@@ -744,13 +822,12 @@ create_or_update_lambda() {
     info "Creating Lambda function $LAMBDA_NAME..."
     aws lambda create-function \
       --function-name "$LAMBDA_NAME" \
-      --runtime python3.12 \
+      --package-type Image \
       --role "$AWS_PRINCIPAL" \
-      --handler main.handler \
-      --zip-file "fileb://${LAMBDA_ZIP}" \
+      --code "ImageUri=${LAMBDA_IMAGE_URI}" \
       --timeout 30 \
       --memory-size 512 \
-      --environment "Variables={ENVIRONMENT=production,AWS_REGION=${AWS_REGION},S3_BUCKET=${AWS_BUCKET},FRONTEND_URL=https://${DOMAIN},API_BASE_URL=https://${BACKEND_DOMAIN},BUILD_RUNNER=ecs,ECS_CLUSTER=${ECS_CLUSTER},ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION},ECS_CONTAINER_NAME=${ECS_CONTAINER_NAME},ECS_SUBNETS=${ECS_SUBNETS},ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS},ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}}" \
+      --environment "Variables={ENVIRONMENT=production,S3_BUCKET=${AWS_BUCKET},FRONTEND_URL=https://${DOMAIN},API_BASE_URL=https://${DOMAIN},BUILD_RUNNER=ecs,ECS_CLUSTER=${ECS_CLUSTER},ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION},ECS_CONTAINER_NAME=${ECS_CONTAINER_NAME},ECS_SUBNETS=${ECS_SUBNETS},ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS},ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}}" \
       --description "QMK Nexus API (FastAPI + Mangum)" \
       --query 'FunctionArn' --output text >/dev/null
     ok "Created $LAMBDA_NAME"
@@ -777,6 +854,12 @@ create_or_update_lambda() {
       --action lambda:InvokeFunctionUrl \
       --principal '*' \
       --function-url-auth-type NONE >/dev/null 2>&1 || true
+    aws lambda add-permission \
+      --function-name "$LAMBDA_NAME" \
+      --statement-id FunctionURLAllowInvokeFunction \
+      --action lambda:InvokeFunction \
+      --principal '*' \
+      --invoked-via-function-url >/dev/null 2>&1 || true
   else
     aws lambda update-function-url-config \
       --function-name "$LAMBDA_NAME" \
@@ -787,6 +870,72 @@ create_or_update_lambda() {
   fi
 
   LAMBDA_URL="$url_config"
+}
+
+create_or_update_frontend_lambda() {
+  if aws lambda get-function --function-name "$FRONTEND_LAMBDA_NAME" >/dev/null 2>&1; then
+    local package_type
+    package_type=$(aws lambda get-function-configuration \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --query 'PackageType' \
+      --output text)
+    if [[ "$package_type" == "Zip" ]]; then
+      err "Lambda $FRONTEND_LAMBDA_NAME is PackageType=Zip and cannot be updated to an image in place."
+      err "Delete/recreate it, or create a new image-package Lambda name."
+      exit 1
+    fi
+    info "Frontend function exists; updating image..."
+    aws lambda update-function-code \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --image-uri "$FRONTEND_LAMBDA_IMAGE_URI" \
+      --query 'FunctionArn' --output text >/dev/null
+    aws lambda update-function-configuration \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --environment "Variables={ENVIRONMENT=production,API_BASE_URL=https://${BACKEND_DOMAIN}}" \
+      >/dev/null
+    ok "Updated image for $FRONTEND_LAMBDA_NAME"
+  else
+    info "Creating frontend Lambda function $FRONTEND_LAMBDA_NAME..."
+    aws lambda create-function \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --package-type Image \
+      --role "$AWS_PRINCIPAL" \
+      --code "ImageUri=${FRONTEND_LAMBDA_IMAGE_URI}" \
+      --timeout 30 \
+      --memory-size 512 \
+      --environment "Variables={ENVIRONMENT=production,API_BASE_URL=https://${BACKEND_DOMAIN}}" \
+      --description "QMK Nexus frontend (React static app + /api proxy)" \
+      --query 'FunctionArn' --output text >/dev/null
+    ok "Created $FRONTEND_LAMBDA_NAME"
+  fi
+
+  local url_config
+  url_config=$(aws lambda get-function-url-config \
+    --function-name "$FRONTEND_LAMBDA_NAME" \
+    --query 'FunctionUrl' --output text 2>/dev/null || echo "")
+  if [[ -z "$url_config" || "$url_config" == "None" ]]; then
+    url_config=$(aws lambda create-function-url-config \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --auth-type NONE \
+      --query 'FunctionUrl' --output text)
+    ok "Created frontend Function URL: $url_config"
+    aws lambda add-permission \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --statement-id FunctionURLAllowPublicAccess \
+      --action lambda:InvokeFunctionUrl \
+      --principal '*' \
+      --function-url-auth-type NONE >/dev/null 2>&1 || true
+    aws lambda add-permission \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --statement-id FunctionURLAllowInvokeFunction \
+      --action lambda:InvokeFunction \
+      --principal '*' \
+      --invoked-via-function-url >/dev/null 2>&1 || true
+  else
+    ok "Frontend Function URL exists: $url_config"
+  fi
+
+  FRONTEND_LAMBDA_URL="$url_config"
 }
 
 # ── CloudFront helpers ────────────────────────────────────────────────────────
@@ -824,9 +973,10 @@ if not any(o['Id'] == origin_id for o in origins):
         'OriginPath': '',
         'CustomHeaders': {'Quantity': 0},
         'CustomOriginConfig': {
+            'HTTPPort': 80,
             'HTTPSPort': 443,
             'OriginProtocolPolicy': 'https-only',
-            'OriginSSLProtocols': {'Quantity': 1, 'Items': ['TLSv1.2']},
+            'OriginSslProtocols': {'Quantity': 1, 'Items': ['TLSv1.2']},
             'OriginReadTimeout': 30,
             'OriginKeepaliveTimeout': 5,
         },
@@ -939,9 +1089,10 @@ create_cf_distribution() {
         "OriginPath": "",
         "CustomHeaders": {"Quantity": 0},
         "CustomOriginConfig": {
+          "HTTPPort": 80,
           "HTTPSPort": 443,
           "OriginProtocolPolicy": "https-only",
-          "OriginSSLProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
+          "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
           "OriginReadTimeout": 30,
           "OriginKeepaliveTimeout": 5
         },
@@ -1062,9 +1213,10 @@ config['Origins'] = {
         'OriginPath': '',
         'CustomHeaders': {'Quantity': 0},
         'CustomOriginConfig': {
+            'HTTPPort': 80,
             'HTTPSPort': 443,
             'OriginProtocolPolicy': 'https-only',
-            'OriginSSLProtocols': {'Quantity': 1, 'Items': ['TLSv1.2']},
+            'OriginSslProtocols': {'Quantity': 1, 'Items': ['TLSv1.2']},
             'OriginReadTimeout': 30,
             'OriginKeepaliveTimeout': 5,
         },
@@ -1073,6 +1225,13 @@ config['Origins'] = {
         'OriginShield': {'Enabled': False},
     }],
 }
+if '${CERT_ARN}' and '${CREATE_CF_ALIASES}' == '1':
+    config['Aliases'] = {'Quantity': 1, 'Items': ['${BACKEND_DOMAIN}']}
+    config['ViewerCertificate'] = {
+        'ACMCertificateArn': '${CERT_ARN}',
+        'SSLSupportMethod': 'sni-only',
+        'MinimumProtocolVersion': 'TLSv1.2_2021',
+    }
 config['DefaultCacheBehavior'] = {
     'TargetOriginId': origin_id,
     'ViewerProtocolPolicy': 'redirect-to-https',
@@ -1125,12 +1284,8 @@ create_backend_cf_distribution() {
   "CallerReference": "qmk-nexus-api-${BACKEND_DOMAIN}-$(date +%s)",
   "Enabled": true,
   "HttpVersion": "http2and3",
-  "Aliases": {"Quantity": 1, "Items": ["${BACKEND_DOMAIN}"]},
-  "ViewerCertificate": {
-    "ACMCertificateArn": "${CERT_ARN}",
-    "SSLSupportMethod": "sni-only",
-    "MinimumProtocolVersion": "TLSv1.2_2021"
-  },
+  $(cf_aliases_json "$BACKEND_DOMAIN")
+  $(cf_viewer_certificate_json)
   "Origins": {
     "Quantity": 1,
     "Items": [{
@@ -1139,9 +1294,10 @@ create_backend_cf_distribution() {
       "OriginPath": "",
       "CustomHeaders": {"Quantity": 0},
       "CustomOriginConfig": {
+        "HTTPPort": 80,
         "HTTPSPort": 443,
         "OriginProtocolPolicy": "https-only",
-        "OriginSSLProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
+        "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
         "OriginReadTimeout": 30,
         "OriginKeepaliveTimeout": 5
       },
@@ -1193,6 +1349,172 @@ JSON
   warn "Add a CNAME record: ${BACKEND_DOMAIN} → ${cf_domain}"
 }
 
+wire_frontend_distribution() {
+  local func_url="$1"
+  local fn_domain
+  fn_domain=$(printf '%s' "$func_url" | sed 's|https://||;s|/.*||')
+
+  local etag
+  etag=$(aws cloudfront get-distribution-config \
+    --id "$CF_DIST_ID" --query ETag --output text)
+
+  local new_config
+  new_config=$(python3 <<PYEOF
+import json, subprocess
+
+dist = json.loads(subprocess.check_output([
+    'aws', 'cloudfront', 'get-distribution-config',
+    '--id', '${CF_DIST_ID}', '--output', 'json'
+]))
+config = dist['DistributionConfig']
+origin_id = 'qmk-nexus-frontend-lambda'
+fn_domain = '${fn_domain}'
+
+config['Origins'] = {
+    'Quantity': 1,
+    'Items': [{
+        'Id': origin_id,
+        'DomainName': fn_domain,
+        'OriginPath': '',
+        'CustomHeaders': {'Quantity': 0},
+        'CustomOriginConfig': {
+            'HTTPPort': 80,
+            'HTTPSPort': 443,
+            'OriginProtocolPolicy': 'https-only',
+            'OriginSslProtocols': {'Quantity': 1, 'Items': ['TLSv1.2']},
+            'OriginReadTimeout': 30,
+            'OriginKeepaliveTimeout': 5,
+        },
+        'ConnectionAttempts': 3,
+        'ConnectionTimeout': 10,
+        'OriginShield': {'Enabled': False},
+    }],
+}
+if '${CERT_ARN}' and '${CREATE_CF_ALIASES}' == '1':
+    config['Aliases'] = {'Quantity': 1, 'Items': ['${DOMAIN}']}
+    config['ViewerCertificate'] = {
+        'ACMCertificateArn': '${CERT_ARN}',
+        'SSLSupportMethod': 'sni-only',
+        'MinimumProtocolVersion': 'TLSv1.2_2021',
+    }
+config['DefaultCacheBehavior'] = {
+    'TargetOriginId': origin_id,
+    'ViewerProtocolPolicy': 'redirect-to-https',
+    'AllowedMethods': {
+        'Quantity': 7,
+        'Items': ['GET', 'HEAD', 'OPTIONS', 'PUT', 'POST', 'PATCH', 'DELETE'],
+        'CachedMethods': {'Quantity': 2, 'Items': ['GET', 'HEAD']},
+    },
+    'ForwardedValues': {
+        'QueryString': True,
+        'Cookies': {'Forward': 'all'},
+        'Headers': {'Quantity': 3, 'Items': ['Origin', 'Authorization', 'Content-Type']},
+        'QueryStringCacheKeys': {'Quantity': 0},
+    },
+    'MinTTL': 0,
+    'DefaultTTL': 0,
+    'MaxTTL': 31536000,
+    'Compress': True,
+    'TrustedSigners': {'Enabled': False, 'Quantity': 0},
+    'TrustedKeyGroups': {'Enabled': False, 'Quantity': 0},
+    'LambdaFunctionAssociations': {'Quantity': 0},
+    'FunctionAssociations': {'Quantity': 0},
+    'FieldLevelEncryptionId': '',
+    'SmoothStreaming': False,
+}
+config['CacheBehaviors'] = {'Quantity': 0}
+config['CustomErrorResponses'] = {'Quantity': 0}
+print(json.dumps(config))
+PYEOF
+  )
+
+  aws cloudfront update-distribution \
+    --id "$CF_DIST_ID" \
+    --if-match "$etag" \
+    --distribution-config "$new_config" \
+    --query 'Distribution.Status' \
+    --output text >/dev/null
+  ok "Frontend CloudFront distribution updated — deploying (may take a few minutes)"
+  ok "Frontend origin: https://${fn_domain}"
+}
+
+create_frontend_cf_distribution() {
+  local func_url="$1"
+  local fn_domain
+  fn_domain=$(printf '%s' "$func_url" | sed 's|https://||;s|/.*||')
+
+  local dist_config
+  dist_config=$(cat <<JSON
+{
+  "Comment": "QMK Nexus frontend — ${DOMAIN}",
+  "CallerReference": "qmk-nexus-frontend-${DOMAIN}-$(date +%s)",
+  "Enabled": true,
+  "HttpVersion": "http2and3",
+  $(cf_aliases_json "$DOMAIN")
+  $(cf_viewer_certificate_json)
+  "Origins": {
+    "Quantity": 1,
+    "Items": [{
+      "Id": "qmk-nexus-frontend-lambda",
+      "DomainName": "${fn_domain}",
+      "OriginPath": "",
+      "CustomHeaders": {"Quantity": 0},
+      "CustomOriginConfig": {
+        "HTTPPort": 80,
+        "HTTPSPort": 443,
+        "OriginProtocolPolicy": "https-only",
+        "OriginSslProtocols": {"Quantity": 1, "Items": ["TLSv1.2"]},
+        "OriginReadTimeout": 30,
+        "OriginKeepaliveTimeout": 5
+      },
+      "ConnectionAttempts": 3,
+      "ConnectionTimeout": 10,
+      "OriginShield": {"Enabled": false}
+    }]
+  },
+  "DefaultCacheBehavior": {
+    "TargetOriginId": "qmk-nexus-frontend-lambda",
+    "ViewerProtocolPolicy": "redirect-to-https",
+    "AllowedMethods": {
+      "Quantity": 7,
+      "Items": ["GET","HEAD","OPTIONS","PUT","POST","PATCH","DELETE"],
+      "CachedMethods": {"Quantity": 2, "Items": ["GET","HEAD"]}
+    },
+    "ForwardedValues": {
+      "QueryString": true,
+      "Cookies": {"Forward": "all"},
+      "Headers": {"Quantity": 3, "Items": ["Origin","Authorization","Content-Type"]},
+      "QueryStringCacheKeys": {"Quantity": 0}
+    },
+    "MinTTL": 0, "DefaultTTL": 0, "MaxTTL": 31536000,
+    "Compress": true,
+    "TrustedSigners": {"Enabled": false, "Quantity": 0},
+    "TrustedKeyGroups": {"Enabled": false, "Quantity": 0},
+    "LambdaFunctionAssociations": {"Quantity": 0},
+    "FunctionAssociations": {"Quantity": 0},
+    "FieldLevelEncryptionId": "",
+    "SmoothStreaming": false
+  },
+  "PriceClass": "PriceClass_100",
+  "Restrictions": {"GeoRestriction": {"RestrictionType": "none", "Quantity": 0}},
+  "WebACLId": ""
+}
+JSON
+  )
+
+  CF_DIST_ID=$(aws cloudfront create-distribution \
+    --distribution-config "$dist_config" \
+    --query 'Distribution.Id' --output text)
+  local cf_domain
+  cf_domain=$(aws cloudfront get-distribution \
+    --id "$CF_DIST_ID" \
+    --query 'Distribution.DomainName' --output text)
+
+  ok "Created frontend CloudFront distribution: $CF_DIST_ID"
+  ok "Frontend CloudFront domain: $cf_domain"
+  warn "Add a CNAME record: ${DOMAIN} → ${cf_domain}"
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 section "QMK Nexus — AWS setup (${DOMAIN})"
 info "AWS_ACCOUNT_ID : $AWS_ACCOUNT_ID"
@@ -1201,6 +1523,7 @@ info "AWS_BUCKET     : $AWS_BUCKET"
 info "AWS_PRINCIPAL  : $AWS_PRINCIPAL"
 info "AWS_POLICY_NAME: $AWS_POLICY_NAME"
 info "LAMBDA_NAME    : $LAMBDA_NAME"
+info "FRONTEND_LAMBDA: $FRONTEND_LAMBDA_NAME"
 info "FRONTEND_DOMAIN: $DOMAIN"
 info "BACKEND_DOMAIN : $BACKEND_DOMAIN"
 info "BUILD_DOMAIN   : $BUILD_DOMAIN"
@@ -1309,13 +1632,12 @@ if [[ "$CREATE_LAMBDA" == "1" ]]; then
   section "5. Lambda function (${LAMBDA_NAME})"
   if [[ "$DRY_RUN" == "1" ]]; then
     info "Would create/update Lambda: $LAMBDA_NAME"
-    info "  Runtime  : python3.12"
-    info "  Handler  : main.handler"
+    info "  Package  : Image"
     info "  Role     : $AWS_PRINCIPAL"
-    info "  Zip      : $LAMBDA_ZIP"
-    info "  Env      : ENVIRONMENT=production, AWS_REGION=$AWS_REGION, S3_BUCKET=$AWS_BUCKET"
+    info "  Image    : $LAMBDA_IMAGE_URI"
+    info "  Env      : ENVIRONMENT=production, S3_BUCKET=$AWS_BUCKET"
     info "             FRONTEND_URL=https://${DOMAIN}"
-    info "             API_BASE_URL=https://${BACKEND_DOMAIN}"
+    info "             API_BASE_URL=https://${DOMAIN}"
     info "             BUILD_RUNNER=ecs"
     info "             ECS_CLUSTER=${ECS_CLUSTER}"
     info "             ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION}"
@@ -1329,6 +1651,20 @@ if [[ "$CREATE_LAMBDA" == "1" ]]; then
   fi
 fi
 
+if [[ "$CREATE_FRONTEND_LAMBDA" == "1" ]]; then
+  section "5b. Frontend Lambda function (${FRONTEND_LAMBDA_NAME})"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "Would create/update frontend Lambda: $FRONTEND_LAMBDA_NAME"
+    info "  Package  : Image"
+    info "  Role     : $AWS_PRINCIPAL"
+    info "  Image    : $FRONTEND_LAMBDA_IMAGE_URI"
+    info "  Env      : ENVIRONMENT=production, API_BASE_URL=https://${BACKEND_DOMAIN}"
+    info "Would create frontend Function URL"
+  else
+    create_or_update_frontend_lambda
+  fi
+fi
+
 # ── 6. CloudFront ─────────────────────────────────────────────────────────────
 if [[ "$CREATE_CF" == "1" || -n "$CF_DIST_ID" || -n "$BACKEND_CF_DIST_ID" ]]; then
   section "6. CloudFront"
@@ -1339,12 +1675,16 @@ if [[ "$CREATE_CF" == "1" || -n "$CF_DIST_ID" || -n "$BACKEND_CF_DIST_ID" ]]; th
       --function-name "$LAMBDA_NAME" \
       --query 'FunctionUrl' --output text 2>/dev/null || echo "")
   fi
+  if [[ -z "${FRONTEND_LAMBDA_URL:-}" && "$DRY_RUN" == "0" ]]; then
+    FRONTEND_LAMBDA_URL=$(aws lambda get-function-url-config \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --query 'FunctionUrl' --output text 2>/dev/null || echo "")
+  fi
 
   if [[ "$DRY_RUN" == "1" ]]; then
     if [[ "$CREATE_CF" == "1" ]]; then
-      info "Would create CloudFront distribution"
-      info "  Default origin : s3://$FRONTEND_BUCKET (OAC)"
-      info "  /api/* origin  : Lambda Function URL"
+      info "Would create frontend CloudFront distribution"
+      info "  Default origin : frontend Lambda Function URL"
       info "  Domain         : $DOMAIN"
       info "Would create backend CloudFront distribution"
       info "  Default origin : Lambda Function URL"
@@ -1352,27 +1692,41 @@ if [[ "$CREATE_CF" == "1" || -n "$CF_DIST_ID" || -n "$BACKEND_CF_DIST_ID" ]]; th
       info "  Certificate    : $CERT_ARN"
     fi
     if [[ -n "$CF_DIST_ID" ]]; then
-      info "Would add Lambda Function URL as origin to $CF_DIST_ID"
-      info "Would add /api/* cache behavior"
+      info "Would update frontend distribution $CF_DIST_ID to use frontend Lambda Function URL"
     fi
     if [[ -n "$BACKEND_CF_DIST_ID" ]]; then
       info "Would update backend distribution $BACKEND_CF_DIST_ID to use Lambda Function URL"
     fi
   else
-    if [[ -z "$LAMBDA_URL" ]]; then
-      warn "No Lambda Function URL found for $LAMBDA_NAME — skipping CloudFront wiring"
-      warn "Run with --create-lambda first, then re-run."
-    elif [[ "$CREATE_CF" == "1" ]]; then
-      create_cf_distribution "$LAMBDA_URL"
-      create_backend_cf_distribution "$LAMBDA_URL"
+    if [[ "$CREATE_CF" == "1" ]]; then
+      if [[ -z "${FRONTEND_LAMBDA_URL:-}" ]]; then
+        warn "No frontend Lambda Function URL found for $FRONTEND_LAMBDA_NAME — skipping frontend CloudFront distribution"
+        warn "Run with --create-frontend-lambda first, then re-run."
+      else
+        create_frontend_cf_distribution "$FRONTEND_LAMBDA_URL"
+      fi
+      if [[ -z "$LAMBDA_URL" ]]; then
+        warn "No backend Lambda Function URL found for $LAMBDA_NAME — skipping backend CloudFront distribution"
+        warn "Run with --create-lambda first, then re-run."
+      else
+        create_backend_cf_distribution "$LAMBDA_URL"
+      fi
     else
       if [[ -n "$CF_DIST_ID" ]]; then
-        info "Wiring Lambda Function URL to distribution $CF_DIST_ID..."
-        wire_api_origin "$LAMBDA_URL"
+        if [[ -z "${FRONTEND_LAMBDA_URL:-}" ]]; then
+          warn "No frontend Lambda Function URL found for $FRONTEND_LAMBDA_NAME — skipping frontend CloudFront wiring"
+        else
+          info "Wiring frontend Lambda Function URL to distribution $CF_DIST_ID..."
+          wire_frontend_distribution "$FRONTEND_LAMBDA_URL"
+        fi
       fi
       if [[ -n "$BACKEND_CF_DIST_ID" ]]; then
-        info "Wiring Lambda Function URL to backend distribution $BACKEND_CF_DIST_ID..."
-        wire_backend_distribution "$LAMBDA_URL"
+        if [[ -z "$LAMBDA_URL" ]]; then
+          warn "No backend Lambda Function URL found for $LAMBDA_NAME — skipping backend CloudFront wiring"
+        else
+          info "Wiring Lambda Function URL to backend distribution $BACKEND_CF_DIST_ID..."
+          wire_backend_distribution "$LAMBDA_URL"
+        fi
       fi
     fi
   fi
@@ -1385,11 +1739,19 @@ if [[ "$SAVE_ENV" == "1" ]]; then
     info "Would write to $(_shell_rc):"
     info "  export AWS_ACCOUNT_ID=\"$AWS_ACCOUNT_ID\""
     info "  export AWS_REGION=\"$AWS_REGION\""
-    info "  export QMK_NEXUS_BUCKET=\"$AWS_BUCKET\""
-    info "  export QMK_NEXUS_LAMBDA=\"$LAMBDA_NAME\""
-    info "  export QMK_NEXUS_FRONTEND_DOMAIN=\"$DOMAIN\""
-    info "  export QMK_NEXUS_BACKEND_DOMAIN=\"$BACKEND_DOMAIN\""
-    info "  export QMK_NEXUS_BUILD_DOMAIN=\"$BUILD_DOMAIN\""
+    info "  export AWS_BUCKET=\"$AWS_BUCKET\""
+    info "  export AWS_PRINCIPAL=\"$AWS_PRINCIPAL\""
+    info "  export AWS_POLICY_NAME=\"$AWS_POLICY_NAME\""
+    info "  export TRUST_ENTITY=\"$TRUST_ENTITY\""
+    info "  export LAMBDA_NAME=\"$LAMBDA_NAME\""
+    [[ -n "$LAMBDA_IMAGE_URI" ]] && info "  export LAMBDA_IMAGE_URI=\"$LAMBDA_IMAGE_URI\""
+    info "  export FRONTEND_LAMBDA_NAME=\"$FRONTEND_LAMBDA_NAME\""
+    [[ -n "$FRONTEND_LAMBDA_IMAGE_URI" ]] && info "  export FRONTEND_LAMBDA_IMAGE_URI=\"$FRONTEND_LAMBDA_IMAGE_URI\""
+    info "  export DOMAIN=\"$DOMAIN\""
+    info "  export BACKEND_DOMAIN=\"$BACKEND_DOMAIN\""
+    info "  export BUILD_DOMAIN=\"$BUILD_DOMAIN\""
+    [[ -n "$FRONTEND_BUCKET" ]] && info "  export FRONTEND_BUCKET=\"$FRONTEND_BUCKET\""
+    [[ -n "$CERT_ARN" ]] && info "  export CERT_ARN=\"$CERT_ARN\""
     info "  export ECS_CLUSTER=\"$ECS_CLUSTER\""
     info "  export ECS_TASK_DEFINITION=\"$ECS_TASK_DEFINITION\""
     info "  export ECS_CONTAINER_NAME=\"$ECS_CONTAINER_NAME\""
@@ -1398,19 +1760,28 @@ if [[ "$SAVE_ENV" == "1" ]]; then
     info "  export ECS_SUBNETS=\"$ECS_SUBNETS\""
     info "  export ECS_SECURITY_GROUPS=\"$ECS_SECURITY_GROUPS\""
     info "  export ECS_ASSIGN_PUBLIC_IP=\"$ECS_ASSIGN_PUBLIC_IP\""
+    info "  export BUILDER_TASK_POLICY_NAME=\"$BUILDER_TASK_POLICY_NAME\""
     info "  export VPC_ID=\"$VPC_ID\""
     info "  export ROUTE_TABLE_IDS=\"$ROUTE_TABLE_IDS\""
     info "  export ENDPOINT_SECURITY_GROUPS=\"$ENDPOINT_SECURITY_GROUPS\""
-    [[ -n "$CF_DIST_ID" ]] && info "  export QMK_NEXUS_CF_DIST=\"$CF_DIST_ID\""
-    [[ -n "$BACKEND_CF_DIST_ID" ]] && info "  export QMK_NEXUS_BACKEND_CF_DIST=\"$BACKEND_CF_DIST_ID\""
+    [[ -n "$CF_DIST_ID" ]] && info "  export CF_DIST_ID=\"$CF_DIST_ID\""
+    [[ -n "$BACKEND_CF_DIST_ID" ]] && info "  export BACKEND_CF_DIST_ID=\"$BACKEND_CF_DIST_ID\""
   else
     persist_env AWS_ACCOUNT_ID     "$AWS_ACCOUNT_ID"
     persist_env AWS_REGION         "$AWS_REGION"
-    persist_env QMK_NEXUS_BUCKET   "$AWS_BUCKET"
-    persist_env QMK_NEXUS_LAMBDA   "$LAMBDA_NAME"
-    persist_env QMK_NEXUS_FRONTEND_DOMAIN "$DOMAIN"
-    persist_env QMK_NEXUS_BACKEND_DOMAIN  "$BACKEND_DOMAIN"
-    persist_env QMK_NEXUS_BUILD_DOMAIN    "$BUILD_DOMAIN"
+    persist_env AWS_BUCKET         "$AWS_BUCKET"
+    persist_env AWS_PRINCIPAL      "$AWS_PRINCIPAL"
+    persist_env AWS_POLICY_NAME    "$AWS_POLICY_NAME"
+    persist_env TRUST_ENTITY       "$TRUST_ENTITY"
+    persist_env LAMBDA_NAME        "$LAMBDA_NAME"
+    [[ -n "$LAMBDA_IMAGE_URI" ]] && persist_env LAMBDA_IMAGE_URI "$LAMBDA_IMAGE_URI"
+    persist_env FRONTEND_LAMBDA_NAME "$FRONTEND_LAMBDA_NAME"
+    [[ -n "$FRONTEND_LAMBDA_IMAGE_URI" ]] && persist_env FRONTEND_LAMBDA_IMAGE_URI "$FRONTEND_LAMBDA_IMAGE_URI"
+    persist_env DOMAIN             "$DOMAIN"
+    persist_env BACKEND_DOMAIN     "$BACKEND_DOMAIN"
+    persist_env BUILD_DOMAIN       "$BUILD_DOMAIN"
+    [[ -n "$FRONTEND_BUCKET" ]] && persist_env FRONTEND_BUCKET "$FRONTEND_BUCKET"
+    [[ -n "$CERT_ARN" ]] && persist_env CERT_ARN "$CERT_ARN"
     persist_env ECS_CLUSTER                "$ECS_CLUSTER"
     persist_env ECS_TASK_DEFINITION        "$ECS_TASK_DEFINITION"
     persist_env ECS_CONTAINER_NAME         "$ECS_CONTAINER_NAME"
@@ -1419,11 +1790,12 @@ if [[ "$SAVE_ENV" == "1" ]]; then
     persist_env ECS_SUBNETS                "$ECS_SUBNETS"
     persist_env ECS_SECURITY_GROUPS        "$ECS_SECURITY_GROUPS"
     persist_env ECS_ASSIGN_PUBLIC_IP       "$ECS_ASSIGN_PUBLIC_IP"
+    persist_env BUILDER_TASK_POLICY_NAME   "$BUILDER_TASK_POLICY_NAME"
     persist_env VPC_ID                     "$VPC_ID"
     persist_env ROUTE_TABLE_IDS            "$ROUTE_TABLE_IDS"
     persist_env ENDPOINT_SECURITY_GROUPS   "$ENDPOINT_SECURITY_GROUPS"
-    [[ -n "$CF_DIST_ID" ]] && persist_env QMK_NEXUS_CF_DIST "$CF_DIST_ID"
-    [[ -n "$BACKEND_CF_DIST_ID" ]] && persist_env QMK_NEXUS_BACKEND_CF_DIST "$BACKEND_CF_DIST_ID"
+    [[ -n "$CF_DIST_ID" ]] && persist_env CF_DIST_ID "$CF_DIST_ID"
+    [[ -n "$BACKEND_CF_DIST_ID" ]] && persist_env BACKEND_CF_DIST_ID "$BACKEND_CF_DIST_ID"
     info "Run: source $(_shell_rc)"
   fi
 fi
@@ -1436,7 +1808,7 @@ if [[ "$DRY_RUN" == "0" ]]; then
   info "  GOOGLE_CLIENT_ID"
   info "  GOOGLE_CLIENT_SECRET"
   info "  FRONTEND_URL=https://${DOMAIN}"
-  info "  API_BASE_URL=https://${BACKEND_DOMAIN}"
+  info "  API_BASE_URL=https://${DOMAIN}"
   info "  BUILD_RUNNER=ecs"
   info "  ECS_CLUSTER=${ECS_CLUSTER}"
   info "  ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION}"
@@ -1444,8 +1816,11 @@ if [[ "$DRY_RUN" == "0" ]]; then
   info "  ECS_SUBNETS=${ECS_SUBNETS}"
   info "  ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS}"
   info "  ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}"
+  info "Frontend Lambda env vars:"
+  info "  API_BASE_URL=https://${BACKEND_DOMAIN}"
   info "Builder image must be deployed as the ECS task definition container."
-  [[ -n "$LAMBDA_URL" ]] && info "Function URL: $LAMBDA_URL"
-  [[ -n "$CF_DIST_ID" ]] && info "CloudFront  : https://$DOMAIN  (dist: $CF_DIST_ID)"
-  [[ -n "$BACKEND_CF_DIST_ID" ]] && info "Backend CF  : https://$BACKEND_DOMAIN  (dist: $BACKEND_CF_DIST_ID)"
+  [[ -n "${LAMBDA_URL:-}" ]] && info "Function URL: $LAMBDA_URL"
+  [[ -n "${FRONTEND_LAMBDA_URL:-}" ]] && info "Frontend URL: $FRONTEND_LAMBDA_URL"
+  [[ -n "${CF_DIST_ID:-}" ]] && info "CloudFront  : https://$DOMAIN  (dist: $CF_DIST_ID)"
+  [[ -n "${BACKEND_CF_DIST_ID:-}" ]] && info "Backend CF  : https://$BACKEND_DOMAIN  (dist: $BACKEND_CF_DIST_ID)"
 fi

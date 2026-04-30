@@ -2,7 +2,7 @@ import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
   function handleGoogleLogin() {
-    window.location.href = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}/api/auth/google`
+    window.location.href = '/api/auth/google'
   }
 
   return (

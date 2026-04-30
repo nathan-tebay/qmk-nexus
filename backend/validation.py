@@ -274,7 +274,11 @@ def validate_keyboard_config(config: KeyboardConfig) -> list[str]:
     elif oled_count > 1:
         errors.append('Multiple OLEDs are only supported when Split Keyboard is enabled.')
 
-    if config.features.get('rgb_matrix') and config.features.get('backlight'):
+    if (
+        config.source_mode != 'qmk_native'
+        and config.features.get('rgb_matrix')
+        and config.features.get('backlight')
+    ):
         errors.append('RGB Matrix and Backlight are incompatible.')
 
     for layer_idx, layer in enumerate(config.layers):

@@ -1,0 +1,14 @@
+FROM node:20-bookworm-slim AS build
+
+WORKDIR /app
+COPY frontend/package*.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+FROM public.ecr.aws/lambda/nodejs:20
+
+COPY --from=build /app/dist ${LAMBDA_TASK_ROOT}/dist
+COPY docker/frontend/lambda-handler.mjs ${LAMBDA_TASK_ROOT}/lambda-handler.mjs
+
+CMD ["lambda-handler.handler"]

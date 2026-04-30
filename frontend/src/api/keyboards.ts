@@ -21,12 +21,12 @@ export const qmkApi = {
 }
 
 export const keyboardsApi = {
-  list: () => api.get<KeyboardConfig[]>('/keyboards/'),
+  list: () => api.get<KeyboardConfig[]>('/keyboards'),
 
   get: (id: string) => api.get<KeyboardConfig>(`/keyboards/${id}`),
 
   create: (config: KeyboardConfig) =>
-    api.post<KeyboardConfig>('/keyboards/', config),
+    api.post<KeyboardConfig>('/keyboards', config),
 
   update: (id: string, config: KeyboardConfig) =>
     api.put<KeyboardConfig>(`/keyboards/${id}`, config),

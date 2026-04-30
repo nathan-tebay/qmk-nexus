@@ -65,6 +65,14 @@ def test_native_qmk_build_ready_skips_generated_pin_requirements():
     assert validate_build_ready(config) == []
 
 
+def test_native_qmk_build_ready_allows_upstream_feature_combinations():
+    config = _native_config().model_copy(update={
+        'features': {'rgb_matrix': True, 'backlight': True},
+    })
+
+    assert validate_build_ready(config) == []
+
+
 def test_native_qmk_keymap_uses_imported_layout_macro():
     text = generate_keymap_c(_native_config())
 

@@ -1,52 +1,67 @@
 #!/usr/bin/env bash
 # Build and deploy QMK Nexus to AWS.
 #
-# This script deploys the two runtime pieces:
-#   - backend FastAPI/Mangum app as an AWS Lambda zip
-#   - frontend Vite build to an S3 static hosting bucket
+# This script deploys the runtime pieces:
+#   - backend FastAPI/Mangum app as an AWS Lambda container image
+#   - frontend Vite app as an AWS Lambda container image
 #
 # It can also push the firmware builder image to ECR when requested.
 #
 # First-time AWS resource creation is handled by scripts/aws-setup.sh. This
-# script assumes the Lambda, frontend bucket, and optional CloudFront
+# script assumes the Lambda functions and optional CloudFront
 # distributions already exist.
 #
 # Required for the selected deploy targets:
-#   Backend:  LAMBDA_NAME
-#   Frontend: FRONTEND_BUCKET
-#   Builder:  ECR_REPOSITORY
+#   Backend:  LAMBDA_NAME, API_ECR_REPOSITORY
+#   Frontend: FRONTEND_LAMBDA_NAME, FRONTEND_ECR_REPOSITORY
+#   Builder:  BUILDER_ECR_REPOSITORY
 #
 # Common optional environment variables:
 #   AWS_REGION=us-east-1
+#   AWS_ACCOUNT_ID=123456789012
 #   DOMAIN=qmknexus.tebay.dev
 #   BACKEND_DOMAIN=qmknexus-back.tebay.dev
+#   FRONTEND_LAMBDA_NAME=qmk-nexus-frontend
+#   FRONTEND_ECR_REPOSITORY=qmk-nexus-frontend
+#   FRONTEND_IMAGE_TAG=latest
 #   CF_DIST_ID=E123...
 #   BACKEND_CF_DIST_ID=E456...
 #   VITE_API_URL=https://qmknexus-back.tebay.dev
+#   API_ECR_REPOSITORY=qmk-nexus-api
+#   API_IMAGE_TAG=latest
+#   LAMBDA_FUNCTION=qmk-nexus-api
+#   ECR_REPO=qmk-nexus-api
+#   IMAGE_TAG=latest
+#   BUILDER_ECR_REPOSITORY=qmk-nexus-builder
+#   BUILDER_IMAGE_TAG=latest
 #   AWS_PROFILE=profile-name
 #
 # Examples:
-#   ./deploy_aws.sh --all
-#   ./deploy_aws.sh --backend --lambda-name qmk-nexus-api
-#   ./deploy_aws.sh --frontend --frontend-bucket qmk-nexus-frontend --cf-dist-id E123
-#   ./deploy_aws.sh --builder --ecr-repository qmk-nexus-builder
-#   ./deploy_aws.sh --builder --ecr-repository 123456789012.dkr.ecr.us-east-1.amazonaws.com/qmk-nexus-builder
+#   ./scripts/deploy_aws.sh --all
+#   ./scripts/deploy_aws.sh --backend --lambda-name qmk-nexus-api
+#   ./scripts/deploy_aws.sh --backend --repo qmk-nexus-api --function qmk-nexus-api --tag latest
+#   ./scripts/deploy_aws.sh --frontend --frontend-function qmk-nexus-frontend --frontend-repo qmk-nexus-frontend --cf-dist-id E123
+#   ./scripts/deploy_aws.sh --builder --builder-ecr-repository qmk-nexus-builder
+#   ./scripts/deploy_aws.sh --builder --builder-ecr-repository 123456789012.dkr.ecr.us-east-1.amazonaws.com/qmk-nexus-builder
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BUILD_ROOT="${BUILD_ROOT:-${ROOT}/.aws-build}"
-LAMBDA_BUILD_DIR="${BUILD_ROOT}/lambda"
-LAMBDA_ZIP="${BUILD_ROOT}/qmk-nexus-api.zip"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 DOMAIN="${DOMAIN:-qmknexus.tebay.dev}"
 BACKEND_DOMAIN="${BACKEND_DOMAIN:-qmknexus-back.tebay.dev}"
-LAMBDA_NAME="${LAMBDA_NAME:-qmk-nexus-api}"
-FRONTEND_BUCKET="${FRONTEND_BUCKET:-}"
+LAMBDA_NAME="${LAMBDA_NAME:-${LAMBDA_FUNCTION:-qmk-nexus-api}}"
+FRONTEND_LAMBDA_NAME="${FRONTEND_LAMBDA_NAME:-${FRONTEND_LAMBDA_FUNCTION:-qmk-nexus-frontend}}"
 CF_DIST_ID="${CF_DIST_ID:-}"
 BACKEND_CF_DIST_ID="${BACKEND_CF_DIST_ID:-}"
-ECR_REPOSITORY="${ECR_REPOSITORY:-}"
+API_ECR_REPOSITORY="${API_ECR_REPOSITORY:-${ECR_REPO:-qmk-nexus-api}}"
+API_IMAGE_TAG="${API_IMAGE_TAG:-${IMAGE_TAG:-latest}}"
+FRONTEND_ECR_REPOSITORY="${FRONTEND_ECR_REPOSITORY:-qmk-nexus-frontend}"
+FRONTEND_IMAGE_TAG="${FRONTEND_IMAGE_TAG:-latest}"
+BUILDER_ECR_REPOSITORY="${BUILDER_ECR_REPOSITORY:-${ECR_REPOSITORY:-qmk-nexus-builder}}"
 BUILDER_IMAGE_TAG="${BUILDER_IMAGE_TAG:-latest}"
 VITE_API_URL="${VITE_API_URL:-https://${BACKEND_DOMAIN}}"
 
@@ -93,6 +108,7 @@ while [[ "$#" -gt 0 ]]; do
     --all)
       DEPLOY_BACKEND=1
       DEPLOY_FRONTEND=1
+      DEPLOY_BUILDER=1
       shift
       ;;
     --backend)
@@ -111,12 +127,24 @@ while [[ "$#" -gt 0 ]]; do
       AWS_REGION="$2"
       shift 2
       ;;
-    --lambda-name)
+    --account-id)
+      AWS_ACCOUNT_ID="$2"
+      shift 2
+      ;;
+    --lambda-name|--function)
       LAMBDA_NAME="$2"
       shift 2
       ;;
-    --frontend-bucket)
-      FRONTEND_BUCKET="$2"
+    --frontend-function|--frontend-lambda-name)
+      FRONTEND_LAMBDA_NAME="$2"
+      shift 2
+      ;;
+    --frontend-repo|--frontend-ecr-repository)
+      FRONTEND_ECR_REPOSITORY="$2"
+      shift 2
+      ;;
+    --frontend-image-tag)
+      FRONTEND_IMAGE_TAG="$2"
       shift 2
       ;;
     --domain)
@@ -140,8 +168,16 @@ while [[ "$#" -gt 0 ]]; do
       BACKEND_CF_DIST_ID="$2"
       shift 2
       ;;
-    --ecr-repository)
-      ECR_REPOSITORY="$2"
+    --api-ecr-repository|--repo)
+      API_ECR_REPOSITORY="$2"
+      shift 2
+      ;;
+    --api-image-tag|--tag)
+      API_IMAGE_TAG="$2"
+      shift 2
+      ;;
+    --builder-ecr-repository|--ecr-repository)
+      BUILDER_ECR_REPOSITORY="$2"
       shift 2
       ;;
     --builder-image-tag)
@@ -169,11 +205,16 @@ done
 if [[ "$DEPLOY_BACKEND" == "0" && "$DEPLOY_FRONTEND" == "0" && "$DEPLOY_BUILDER" == "0" ]]; then
   DEPLOY_BACKEND=1
   DEPLOY_FRONTEND=1
+  DEPLOY_BUILDER=1
 fi
 
 aws_args=(--region "$AWS_REGION")
 
 account_id() {
+  if [[ -n "$AWS_ACCOUNT_ID" ]]; then
+    printf '%s' "$AWS_ACCOUNT_ID"
+    return
+  fi
   if [[ "$DRY_RUN" == "1" ]]; then
     printf '123456789012'
     return
@@ -181,52 +222,87 @@ account_id() {
   aws "${aws_args[@]}" sts get-caller-identity --query Account --output text
 }
 
-package_backend() {
-  need_command python3
-  need_command rsync
-  need_command zip
-
-  log "Packaging backend Lambda"
-  run rm -rf "$LAMBDA_BUILD_DIR" "$LAMBDA_ZIP"
-  run mkdir -p "$LAMBDA_BUILD_DIR"
-
-  if [[ "$SKIP_BUILD" == "0" ]]; then
-    run python3 -m pip install \
-      --quiet \
-      --upgrade \
-      --platform manylinux2014_x86_64 \
-      --implementation cp \
-      --python-version 3.12 \
-      --only-binary=:all: \
-      --target "$LAMBDA_BUILD_DIR" \
-      -r "$ROOT/backend/requirements.txt"
-  fi
-
-  run rsync -a \
-    --exclude '__pycache__' \
-    --exclude '*.pyc' \
-    --exclude '.env' \
-    --exclude '.pytest_cache' \
-    "$ROOT/backend/" "$LAMBDA_BUILD_DIR/"
-
-  if [[ "$DRY_RUN" == "1" ]]; then
-    run zip -qr "$LAMBDA_ZIP" .
+ecr_image_uri() {
+  local repository="$1"
+  local tag="$2"
+  local registry account
+  if [[ "$repository" == *.dkr.ecr.*.amazonaws.com/* ]]; then
+    printf '%s:%s' "$repository" "$tag"
   else
-    (cd "$LAMBDA_BUILD_DIR" && zip -qr "$LAMBDA_ZIP" .)
+    account="$(account_id)"
+    registry="${account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+    printf '%s/%s:%s' "$registry" "$repository" "$tag"
   fi
-  info "Lambda zip: $LAMBDA_ZIP"
+}
+
+ecr_registry_from_image() {
+  local image_uri="$1"
+  printf '%s' "${image_uri%%/*}"
+}
+
+ecr_repository_name_from_image() {
+  local image_uri="$1"
+  local without_registry="${image_uri#*/}"
+  printf '%s' "${without_registry%%:*}"
+}
+
+ensure_ecr_repository() {
+  local image_uri="$1"
+  local repository
+  repository="$(ecr_repository_name_from_image "$image_uri")"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "dry-run: ensure ECR repository exists: $repository"
+    return
+  fi
+  if ! aws "${aws_args[@]}" ecr describe-repositories --repository-names "$repository" >/dev/null 2>&1; then
+    aws "${aws_args[@]}" ecr create-repository --repository-name "$repository" >/dev/null
+    info "Created ECR repository: $repository"
+  fi
+}
+
+ecr_login() {
+  local registry="$1"
+  log "Logging in to ECR"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "dry-run: aws ecr get-login-password ... | podman login --username AWS --password-stdin ${registry}"
+  else
+    aws "${aws_args[@]}" ecr get-login-password \
+      | podman login --username AWS --password-stdin "$registry"
+  fi
 }
 
 deploy_backend() {
   need_command aws
+  need_command podman
   [[ -n "$LAMBDA_NAME" ]] || die "LAMBDA_NAME or --lambda-name is required for backend deploy"
+  [[ -n "$API_ECR_REPOSITORY" ]] || die "API_ECR_REPOSITORY or --api-ecr-repository is required for backend deploy"
 
-  package_backend
+  local image_uri registry package_type
+  image_uri="$(ecr_image_uri "$API_ECR_REPOSITORY" "$API_IMAGE_TAG")"
+  registry="$(ecr_registry_from_image "$image_uri")"
+
+  log "Building backend Lambda image"
+  ensure_ecr_repository "$image_uri"
+  run podman build --platform linux/amd64 -f "$ROOT/docker/backend/Dockerfile.lambda" -t "$image_uri" "$ROOT"
+  ecr_login "$registry"
+
+  log "Pushing backend Lambda image"
+  run podman push "$image_uri"
+  info "Backend image: $image_uri"
 
   log "Deploying backend Lambda"
+  if [[ "$DRY_RUN" == "0" ]]; then
+    package_type="$(aws "${aws_args[@]}" lambda get-function-configuration \
+      --function-name "$LAMBDA_NAME" \
+      --query 'PackageType' \
+      --output text 2>/dev/null || true)"
+    if [[ "$package_type" == "Zip" ]]; then
+      die "Lambda $LAMBDA_NAME is PackageType=Zip. Create a new image-package Lambda with scripts/aws-setup.sh --create-lambda --lambda-image-uri $image_uri, or delete/recreate it."
+    fi
+  fi
   run aws "${aws_args[@]}" lambda update-function-code \
     --function-name "$LAMBDA_NAME" \
-    --zip-file "fileb://${LAMBDA_ZIP}" \
+    --image-uri "$image_uri" \
     --query 'FunctionArn' \
     --output text
 
@@ -240,33 +316,49 @@ deploy_backend() {
   fi
 }
 
-build_frontend() {
-  need_command npm
-
-  log "Building frontend"
-  if [[ "$SKIP_BUILD" == "0" ]]; then
-    run npm --prefix "$ROOT/frontend" ci --no-audit --no-fund
-    run env "VITE_API_URL=${VITE_API_URL}" npm --prefix "$ROOT/frontend" run build
-  else
-    [[ -d "$ROOT/frontend/dist" ]] || die "frontend/dist does not exist; remove --skip-build"
-    info "Using existing frontend/dist"
-  fi
-}
-
 deploy_frontend() {
   need_command aws
-  [[ -n "$FRONTEND_BUCKET" ]] || die "FRONTEND_BUCKET or --frontend-bucket is required for frontend deploy"
+  need_command podman
+  [[ -n "$FRONTEND_LAMBDA_NAME" ]] || die "FRONTEND_LAMBDA_NAME or --frontend-function is required for frontend deploy"
+  [[ -n "$FRONTEND_ECR_REPOSITORY" ]] || die "FRONTEND_ECR_REPOSITORY or --frontend-repo is required for frontend deploy"
 
-  build_frontend
+  local image_uri registry package_type
+  image_uri="$(ecr_image_uri "$FRONTEND_ECR_REPOSITORY" "$FRONTEND_IMAGE_TAG")"
+  registry="$(ecr_registry_from_image "$image_uri")"
 
-  log "Syncing frontend to S3"
-  run aws "${aws_args[@]}" s3 sync "$ROOT/frontend/dist/" "s3://${FRONTEND_BUCKET}/" \
-    --delete \
-    --cache-control 'public,max-age=31536000,immutable' \
-    --exclude 'index.html'
-  run aws "${aws_args[@]}" s3 cp "$ROOT/frontend/dist/index.html" "s3://${FRONTEND_BUCKET}/index.html" \
-    --cache-control 'no-cache,no-store,must-revalidate' \
-    --content-type 'text/html'
+  log "Building frontend Lambda image"
+  ensure_ecr_repository "$image_uri"
+  if [[ "$SKIP_BUILD" == "0" ]]; then
+    run podman build --platform linux/amd64 -f "$ROOT/docker/frontend/Dockerfile.lambda" -t "$image_uri" "$ROOT"
+  else
+    info "Skipping frontend image build"
+  fi
+  ecr_login "$registry"
+
+  log "Pushing frontend Lambda image"
+  run podman push "$image_uri"
+  info "Frontend image: $image_uri"
+
+  log "Deploying frontend Lambda"
+  if [[ "$DRY_RUN" == "0" ]]; then
+    package_type="$(aws "${aws_args[@]}" lambda get-function-configuration \
+      --function-name "$FRONTEND_LAMBDA_NAME" \
+      --query 'PackageType' \
+      --output text 2>/dev/null || true)"
+    if [[ "$package_type" == "Zip" ]]; then
+      die "Lambda $FRONTEND_LAMBDA_NAME is PackageType=Zip. Create a new image-package Lambda with scripts/aws-setup.sh --create-frontend-lambda --frontend-lambda-image-uri $image_uri, or delete/recreate it."
+    fi
+  fi
+  run aws "${aws_args[@]}" lambda update-function-code \
+    --function-name "$FRONTEND_LAMBDA_NAME" \
+    --image-uri "$image_uri" \
+    --query 'FunctionArn' \
+    --output text
+
+  if [[ "$DRY_RUN" == "0" ]]; then
+    info "Waiting for frontend Lambda code update to finish"
+    aws "${aws_args[@]}" lambda wait function-updated --function-name "$FRONTEND_LAMBDA_NAME"
+  fi
 
   if [[ -n "$CF_DIST_ID" ]]; then
     invalidate_cloudfront "$CF_DIST_ID" '/*'
@@ -288,28 +380,17 @@ invalidate_cloudfront() {
 deploy_builder() {
   need_command aws
   need_command podman
-  [[ -n "$ECR_REPOSITORY" ]] || die "ECR_REPOSITORY or --ecr-repository is required for builder deploy"
+  [[ -n "$BUILDER_ECR_REPOSITORY" ]] || die "BUILDER_ECR_REPOSITORY or --builder-ecr-repository is required for builder deploy"
 
-  local registry image_uri account
-  if [[ "$ECR_REPOSITORY" == *.dkr.ecr.*.amazonaws.com/* ]]; then
-    registry="${ECR_REPOSITORY%%/*}"
-    image_uri="${ECR_REPOSITORY}:${BUILDER_IMAGE_TAG}"
-  else
-    account="$(account_id)"
-    registry="${account}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-    image_uri="${registry}/${ECR_REPOSITORY}:${BUILDER_IMAGE_TAG}"
-  fi
+  local registry image_uri
+  image_uri="$(ecr_image_uri "$BUILDER_ECR_REPOSITORY" "$BUILDER_IMAGE_TAG")"
+  registry="$(ecr_registry_from_image "$image_uri")"
 
   log "Building firmware builder image"
+  ensure_ecr_repository "$image_uri"
   run podman build -t "$image_uri" "$ROOT/docker/builder"
 
-  log "Logging in to ECR"
-  if [[ "$DRY_RUN" == "1" ]]; then
-    info "dry-run: aws ecr get-login-password ... | podman login --username AWS --password-stdin ${registry}"
-  else
-    aws "${aws_args[@]}" ecr get-login-password \
-      | podman login --username AWS --password-stdin "$registry"
-  fi
+  ecr_login "$registry"
 
   log "Pushing builder image"
   run podman push "$image_uri"
