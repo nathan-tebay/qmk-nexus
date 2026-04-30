@@ -63,6 +63,11 @@ if [[ -f "${SRC_DIR}/qmk_native.json" ]]; then
       \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) \
       -exec cp -n {} "${OUT_DIR}/" \; 2>/dev/null || true
 
+  if ! find "${OUT_DIR}" -maxdepth 1 \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) | grep -q .; then
+    echo "[builder] ERROR: QMK completed without producing a firmware artifact"
+    exit 1
+  fi
+
   echo "[builder] Done."
   ls -lh "$OUT_DIR"
   exit 0
@@ -81,6 +86,7 @@ done
 
 # info.json (modern QMK layout descriptor)
 [ -f "${SRC_DIR}/info.json" ] && cp "${SRC_DIR}/info.json" "${KB_DIR}/info.json"
+[ -f "${SRC_DIR}/keyboard.json" ] && cp "${SRC_DIR}/keyboard.json" "${KB_DIR}/keyboard.json"
 
 # Keymap
 cp "${SRC_DIR}/keymap.c" "${KM_DIR}/keymap.c"
@@ -104,6 +110,11 @@ find "${QMK_HOME}/.build" -maxdepth 1 \
 find "${QMK_HOME}/.build" -maxdepth 1 \
     \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) \
     -exec cp -n {} "${OUT_DIR}/" \; 2>/dev/null || true
+
+if ! find "${OUT_DIR}" -maxdepth 1 \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) | grep -q .; then
+    echo "[builder] ERROR: QMK completed without producing a firmware artifact"
+    exit 1
+fi
 
 echo "[builder] Done."
 ls -lh "$OUT_DIR"

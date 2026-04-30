@@ -116,10 +116,20 @@ export default function LayoutStage() {
                 </div>
               </div>
               <div className={styles.welcomeActions}>
-                <button className={styles.welcomePrimary} onClick={() => setShowImport(true)}>
+                <button
+                  className={styles.welcomePrimary}
+                  onClick={() => setShowImport(true)}
+                  title="Load a saved keyboard or import a QMK keyboard"
+                  aria-label="Load keyboard"
+                >
                   Load Keyboard
                 </button>
-                <button className={styles.welcomeSecondary} onClick={() => addKey({ id: nanoid(), x: 0, y: 0, w: 1, h: 1, rotation: 0, label: '', row: null, col: null, ledIndex: null, shape: 'rect' })}>
+                <button
+                  className={styles.welcomeSecondary}
+                  onClick={() => addKey({ id: nanoid(), x: 0, y: 0, w: 1, h: 1, rotation: 0, label: '', row: null, col: null, ledIndex: null, shape: 'rect' })}
+                  title="Create a blank keyboard with one 1u key"
+                  aria-label="Start from scratch"
+                >
                   Start from Scratch
                 </button>
               </div>
@@ -144,6 +154,8 @@ export default function LayoutStage() {
               <button
                 onClick={handleValidate}
                 style={{ padding: '3px 8px', fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', cursor: 'pointer' }}
+                title="Check matrix and LED wiring for missing or inconsistent assignments"
+                aria-label="Validate matrix wiring"
               >
                 Validate
               </button>
@@ -177,12 +189,16 @@ export default function LayoutStage() {
           <button
             className={`${styles.tab} ${rightTab === 'properties' ? styles.activeTab : ''}`}
             onClick={() => setRightTab('properties')}
+            title="Edit selected key or peripheral properties"
+            aria-label="Show key properties"
           >
             Key
           </button>
           <button
             className={`${styles.tab} ${rightTab === 'pins' ? styles.activeTab : ''}`}
             onClick={() => setRightTab('pins')}
+            title="Assign generated matrix rows and columns to MCU pins"
+            aria-label="Show pin assignments"
           >
             Pins
           </button>

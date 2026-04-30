@@ -4,12 +4,14 @@ import json
 
 from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
+from codegen._mcu import MCU_BOOTLOADER, MCU_QMK_NAME
 
 
 def generate_info_json(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
     keys = matrix_keys(config)
+    mcu = (config.mcu or 'atmega32u4').lower()
 
     enabled_features = [k for k, v in (config.features or {}).items() if v]
 
@@ -21,8 +23,8 @@ def generate_info_json(config: KeyboardConfig) -> str:
             'pid': config.usb_pid or '0x0000',
             'device_version': '0.0.1',
         },
-        'processor': config.mcu or 'atmega32u4',
-        'bootloader': 'atmel-dfu',
+        'processor': MCU_QMK_NAME.get(mcu, config.mcu or 'atmega32u4'),
+        'bootloader': MCU_BOOTLOADER.get(mcu, 'atmel-dfu'),
         'features': {feat: True for feat in enabled_features},
         'matrix_pins': {
             'rows': [p.pin for p in sorted(config.row_pins, key=lambda p: p.row)],

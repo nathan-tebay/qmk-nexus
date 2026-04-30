@@ -27,13 +27,15 @@ def generate_sources(config: KeyboardConfig, *, overrides: dict[str, str] | None
             'keymap.c': generate_keymap_c(config),
         }
 
+    info = generate_info_json(config)
     files = {
         'keyboard.c': generate_keyboard_c(config),
         'keyboard.h': generate_keyboard_h(config),
         'config.h': generate_config_h(config),
         'rules.mk': generate_rules_mk(config),
         'keymap.c': generate_keymap_c(config),
-        'info.json': generate_info_json(config),
+        'info.json': info,
+        'keyboard.json': info,
     }
     if overrides:
         for canonical, content in overrides.items():

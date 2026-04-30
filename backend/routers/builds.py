@@ -14,8 +14,11 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from jose import JWTError, jwt
 
+import aws_builds
 import db as database
+import telemetry
 from auth import get_current_user
+from codegen._mcu import SUPPORTED_GENERATED_MCUS
 from codegen.generator import generate_all
 from config import settings
 from models import BuildStatus, User
@@ -30,8 +33,14 @@ router = APIRouter(prefix='/builds', tags=['builds'])
 _BUILDS_ROOT = Path('/tmp/tebay-builds')
 _BUILDS_ROOT.mkdir(parents=True, exist_ok=True)
 
-_AVR_MCUS = {'atmega32u4', 'atmega32u2', 'at90usb1286', 'atmega328p'}
 _BUILD_TTL = 600  # seconds
+
+
+def _record_final_build(status: BuildStatus, user: User) -> None:
+    try:
+        telemetry.record_build_final(status, user.id)
+    except Exception:
+        logger.exception('Failed to record telemetry for build %s', status.id)
 
 
 # ── Build cookie (stateless, signed JWT) ─────────────────────────────────────
@@ -65,6 +74,42 @@ def _decode_build_cookie(build_token: str | None) -> dict | None:
         return jwt.decode(build_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     except JWTError:
         return None
+
+
+async def _build_cookie_is_active(payload: dict) -> bool:
+    build_id = payload.get('build_id')
+    mode = payload.get('mode', 'direct')
+    active_statuses = {'queued', 'building', 'running'}
+    if not build_id:
+        return False
+
+    try:
+        if mode == 'ecs':
+            raw = aws_builds.read_build_status(payload['bucket'], payload['prefix'])
+            return raw.get('status') in active_statuses
+
+        async with httpx.AsyncClient() as client:
+            if mode == 'proxy':
+                proxy_url = payload['proxy_url'].rstrip('/')
+                r = await client.get(f'{proxy_url}/builds/{build_id}/status', timeout=3)
+                if r.status_code == 404:
+                    return False
+                r.raise_for_status()
+                raw = r.json()
+                container = raw.get('container') or {}
+                return (container.get('status') or raw.get('status')) in active_statuses
+
+            endpoint = payload.get('endpoint')
+            if not endpoint:
+                return False
+            r = await client.get(f'http://{endpoint}/status', timeout=3)
+            if r.status_code == 404:
+                return False
+            r.raise_for_status()
+            raw = r.json()
+            return raw.get('status') in active_statuses
+    except Exception:
+        return False
 
 
 # ── Direct podman helpers (fallback when BUILD_PROXY_URL is not set) ──────────
@@ -148,8 +193,11 @@ async def trigger_build(
     build_token: str | None = Cookie(default=None),
     user: User = Depends(get_current_user),
 ):
-    if _decode_build_cookie(build_token):
+    existing_build = _decode_build_cookie(build_token)
+    if existing_build and await _build_cookie_is_active(existing_build):
         raise HTTPException(status_code=429, detail='A build is already running')
+    if existing_build:
+        _clear_build_cookie(response)
 
     db_path = pull_user_db(user.id)
     config = database.get_keyboard(db_path, keyboard_id)
@@ -161,7 +209,7 @@ async def trigger_build(
     if config_errors:
         raise HTTPException(status_code=422, detail=config_errors)
 
-    if config.source_mode != 'qmk_native' and config.mcu not in _AVR_MCUS:
+    if config.source_mode != 'qmk_native' and config.mcu.lower() not in SUPPORTED_GENERATED_MCUS:
         raise HTTPException(status_code=400, detail=f'MCU {config.mcu} not yet supported')
 
     build_id = str(uuid.uuid4())
@@ -181,10 +229,39 @@ async def trigger_build(
         status.error = f'Codegen error: {exc}'
         status.log.append(status.error)
         shutil.rmtree(build_dir, ignore_errors=True)
+        _record_final_build(status, user)
         return jsonable_out(status)
 
-    proxy_url = settings.build_proxy_url.rstrip('/')
-    if proxy_url:
+    if settings.build_runner.lower() == 'ecs':
+        try:
+            bundle = aws_builds.stage_build_bundle(
+                user_id=user.id,
+                keyboard_id=keyboard_id,
+                build_id=build_id,
+                build_dir=build_dir,
+                config=config,
+            )
+            task_arn = aws_builds.run_fargate_build(bundle, config)
+            _set_build_cookie(
+                response,
+                build_id,
+                keyboard_id,
+                mode='ecs',
+                bucket=bundle['bucket'],
+                prefix=bundle['prefix'],
+                task_arn=task_arn,
+            )
+            status.log.append('Build staged on S3')
+            status.log.append('ECS task started')
+            shutil.rmtree(build_dir, ignore_errors=True)
+        except Exception as exc:
+            logger.exception('ECS dispatch failed for build %s', build_id)
+            status.status = 'failed'
+            status.error = f'ECS error: {exc}'
+            status.log.append(status.error)
+            shutil.rmtree(build_dir, ignore_errors=True)
+            _record_final_build(status, user)
+    elif (proxy_url := settings.build_proxy_url.rstrip()):
         # ── Proxy mode: delegate to build proxy (server.py) on the host ──────
         try:
             async with httpx.AsyncClient() as client:
@@ -215,6 +292,7 @@ async def trigger_build(
             status.error = f'Proxy error: {exc}'
             status.log.append(status.error)
             shutil.rmtree(build_dir, ignore_errors=True)
+            _record_final_build(status, user)
     else:
         # ── Direct mode: spawn builder container locally ───────────────────
         try:
@@ -228,7 +306,9 @@ async def trigger_build(
             status.error = f'Spawn error: {exc}'
             status.log.append(status.error)
             shutil.rmtree(build_dir, ignore_errors=True)
+            _record_final_build(status, user)
 
+    _record_final_build(status, user)
     return jsonable_out(status)
 
 
@@ -244,7 +324,21 @@ async def get_build_status(
 
     mode = payload.get('mode', 'direct')
 
-    if mode == 'proxy':
+    if mode == 'ecs':
+        try:
+            raw = aws_builds.read_build_status(payload['bucket'], payload['prefix'])
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f'Build status unavailable: {exc}') from exc
+
+        status = BuildStatus(
+            id=build_id,
+            keyboard_id=payload.get('keyboard_id', ''),
+            status=raw.get('status', 'building'),
+            log=raw.get('log', []),
+            artifact_available=bool(raw.get('artifact_available') or raw.get('artifact_key')),
+            error=raw.get('error'),
+        )
+    elif mode == 'proxy':
         proxy_url = payload['proxy_url'].rstrip('/')
         try:
             async with httpx.AsyncClient() as client:
@@ -282,6 +376,7 @@ async def get_build_status(
             error=raw.get('error'),
         )
 
+    _record_final_build(status, user)
     return jsonable_out(status)
 
 
@@ -299,7 +394,22 @@ async def download_artifact(
     mode = payload.get('mode', 'direct')
     build_dir = _BUILDS_ROOT / build_id
 
-    if mode == 'proxy':
+    if mode == 'ecs':
+        try:
+            raw = aws_builds.read_build_status(payload['bucket'], payload['prefix'])
+            artifact_key = raw.get('artifact_key')
+            if not artifact_key:
+                raise HTTPException(status_code=400, detail='Artifact not ready')
+            content, filename = aws_builds.get_artifact(payload['bucket'], artifact_key)
+            cd = f'attachment; filename="{filename}"'
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=502, detail=f'Build artifact unavailable: {exc}') from exc
+
+        _clear_build_cookie(response)
+        shutil.rmtree(build_dir, ignore_errors=True)
+    elif mode == 'proxy':
         proxy_url = payload['proxy_url'].rstrip('/')
         try:
             async with httpx.AsyncClient() as client:

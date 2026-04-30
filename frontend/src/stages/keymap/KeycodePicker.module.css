@@ -156,6 +156,20 @@
   border-color: var(--accent);
 }
 
+.clearBtn {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 15px;
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  cursor: pointer;
+}
+
+.clearBtn:hover {
+  background: rgba(239, 68, 68, 0.16);
+}
+
 .tapPreview {
   font-size: 15px;
   color: var(--text-muted);

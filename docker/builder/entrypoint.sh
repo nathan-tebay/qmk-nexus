@@ -1,6 +1,10 @@
 #!/bin/bash
 # Starts build in background, serves HTTP on :8099 via socat for status/download polling.
 
+if [ "${BUILD_MODE:-}" = "fargate" ]; then
+    exec /usr/local/bin/fargate_build.py
+fi
+
 echo "building" > /tmp/build_status
 : > /tmp/build_log
 : > /tmp/artifact_path

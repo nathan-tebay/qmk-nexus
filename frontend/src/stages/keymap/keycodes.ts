@@ -23,8 +23,8 @@ export const CATEGORIES: readonly KeycodeCategory[] = [
 
 export const KEYCODES: readonly Keycode[] = [
   // Special
-  { code: 'KC_TRNS', label: '___',  category: 'special', description: 'Transparent (inherit from lower layer)' },
-  { code: 'KC_NO',   label: 'XXXX', category: 'special', description: 'No action' },
+  { code: 'KC_TRNS', label: '____', category: 'special', description: 'Transparent (inherit from lower layer)' },
+  { code: 'KC_NO',   label: 'No',   category: 'special', description: 'No action' },
 
   // Basic — letters
   ...Array.from('ABCDEFGHIJKLMNOPQRSTUVWXYZ').map((c) => ({

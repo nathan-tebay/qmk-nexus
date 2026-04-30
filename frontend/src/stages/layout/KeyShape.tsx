@@ -72,7 +72,8 @@ export default function KeyShape({
   const strokeWidth = selected ? 2 : 1
   const shadow = selected ? { shadowColor: KEY_SELECTED_STROKE, shadowBlur: 8, shadowOpacity: 0.4 } : {}
 
-  const labelText = showMatrix ? '' : (keycodeLabel ?? '')
+  const labelText = showMatrix ? '' : (keycodeLabel ?? 'KC_TRNS')
+  const isCleared = labelText === 'KC_NO' || labelText === 'XXXXXXX'
 
   return (
     <Group
@@ -136,15 +137,15 @@ export default function KeyShape({
       )}
 
       {/* Keycode label — hidden in matrix mode, rendered in keymap format */}
-      {!showMatrix && labelText && (() => {
+      {!showMatrix && (() => {
         const { tap, hold } = parseAssignedCode(labelText)
         return hold ? (
           <>
             <Text x={4} y={4} width={w - 8} text={hold} fontSize={11.25} fill="#888" align="center" listening={false} />
-            <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+            <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={isCleared ? '#444' : LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
           </>
         ) : (
-          <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
+          <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={isCleared ? '#444' : LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
         )
       })()}
     </Group>

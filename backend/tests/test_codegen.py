@@ -67,6 +67,71 @@ def test_layout_param_count_matches_defined_keys(minimal_avr_kb):
     assert len(params) == len(defined_keys)
 
 
+def test_keyboard_h_uses_imported_layout_macro_name(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={'layout_macro': 'LAYOUT_ergodox'})
+
+    h = generate_keyboard_h(kb)
+
+    assert '#define LAYOUT_ergodox(' in h
+    assert '#define LAYOUT(' not in h
+
+
+def test_keymap_c_does_not_pad_layout_macro_arguments():
+    kb = KeyboardConfig(
+        id='odd',
+        name='Odd Layout',
+        mcu='atmega32u4',
+        keys=[
+            KeyDef(id='k0', x=0, y=0, row=0, col=0),
+            KeyDef(id='k1', x=1, y=0, row=0, col=1),
+            KeyDef(id='k2', x=2, y=0, row=0, col=2),
+            KeyDef(id='k3', x=0, y=1, row=1, col=0),
+        ],
+        layers=[Layer(id='layer0', name='Base', keycodes={
+            'k0': 'KC_A',
+            'k1': 'KC_B',
+            'k2': 'KC_C',
+            'k3': 'KC_D',
+        })],
+    )
+
+    c = generate_keymap_c(kb)
+
+    assert 'KC_A, KC_B, KC_C,' in c
+    assert 'KC_D' in c
+    assert 'KC_D, KC_TRNS' not in c
+
+
+def test_keymap_c_declares_imported_layer_and_custom_symbols():
+    kb = KeyboardConfig(
+        id='imported',
+        name='Imported',
+        mcu='atmega32u4',
+        keys=[
+            KeyDef(id='k0', x=0, y=0, row=0, col=0),
+            KeyDef(id='k1', x=1, y=0, row=0, col=1),
+            KeyDef(id='k2', x=2, y=0, row=0, col=2),
+        ],
+        layers=[
+            Layer(id='layer0', name='Base', keycodes={
+                'k0': 'LT(SYMB,KC_A)',
+                'k1': 'LT(MDIA, KC_B)',
+                'k2': 'VRSN',
+            }),
+            Layer(id='layer1', name='Symbols', keycodes={}),
+            Layer(id='layer2', name='Media', keycodes={}),
+        ],
+    )
+
+    c = generate_keymap_c(kb)
+
+    assert 'enum nexus_layers {' in c
+    assert 'SYMB = 1,' in c
+    assert 'MDIA = 2,' in c
+    assert '#define VRSN KC_NO' in c
+    assert '#define KC_A KC_NO' not in c
+
+
 def test_single_key_without_matrix_edges_generates_one_key_layout():
     kb = KeyboardConfig(
         id='single',
@@ -84,6 +149,18 @@ def test_single_key_without_matrix_edges_generates_one_key_layout():
     assert '#define LAYOUT(k0000)' in h
     assert '{ k0000 }' in h
     assert 'KC_A' in c
+
+
+def test_mk20dx256_generates_arm_rules_and_kiibohd_bootloader(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={'mcu': 'mk20dx256'})
+
+    rules = generate_rules_mk(kb)
+    config = generate_config_h(kb)
+
+    assert 'MCU = MK20DX256' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'F_CPU' not in rules
+    assert '#define BOOTLOADER kiibohd' in config
 
 
 # ── Snapshot tests ─────────────────────────────────────────────────────────────

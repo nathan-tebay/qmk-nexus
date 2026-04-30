@@ -63,7 +63,7 @@ export default function QMKImportModal({ onClose }: Props) {
       <div className={styles.modal} onKeyDown={handleKeyDown}>
         <div className={styles.header}>
           <span className={styles.title}>Import QMK Keyboard</span>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} title="Close QMK import" aria-label="Close QMK import">×</button>
         </div>
 
         <div className={styles.search}>
@@ -105,6 +105,8 @@ export default function QMKImportModal({ onClose }: Props) {
                 className={styles.importBtn}
                 onClick={() => handleImport(entry)}
                 disabled={importing === entry.path}
+                title={`Import ${entry.name || entry.path} from QMK`}
+                aria-label={`Import ${entry.name || entry.path}`}
               >
                 {importing === entry.path ? '…' : 'Import'}
               </button>

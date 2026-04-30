@@ -102,6 +102,11 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
     onClose()
   }
 
+  function handleClearKey() {
+    onSelect('KC_NO')
+    onClose()
+  }
+
   function toggleMod(key: ModKey) {
     setMods((m) => ({ ...m, [key]: !m[key] }))
   }
@@ -119,8 +124,17 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
         <button
           className={`${styles.toggleBtn} ${holdTap ? styles.toggleActive : ''}`}
           onClick={() => { setHoldTap((v) => !v); setTapCode('') }}
+          title="Create a key that sends one code when tapped and another action when held"
         >
           Hold / Tap
+        </button>
+        <button
+          className={styles.clearBtn}
+          onClick={handleClearKey}
+          title="Clear this key on the current layer by assigning KC_NO"
+          aria-label="Clear key on this layer"
+        >
+          Clear Key
         </button>
         {holdTap && tapCode && (
           <span className={styles.tapPreview}>Tap: <strong>{tapLabel}</strong></span>
@@ -185,6 +199,7 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
             className={styles.assignBtn}
             onClick={handleAssignHoldTap}
             disabled={!tapCode || (Object.values(holdMods).every((v) => !v) && holdLayer === null)}
+            title="Assign this hold/tap keycode"
           >
             Assign
           </button>

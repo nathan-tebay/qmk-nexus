@@ -6,6 +6,9 @@ export interface ParsedCode {
 }
 
 export function parseAssignedCode(code: string): ParsedCode {
+  if (!code || code === 'KC_TRNS' || code === '_______') return { tap: '____' }
+  if (code === 'KC_NO' || code === 'XXXXXXX') return { tap: '' }
+
   const mt = code.match(/^MT\(([^,]+),\s*(.+)\)$/)
   if (mt) {
     const bits = mt[1].trim()

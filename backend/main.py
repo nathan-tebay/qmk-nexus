@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from config import settings
-from routers import auth, keyboards, builds, qmk
+from routers import auth, keyboards, builds, qmk, telemetry
 
 
 class _JsonFormatter(logging.Formatter):
@@ -46,6 +46,7 @@ app.include_router(auth.router, prefix='/api')
 app.include_router(keyboards.router, prefix='/api')
 app.include_router(builds.router, prefix='/api')
 app.include_router(qmk.router, prefix='/api')
+app.include_router(telemetry.router, prefix='/api')
 
 
 @app.get('/api/health')

@@ -15,6 +15,31 @@
   flex-shrink: 0;
 }
 
+.legend {
+  display: flex;
+  gap: 16px;
+  padding: 4px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-base, rgba(0, 0, 0, 0.18));
+  color: var(--text-muted);
+  font-size: 12.75px;
+  flex-shrink: 0;
+}
+
+.legend strong {
+  color: var(--text);
+  font-family: monospace;
+}
+
+.blankSwatch {
+  display: inline-block;
+  min-width: 38px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: transparent !important;
+  background: var(--bg-elevated);
+}
+
 .canvas {
   flex: 1;
   overflow: hidden;

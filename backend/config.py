@@ -20,6 +20,16 @@ class Settings(BaseSettings):
     # Run it with: ./run.sh build-proxy
     build_proxy_url: str = ''
 
+    # Production build runner. Use "proxy" for the local/HTTP build proxy or
+    # "ecs" to stage sources in S3 and invoke an ECS/Fargate task.
+    build_runner: str = 'proxy'
+    ecs_cluster: str = ''
+    ecs_task_definition: str = ''
+    ecs_container_name: str = 'qmk-nexus-builder'
+    ecs_subnets: str = ''
+    ecs_security_groups: str = ''
+    ecs_assign_public_ip: str = 'DISABLED'
+
     environment: str = 'development'
 
     @property

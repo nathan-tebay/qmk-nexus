@@ -53,13 +53,24 @@ def _free_host_port() -> int:
 
 def _container_get(port: str, path: str, timeout: int = 5) -> tuple[int, bytes, dict]:
     """HTTP GET to container socat server. Returns (status_code, body, headers)."""
-    conn = HTTPConnection("localhost", int(port), timeout=timeout)
+    conn = HTTPConnection("127.0.0.1", int(port), timeout=timeout)
     conn.request("GET", path)
     r = conn.getresponse()
     body = r.read()
     headers = dict(r.getheaders())
     conn.close()
     return r.status, body, headers
+
+
+def _chmod_best_effort(path: Path, mode: int) -> None:
+    try:
+        path.chmod(mode)
+    except PermissionError:
+        # In local dev the backend container may create /tmp/tebay-builds
+        # entries through a user namespace.  They are still world-writable, but
+        # host-side chmod can fail because the owner maps to nobody.
+        if not os.access(path, os.R_OK | os.W_OK | os.X_OK):
+            raise
 
 
 def spawn_build(build_id: str, payload: dict) -> None:
@@ -71,9 +82,9 @@ def spawn_build(build_id: str, payload: dict) -> None:
     try:
         build_dir = BUILDS_ROOT / build_id
         build_dir.mkdir(parents=True, exist_ok=True)
-        build_dir.chmod(0o777)
+        _chmod_best_effort(build_dir, 0o777)
         (build_dir / "output").mkdir(exist_ok=True)
-        (build_dir / "output").chmod(0o777)
+        _chmod_best_effort(build_dir / "output", 0o777)
 
         # When a caller-provided build_id is used, the backend pre-places source
         # files in src/ before posting here.  Fail fast rather than spawning a
@@ -86,7 +97,7 @@ def spawn_build(build_id: str, payload: dict) -> None:
                 builds[build_id]["finished_at"] = datetime.now(timezone.utc).isoformat()
             return
 
-        src_dir.chmod(0o777)
+        _chmod_best_effort(src_dir, 0o777)
     except OSError as exc:
         with build_locks[build_id]:
             builds[build_id]["status"] = "failed"

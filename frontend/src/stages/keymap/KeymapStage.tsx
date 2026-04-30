@@ -57,7 +57,7 @@ export default function KeymapStage() {
   }
 
   const activeLayer = config.layers.find((l) => l.id === activeLayerId)
-  const currentCode = pickerKeyId ? (activeLayer?.keycodes[pickerKeyId] ?? '') : ''
+  const currentCode = pickerKeyId ? (activeLayer?.keycodes[pickerKeyId] ?? 'KC_TRNS') : 'KC_TRNS'
 
   if (config.keys.length === 0) {
     return (
@@ -108,6 +108,10 @@ export default function KeymapStage() {
       <div className={styles.mainContent}>
         <div className={styles.hint}>
           Click any key to assign a keycode · Click encoder or OLED to configure · Double-click a layer tab to rename
+        </div>
+        <div className={styles.legend} aria-label="Keymap legend">
+          <span><strong>____</strong> transparent / inherit from lower layer</span>
+          <span><strong className={styles.blankSwatch}>blank</strong> disabled key on this layer</span>
         </div>
 
         <div className={styles.canvas} ref={canvasContainerRef} style={{ position: 'relative' }}>

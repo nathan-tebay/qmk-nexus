@@ -23,13 +23,16 @@ export default function LoginPage() {
           </a>
         </p>
         <p>
-        Welcome to QMK Nexus, the nexus of several QMK tools to make creating firmware for your hand wired or custom keyboard a more enjoyable experience. I created the site while building my Cosmso split keyboard. The process of laying out the keys, building the wiring matrix and laying out the keys to finally build across three different sites showed me the need to unify the these tools into one interface. I also made adding features like rotatory encodes, oleds and trackballs achievable without coding. This supports most of the existing QMK keyboards, all updated to json layouts and keymaps. Please take a minute to look through my personal site linked above and let me know what you think. Still a work in progress, I'm very interested in ideas for improvement.
+          QMK Nexus brings the entire QMK workflow into one place. Design your layout, build your matrix, assign keycodes, and generate firmware without jumping between tools or writing code.
+
+          Built while creating a custom split keyboard, QMK Nexus removes the friction from QMK by unifying everything into a single interface. It also adds support for advanced features like rotary encoders, OLEDs, and trackballs with no coding required.
+
+          This project is still a work in progress and feedback is welcome. Checkout  <a href="https://tebay.dev" target="_blank" rel="noreferrer">tebay.dev</a> for my other projects and more information on this one. 
         </p>
         <button className={styles.googleBtn} onClick={handleGoogleLogin}>
           <GoogleIcon />
           Continue with Google
         </button>
-
       </div>
     </div>
   )

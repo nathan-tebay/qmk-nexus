@@ -1,11 +1,101 @@
 from __future__ import annotations
 
+import re
+
 from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
+_LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|OSL|LT|LM)\s*\(\s*([A-Z][A-Z0-9_]*)')
+_BARE_KEYCODE_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
+_KNOWN_KEYCODE_PREFIXES = (
+    'KC_',
+    'QK_',
+    'RM_',
+    'RGB_',
+    'UG_',
+    'BL_',
+    'MS_',
+    'AU_',
+    'EE_',
+    'DB_',
+    'GU_',
+    'CW_',
+    'MAGIC_',
+)
+_KNOWN_BARE_KEYCODES = {
+    'XXXXXXX',
+    '_______',
+    'KC_NO',
+    'KC_TRNS',
+    'RESET',
+    'QK_BOOT',
+}
+
+
 def _c_comment(text: str) -> str:
     return text.replace('*/', '* /').replace('\r', ' ').replace('\n', ' ')
+
+
+def _all_keycodes(config: KeyboardConfig) -> list[str]:
+    keys = matrix_keys(config)
+    return [
+        layer.keycodes.get(key.id, 'KC_TRNS')
+        for layer in config.layers
+        for key in keys
+    ]
+
+
+def _generated_layer_symbols(keycodes: list[str], layer_count: int) -> list[tuple[str, int]]:
+    symbols: list[str] = []
+    for keycode in keycodes:
+        for match in _LAYER_MACRO_RE.finditer(keycode):
+            symbol = match.group(2)
+            if symbol.isdigit() or symbol in symbols:
+                continue
+            symbols.append(symbol)
+
+    return [(symbol, idx) for idx, symbol in enumerate(symbols, start=1) if idx < layer_count]
+
+
+def _is_known_keycode(identifier: str) -> bool:
+    return identifier in _KNOWN_BARE_KEYCODES or identifier.startswith(_KNOWN_KEYCODE_PREFIXES)
+
+
+def _generated_custom_keycode_defines(
+    keycodes: list[str],
+    layer_symbols: list[tuple[str, int]],
+) -> list[str]:
+    layer_names = {symbol for symbol, _idx in layer_symbols}
+    custom: list[str] = []
+    for keycode in keycodes:
+        if not _BARE_KEYCODE_RE.fullmatch(keycode):
+            continue
+        if keycode in layer_names or _is_known_keycode(keycode) or keycode in custom:
+            continue
+        custom.append(keycode)
+    return custom
+
+
+def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
+    keycodes = _all_keycodes(config)
+    layer_symbols = _generated_layer_symbols(keycodes, len(config.layers))
+    custom_keycodes = _generated_custom_keycode_defines(keycodes, layer_symbols)
+    lines: list[str] = []
+
+    if layer_symbols:
+        lines.append('enum nexus_layers {')
+        for symbol, layer_idx in layer_symbols:
+            lines.append(f'    {symbol} = {layer_idx},')
+        lines.append('};')
+        lines.append('')
+
+    for keycode in custom_keycodes:
+        lines.append(f'#define {keycode} KC_NO')
+    if custom_keycodes:
+        lines.append('')
+
+    return lines
 
 
 def generate_keymap_c(config: KeyboardConfig) -> str:
@@ -16,8 +106,9 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
     lines: list[str] = [
         "#include QMK_KEYBOARD_H",
         "",
-        f"const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{",
     ]
+    lines.extend(_generated_keymap_prelude(config))
+    lines.append(f"const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {{")
 
     for layer_idx, layer in enumerate(config.layers):
         lines.append(f"    /* Layer {layer_idx}: {_c_comment(layer.name)} */")
@@ -28,7 +119,6 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
 
         for i in range(0, len(keycodes), cols):
             chunk = keycodes[i : i + cols]
-            chunk += ['KC_TRNS'] * (cols - len(chunk))  # pad short last row
             is_last = i + cols >= len(keycodes)
             sep = "" if is_last else ","
             lines.append("        " + ", ".join(chunk) + sep)
@@ -53,7 +143,7 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
                 cw  = enc_keycodes.get(f'{layer.id}:{enc.id}:cw',  'KC_TRNS')
                 ccw = enc_keycodes.get(f'{layer.id}:{enc.id}:ccw', 'KC_TRNS')
                 enc_comma = ',' if enc_idx < enc_count - 1 else ''
-                lines.append(f'        [{enc_idx}] = {{ENCODER_CCW_CW({ccw}, {cw})}}{enc_comma}')
+                lines.append(f'        [{enc_idx}] = ENCODER_CCW_CW({ccw}, {cw}){enc_comma}')
             lines.append(f'    }}{layer_comma}')
         lines.append('};')
         lines.append('#endif')

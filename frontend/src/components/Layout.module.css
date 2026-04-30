@@ -69,6 +69,7 @@
   border-radius: 50%;
 }
 
+.adminBtn,
 .logout {
   padding: 4px 10px;
   border-radius: 4px;
@@ -76,6 +77,11 @@
   font-size: 15px;
   color: var(--text-muted);
   transition: color 0.15s, border-color 0.15s;
+}
+
+.adminBtn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .logout:hover {

@@ -23,18 +23,22 @@ export default function LoadKeyboardModal({ onClose }: Props) {
       <div className={styles.modal} onKeyDown={handleKeyDown}>
         <div className={styles.header}>
           <span className={styles.title}>Load Keyboard</span>
-          <button className={styles.closeBtn} onClick={onClose}>×</button>
+          <button className={styles.closeBtn} onClick={onClose} title="Close keyboard loader" aria-label="Close keyboard loader">×</button>
         </div>
         <div className={styles.tabs}>
           <button
             className={`${styles.tab} ${tab === 'user' ? styles.activeTab : ''}`}
             onClick={() => setTab('user')}
+            title="Show keyboards saved to your account"
+            aria-label="Show saved keyboards"
           >
             User Keyboards
           </button>
           <button
             className={`${styles.tab} ${tab === 'qmk' ? styles.activeTab : ''}`}
             onClick={() => setTab('qmk')}
+            title="Search and import keyboards from the QMK index"
+            aria-label="Show QMK keyboards"
           >
             QMK Keyboards
           </button>
@@ -123,13 +127,15 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
             </div>
             <div className={styles.actions}>
               {kb.id !== config.id
-                ? <button className={styles.loadBtn} onClick={() => handleLoad(kb)}>Load</button>
+                ? <button className={styles.loadBtn} onClick={() => handleLoad(kb)} title={`Load ${kb.name}`} aria-label={`Load ${kb.name}`}>Load</button>
                 : <span className={styles.current}>current</span>
               }
               <button
                 className={styles.deleteBtn}
                 onClick={() => handleDelete(kb.id!)}
                 disabled={deleting === kb.id}
+                title={`Delete ${kb.name}`}
+                aria-label={`Delete ${kb.name}`}
               >
                 {deleting === kb.id ? '…' : '✕'}
               </button>
@@ -142,7 +148,8 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
           className={styles.newBtn}
           onClick={handleNew}
           disabled={keyboards.length >= MAX_KEYBOARDS}
-          title={keyboards.length >= MAX_KEYBOARDS ? `Limit of ${MAX_KEYBOARDS} reached` : undefined}
+          title={keyboards.length >= MAX_KEYBOARDS ? `Limit of ${MAX_KEYBOARDS} reached` : 'Create a new blank keyboard'}
+          aria-label="Create new keyboard"
         >
           + New Keyboard
         </button>
@@ -241,6 +248,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
               className={styles.importBtn}
               onClick={() => handleImport(entry)}
               disabled={importing === entry.path}
+              title={`Import ${entry.name || entry.path} from QMK`}
+              aria-label={`Import ${entry.name || entry.path}`}
             >
               {importing === entry.path ? '…' : 'Import'}
             </button>

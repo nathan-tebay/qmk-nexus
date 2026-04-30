@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert keyboard data files to include _default_keymap via qmk c2json.
 
-Keyboards that fail conversion are moved to backend/data/failed_conversion/.
+Keyboards that fail conversion are kept importable without a default keymap.
 Keyboards that already have _default_keymap are skipped (resume-safe).
 
 Usage:
@@ -12,7 +12,6 @@ Default qmk_root: /mnt/LargeNVMe/Projects/GitHub/qmk_firmware
 
 import json
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -20,7 +19,6 @@ from pathlib import Path
 SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
 KB_DATA_DIR = REPO_ROOT / 'backend' / 'data' / 'keyboards'
-FAILED_DIR  = REPO_ROOT / 'backend' / 'data' / 'failed_conversion'
 DEFAULT_QMK_ROOT = Path('/mnt/LargeNVMe/Projects/GitHub/qmk_firmware')
 
 
@@ -54,7 +52,8 @@ def parse_keymap_c(path: Path) -> dict | None:
         return None
 
     layers_dict: dict[int, list[str]] = {}
-    layer_pat = re.compile(r'\[(\w+)\]\s*=\s*\w+\s*\(')
+    layer_pat = re.compile(r'\[(\w+)\]\s*=\s*(\w+)\s*\(')
+    layout_name: str | None = None
 
     pos = 0
     while True:
@@ -63,6 +62,7 @@ def parse_keymap_c(path: Path) -> dict | None:
             break
 
         layer_id = m.group(1)
+        layout_name = layout_name or m.group(2)
         if layer_id.isdigit():
             layer_idx = int(layer_id)
         elif layer_id in defines:
@@ -108,7 +108,10 @@ def parse_keymap_c(path: Path) -> dict | None:
         return None
 
     max_idx = max(layers_dict.keys())
-    return {'layers': [layers_dict.get(j, []) for j in range(max_idx + 1)]}
+    result = {'layers': [layers_dict.get(j, []) for j in range(max_idx + 1)]}
+    if layout_name:
+        result['layout'] = layout_name
+    return result
 
 
 def _find_keymap_dirs(kb_path: str, qmk_root: Path) -> list[Path]:
@@ -177,8 +180,6 @@ def main() -> None:
         print(f'ERROR: QMK root not found: {qmk_root}', file=sys.stderr)
         sys.exit(1)
 
-    FAILED_DIR.mkdir(parents=True, exist_ok=True)
-
     files = sorted(KB_DATA_DIR.rglob('*.json'))
     total = len(files)
     done = skipped = failed = 0
@@ -206,13 +207,10 @@ def main() -> None:
             print(f'ok ({len(keymap["layers"])} layers)')
             done += 1
         else:
-            dest = FAILED_DIR / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(kb_file), str(dest))
-            print('failed (moved)')
+            print('no default keymap')
             failed += 1
 
-    print(f'\n{done} converted, {skipped} skipped, {failed} failed / {total} total')
+    print(f'\n{done} converted, {skipped} skipped, {failed} without keymap / {total} total')
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ def generate_keyboard_h(config: KeyboardConfig) -> str:
 
     params = [f"k{k.row:02d}{k.col:02d}" for k in keys]
     param_str = ", ".join(params)
+    layout_macro = config.layout_macro or "LAYOUT"
 
     # Build full matrix body for LAYOUT macro
     cells: list[list[str]] = [["KC_NO"] * cols for _ in range(rows)]
@@ -25,7 +26,7 @@ def generate_keyboard_h(config: KeyboardConfig) -> str:
         f"#define MATRIX_ROWS {rows}",
         f"#define MATRIX_COLS {cols}",
         "",
-        f"#define LAYOUT({param_str}) \\",
+        f"#define {layout_macro}({param_str}) \\",
         "    { \\",
     ]
     for i, row in enumerate(cells):

@@ -11,6 +11,7 @@ export const MCU_LIST: McuOption[] = [
   { id: 'stm32f072',  label: 'STM32F072',                   arch: 'arm', supported: true },
   { id: 'stm32f103',  label: 'STM32F103',                   arch: 'arm', supported: true },
   { id: 'stm32f303',  label: 'STM32F303',                   arch: 'arm', supported: true },
+  { id: 'mk20dx256',  label: 'MK20DX256 — Kinetis K20',     arch: 'arm', supported: true },
 ]
 
 export const mcuById = new Map<string, McuOption>(MCU_LIST.map((m) => [m.id, m]))

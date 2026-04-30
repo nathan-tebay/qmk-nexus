@@ -30,29 +30,20 @@ case "$REQ_PATH" in
         ;;
 
     /status)
-        STATUS=$(cat /tmp/build_status 2>/dev/null || echo "unknown")
+        BODY=$(python3 - <<'PY'
+import json
+from pathlib import Path
 
-        LOG_JSON="["
-        first=1
-        while IFS= read -r line; do
-            escaped=$(json_esc "$line")
-            if [ "$first" = "1" ]; then
-                LOG_JSON="${LOG_JSON}\"${escaped}\""
-                first=0
-            else
-                LOG_JSON="${LOG_JSON},\"${escaped}\""
-            fi
-        done < <(cat /tmp/build_log 2>/dev/null)
-        LOG_JSON="${LOG_JSON}]"
-
-        ARTIFACT=$(tr -d '[:space:]' < /tmp/artifact_path 2>/dev/null)
-        if [ -n "$ARTIFACT" ] && [ -f "$ARTIFACT" ]; then
-            AVAIL="true"
-        else
-            AVAIL="false"
-        fi
-
-        BODY="{\"status\":\"${STATUS}\",\"log\":${LOG_JSON},\"artifact_available\":${AVAIL}}"
+status = Path('/tmp/build_status').read_text(errors='replace').strip() if Path('/tmp/build_status').exists() else 'unknown'
+log = Path('/tmp/build_log').read_text(errors='replace').splitlines() if Path('/tmp/build_log').exists() else []
+artifact = Path('/tmp/artifact_path').read_text(errors='replace').strip() if Path('/tmp/artifact_path').exists() else ''
+print(json.dumps({
+    'status': status,
+    'log': log,
+    'artifact_available': bool(artifact and Path(artifact).is_file()),
+}))
+PY
+)
         http_200 "application/json" "$BODY"
         ;;
 

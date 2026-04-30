@@ -177,7 +177,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
       <Layer>
         {gridLines}
         {config.keys.map((key) => {
-          const keycodeLabel = !showMatrix ? (activeLayer?.keycodes[key.id] ?? undefined) : undefined
+          const keycodeLabel = !showMatrix ? (activeLayer?.keycodes[key.id] ?? 'KC_TRNS') : undefined
           return (
             <KeyShape
               key={key.id}

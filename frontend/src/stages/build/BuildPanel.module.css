@@ -115,6 +115,46 @@
   color: #f87171;
 }
 
+.issueSummary {
+  padding: 9px 11px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.logActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.secondaryBtn,
+.secondaryLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.secondaryBtn:hover,
+.secondaryLink:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  background: var(--accent-faint);
+}
+
 .cursor {
   color: var(--accent);
   animation: pulse 1s infinite;

@@ -13,3 +13,4 @@ venv/
 .DS_Store
 .codex
 .*.kate-swp
+.aws-build/

@@ -89,8 +89,9 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
         {config.keys.map((key) => {
           const w = key.w * UNIT - GAP
           const h = key.h * UNIT - GAP
-          const assignedCode = activeLayer?.keycodes[key.id] ?? ''
+          const assignedCode = activeLayer?.keycodes[key.id] ?? 'KC_TRNS'
           const { tap, hold } = parseAssignedCode(assignedCode)
+          const isCleared = assignedCode === 'KC_NO' || assignedCode === 'XXXXXXX'
           const isSelected = key.id === selectedKeyId
           const isRect = key.shape === 'rect' || !key.shape
           const stroke = isSelected ? KEY_SELECTED_STROKE : KEY_STROKE
@@ -106,7 +107,7 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
               onClick={() => handleKeyClick(key.id)}
               onTap={() => handleKeyClick(key.id)}
               onMouseEnter={(e) => {
-                if (!assignedCode || !onTooltip) return
+                if (!onTooltip) return
                 const stage = e.target.getStage()
                 const pos = stage?.getPointerPosition()
                 if (pos) onTooltip(assignedCode, pos.x, pos.y)
@@ -139,10 +140,10 @@ export default function KeymapCanvas({ width, height, onKeyClick, onEncoderClick
               {hold ? (
                 <>
                   <Text x={4} y={4} width={w - 8} text={hold} fontSize={11.25} fill="#888" align="center" listening={false} />
-                  <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 16.25 : 12.5} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
+                  <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={isCleared ? '#444' : LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
                 </>
               ) : (
-                <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={assignedCode ? 16.25 : 12.5} fill={assignedCode ? LABEL_COLOR : '#444'} align="center" verticalAlign="middle" listening={false} />
+                <Text x={4} y={0} width={w - 8} height={h} text={tap} fontSize={16.25} fill={isCleared ? '#444' : LABEL_COLOR} align="center" verticalAlign="middle" listening={false} />
               )}
             </Group>
           )

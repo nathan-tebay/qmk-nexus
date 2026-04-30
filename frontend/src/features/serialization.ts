@@ -1,6 +1,25 @@
 import type { KeyboardConfig } from '@/store/keyboard'
 import { FEATURE_MODULES } from '@/stages/build/modules'
 
+function effectiveConfigValue(cfg: Record<string, string>, key: string): string {
+  if (cfg[key] !== undefined) return cfg[key]
+  for (const field of FEATURE_MODULES.flatMap((mod) => mod.inputs)) {
+    if (field.key === key && field.defaultValue !== undefined) return field.defaultValue
+  }
+  return ''
+}
+
+function conditionMatches(
+  conditionalOn: Record<string, string | string[]> | undefined,
+  cfg: Record<string, string>,
+): boolean {
+  if (!conditionalOn) return true
+  return Object.entries(conditionalOn).every(([key, expected]) => {
+    const current = effectiveConfigValue(cfg, key)
+    return Array.isArray(expected) ? expected.includes(current) : current === expected
+  })
+}
+
 // ── rules.mk ─────────────────────────────────────────────────────────────────
 
 export function serializeRulesMk(config: KeyboardConfig): string {
@@ -24,13 +43,8 @@ export function serializeRulesMk(config: KeyboardConfig): string {
     lines.push(`${mod.rulesMkKey} = yes`)
     const cfg = fc[mod.id] ?? {}
     for (const field of mod.inputs) {
-      if (field.conditionalOn) {
-        const matches = Object.entries(field.conditionalOn).every(
-          ([k, v]) => (cfg[k] ?? '') === v
-        )
-        if (!matches) continue
-      }
-      const value = cfg[field.key] ?? field.defaultValue
+      if (!conditionMatches(field.conditionalOn, cfg)) continue
+      const value = effectiveConfigValue(cfg, field.key)
       if (value !== undefined && value !== '') {
         lines.push(`${field.key} = ${value}`)
       }
@@ -64,13 +78,8 @@ export function serializeConfigH(config: KeyboardConfig): string {
     const defs: string[] = []
     for (const field of mod.inputs) {
       if (!CONFIG_H_KEYS.has(field.key)) continue
-      if (field.conditionalOn) {
-        const matches = Object.entries(field.conditionalOn).every(
-          ([k, v]) => (cfg[k] ?? '') === v
-        )
-        if (!matches) continue
-      }
-      const value = cfg[field.key] ?? field.defaultValue
+      if (!conditionMatches(field.conditionalOn, cfg)) continue
+      const value = effectiveConfigValue(cfg, field.key)
       if (value !== undefined && value !== '') {
         defs.push(`#define ${field.key} ${value}`)
       }

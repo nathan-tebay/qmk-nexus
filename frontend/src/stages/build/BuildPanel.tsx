@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
 import { buildsApi, type BuildStatus } from '@/api/builds'
-import { keyboardsApi } from '@/api/keyboards'
 import { useBuildStore } from '@/store/build'
 import { useKeyboardStore } from '@/store/keyboard'
 import { validateMatrices } from '@/utils/validateMatrices'
@@ -8,6 +7,38 @@ import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
 import { mcuById } from './mcus'
 import { FEATURE_MODULES, incompatMap } from './modules'
 import styles from './BuildPanel.module.css'
+
+function effectiveConfigValue(
+  cfg: Record<string, string>,
+  key: string,
+): string {
+  if (cfg[key] !== undefined) return cfg[key]
+  for (const field of FEATURE_MODULES.flatMap((mod) => mod.inputs)) {
+    if (field.key === key && field.defaultValue !== undefined) return field.defaultValue
+  }
+  return ''
+}
+
+function conditionMatches(
+  conditionalOn: Record<string, string | string[]> | undefined,
+  cfg: Record<string, string>,
+): boolean {
+  if (!conditionalOn) return true
+  return Object.entries(conditionalOn).every(([key, expected]) => {
+    const current = effectiveConfigValue(cfg, key)
+    return Array.isArray(expected) ? expected.includes(current) : current === expected
+  })
+}
+
+function moduleConfigValue(
+  mod: (typeof FEATURE_MODULES)[number],
+  cfg: Record<string, string>,
+  key: string,
+): string {
+  if (cfg[key] !== undefined) return cfg[key]
+  const field = mod.inputs.find((input) => input.key === key)
+  return field?.defaultValue ?? ''
+}
 
 function getFeatureValidationErrors(
   features: Record<string, boolean>,
@@ -18,7 +49,9 @@ function getFeatureValidationErrors(
     if (!features[mod.id]) continue
     const cfg = featureConfigs[mod.id] ?? {}
     for (const key of mod.requiredConfig) {
-      if (!cfg[key]?.trim()) {
+      const field = mod.inputs.find((input) => input.key === key)
+      if (field && !conditionMatches(field.conditionalOn, cfg)) continue
+      if (!moduleConfigValue(mod, cfg, key).trim()) {
         errors.push(`${mod.name}: ${key} is required`)
       }
     }
@@ -41,6 +74,19 @@ function getFeatureConflictErrors(features: Record<string, boolean>): string[] {
     }
   }
   return errors
+}
+
+function likelyBuildIssue(status: BuildStatus | null): string | null {
+  if (!status || status.status !== 'failed') return null
+  const text = [...(status.log ?? []), status.error ?? ''].join('\n').toLowerCase()
+  if (text.includes('matrix') && text.includes('pin')) return 'Likely issue: matrix row or column pin assignment is missing or invalid.'
+  if (text.includes('unknown mcu') || text.includes('mcu') && text.includes('not yet supported')) return 'Likely issue: this MCU is not supported by the current generated build path.'
+  if (text.includes('no rule to make target')) return 'Likely issue: QMK could not find the keyboard/keymap target. Re-import or use QMK-native files.'
+  if (text.includes('layout macro')) return 'Likely issue: the selected layout macro does not match what QMK expects for this keyboard.'
+  if (text.includes('without producing a firmware artifact')) return 'Likely issue: QMK finished without creating a .hex, .bin, or .uf2 artifact.'
+  if (text.includes('proxy unavailable') || text.includes('container unreachable')) return 'Likely issue: the local build service is not reachable.'
+  if (text.includes('validation') || text.includes('invalid info.json')) return 'Likely issue: QMK validation rejected the generated keyboard metadata.'
+  return 'Likely issue: QMK returned a compile error. Check the first ERROR line in the log.'
 }
 
 interface Props {
@@ -68,9 +114,8 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const setActiveBuild = useBuildStore((s) => s.setActiveBuild)
   const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
   const [triggering, setTriggering] = useState(false)
-  const [showSourcesModal, setShowSourcesModal] = useState(false)
-  const [downloadingSources, setDownloadingSources] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [copiedLog, setCopiedLog] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -160,30 +205,31 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
     buildsApi.download(buildId, `${ext}.hex`).catch(() => {})
   }
 
-  async function downloadQmkSources() {
-    setDownloadingSources(true)
-    setError(null)
-    try {
-      let id = keyboardId
-      if (!id) {
-        id = await onSaveFirst()
-        if (!id) return
-      }
-      const filename = `${keyboardName.toLowerCase().replace(/\s+/g, '_')}_qmk_sources.zip`
-      await keyboardsApi.downloadSources(id, filename)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Source download failed')
-    } finally {
-      setDownloadingSources(false)
-    }
+  async function copyBuildLog() {
+    if (!status) return
+    await navigator.clipboard.writeText(status.log.join('\n'))
+    setCopiedLog(true)
+    window.setTimeout(() => setCopiedLog(false), 1200)
   }
 
   const isRunning = status?.status === 'queued' || status?.status === 'building'
   const isSuccess = status?.status === 'success' && status?.artifactAvailable
   const isFailed  = status?.status === 'failed'
-  const keyboardSlug = keyboardName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'my_keyboard'
-  const isNativeQmk = config.sourceMode === 'qmk_native'
-  const upstreamKeyboard = config.upstreamKeyboard || keyboardSlug
+  const issueSummary = likelyBuildIssue(status ?? null)
+  const reportHref = status
+    ? `mailto:nathan@tebay.dev?subject=${encodeURIComponent(`QMK Nexus build issue: ${keyboardName}`)}&body=${encodeURIComponent([
+      `Keyboard: ${keyboardName}`,
+      `MCU: ${config.mcu}`,
+      `Source mode: ${config.sourceMode}`,
+      `Build status: ${status.status}`,
+      `Build id: ${status.id}`,
+      '',
+      issueSummary ?? '',
+      '',
+      'Recent log:',
+      ...(status.log ?? []).slice(-80),
+    ].join('\n'))}`
+    : 'mailto:nathan@tebay.dev'
 
   const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked || configBlocked || featureBlocked
   const buildBtnCls = `${styles.buildBtn} ${triggering ? styles.triggering : ''}`
@@ -217,16 +263,11 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
       <button
         onClick={triggerBuild}
         disabled={buildDisabled}
-        title={!mcuSupported ? 'MCU build not available' : undefined}
+        title={!mcuSupported ? 'MCU build not available' : buildDisabled ? 'Resolve validation issues before building firmware' : 'Compile firmware for this keyboard'}
+        aria-label="Build firmware"
         className={buildBtnCls}
       >
         {isRunning ? 'Building…' : triggering ? 'Starting…' : !mcuSupported ? 'MCU unavailable' : 'Build Firmware'}
-      </button>
-      <button
-        onClick={() => setShowSourcesModal(true)}
-        className={styles.sourcesBtn}
-      >
-        Download QMK Files
       </button>
 
       {error && <div className={styles.error}>{error}</div>}
@@ -240,6 +281,10 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
             </span>
           </div>
 
+          {isFailed && issueSummary && (
+            <div className={styles.issueSummary}>{issueSummary}</div>
+          )}
+
           <div ref={logRef} className={styles.log}>
             {status.log.map((line, i) => (
               <div key={i} className={`${styles.logLine} ${line.startsWith('[stderr]') ? styles.stderr : ''}`}>{line}</div>
@@ -247,78 +292,37 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
             {isRunning && <div className={styles.cursor}>▋</div>}
           </div>
 
+          <div className={styles.logActions}>
+            <button
+              className={styles.secondaryBtn}
+              onClick={copyBuildLog}
+              title="Copy the full build log to the clipboard"
+              aria-label="Copy build log"
+            >
+              {copiedLog ? 'Copied' : 'Copy Build Log'}
+            </button>
+            <a
+              className={styles.secondaryLink}
+              href={reportHref}
+              title="Email build details and recent log output to nathan@tebay.dev"
+            >
+              Report Build Issue
+            </a>
+          </div>
+
           {isSuccess && (
-            <button onClick={downloadArtifact} className={styles.downloadBtn}>
+            <button
+              onClick={downloadArtifact}
+              className={styles.downloadBtn}
+              title="Download the compiled firmware artifact"
+              aria-label="Download compiled firmware"
+            >
               ↓ Download Firmware
             </button>
           )}
         </>
       )}
 
-      {showSourcesModal && (
-        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowSourcesModal(false) }}>
-          <div className={styles.sourcesModal} role="dialog" aria-modal="true" aria-labelledby="qmk-sources-title">
-            <div className={styles.modalHeader}>
-              <h2 id="qmk-sources-title">Build In QMK_firmware</h2>
-              <button className={styles.modalClose} onClick={() => setShowSourcesModal(false)}>x</button>
-            </div>
-            <div className={styles.modalBody}>
-              {isNativeQmk ? (
-                <>
-                  <p>
-                    Download the QMK-native overlay, then apply it to a local QMK_firmware checkout.
-                  </p>
-                  <ol>
-                    <li>Clone and set up QMK_firmware.</li>
-                    <li>Unzip the generated archive.</li>
-                    <li>Copy the contents of <code>upstream_overlay/</code> into the QMK_firmware root.</li>
-                    <li>Copy <code>keymap.c</code> into <code>keyboards/{upstreamKeyboard}/keymaps/nexus/</code>.</li>
-                    <li>Compile or flash the upstream keyboard with the <code>nexus</code> keymap.</li>
-                  </ol>
-                  <pre className={styles.commandBlock}>{`git clone https://github.com/qmk/qmk_firmware.git
-cd qmk_firmware
-qmk setup
-# unzip the generated files outside this checkout, then copy:
-# upstream_overlay/* -> ./
-mkdir -p keyboards/${upstreamKeyboard}/keymaps/nexus
-# keymap.c -> keyboards/${upstreamKeyboard}/keymaps/nexus/keymap.c
-qmk compile -kb ${upstreamKeyboard} -km nexus
-qmk flash -kb ${upstreamKeyboard} -km nexus`}</pre>
-                </>
-              ) : (
-                <>
-                  <p>
-                    Download the generated QMK source files, then add them as a custom keyboard in a local QMK_firmware checkout.
-                  </p>
-                  <ol>
-                    <li>Clone and set up QMK_firmware.</li>
-                    <li>Create a keyboard folder such as <code>keyboards/custom/{keyboardSlug}</code>.</li>
-                    <li>Copy <code>config.h</code>, <code>rules.mk</code>, <code>info.json</code>, <code>keyboard.c</code>, and <code>keyboard.h</code> into that folder.</li>
-                    <li>Create <code>keymaps/default/</code> inside the keyboard folder and move <code>keymap.c</code> there.</li>
-                    <li>Compile or flash with the QMK commands below.</li>
-                  </ol>
-                  <pre className={styles.commandBlock}>{`git clone https://github.com/qmk/qmk_firmware.git
-cd qmk_firmware
-qmk setup
-mkdir -p keyboards/custom/${keyboardSlug}/keymaps/default
-# unzip the generated files, then copy:
-# config.h rules.mk info.json keyboard.c keyboard.h -> keyboards/custom/${keyboardSlug}/
-# keymap.c -> keyboards/custom/${keyboardSlug}/keymaps/default/
-qmk compile -kb custom/${keyboardSlug} -km default
-qmk flash -kb custom/${keyboardSlug} -km default`}</pre>
-                </>
-              )}
-              <button
-                className={styles.downloadSourcesBtn}
-                onClick={downloadQmkSources}
-                disabled={downloadingSources}
-              >
-                {downloadingSources ? 'Downloading...' : 'Download Generated ZIP'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

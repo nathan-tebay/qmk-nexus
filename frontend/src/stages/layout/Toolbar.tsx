@@ -72,7 +72,12 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
   return (
     <div className={styles.toolbar}>
       <div className={styles.group}>
-        <button className={styles.importQmkBtn} onClick={onImportQMK}>
+        <button
+          className={styles.importQmkBtn}
+          onClick={onImportQMK}
+          title="Load a saved keyboard or import one from the QMK keyboard index"
+          aria-label="Load keyboard"
+        >
           Load Keyboard
         </button>
       </div>
@@ -112,16 +117,25 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
         <button
           className={`${styles.toggleBtn} ${showMatrix ? styles.active : ''}`}
           onClick={onToggleMatrix}
+          title="Show or hide row, column, and LED wiring connections"
+          aria-label="Toggle matrix wiring view"
         >
           {showMatrix ? 'Matrix On' : 'Matrix Off'}
         </button>
         <button
           className={`${styles.toggleBtn} ${snapGrid ? styles.active : ''}`}
           onClick={onToggleGrid}
+          title="Snap keys and peripherals to the layout grid while moving them"
+          aria-label="Toggle grid snapping"
         >
           {snapGrid ? 'Grid On' : 'Grid Off'}
         </button>
-        <button className={styles.toggleBtn} onClick={onFitView}>
+        <button
+          className={styles.toggleBtn}
+          onClick={onFitView}
+          title="Fit the full keyboard layout in the canvas"
+          aria-label="Fit layout to view"
+        >
           Fit
         </button>
       </div>
@@ -131,6 +145,8 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
           className={styles.deleteBtn}
           onClick={handleDelete}
           disabled={selectedKeyIds.length === 0}
+          title={selectedKeyIds.length === 0 ? 'Select one or more keys to delete' : 'Delete the selected key or keys'}
+          aria-label="Delete selected keys"
         >
           Delete {selectedKeyIds.length > 1 ? `(${selectedKeyIds.length})` : 'Key'}
         </button>

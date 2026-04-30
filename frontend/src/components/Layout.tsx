@@ -12,6 +12,8 @@ const stages = [
   { path: '/build', label: '3. Features + Build' },
 ]
 
+const ADMIN_EMAIL = 'nathan.tebay80@gmail.com'
+
 const instructions = {
   layout: {
     title: 'Layout + Wiring',
@@ -62,6 +64,7 @@ export default function Layout() {
   const [nameValue, setNameValue] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
   const currentInstructions = instructions[instructionKey(location.pathname)]
+  const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
 
   function handleLogout() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
@@ -138,12 +141,16 @@ export default function Layout() {
             className={styles.saveBtn}
             onClick={save}
             disabled={saving}
+            title={saving ? 'Saving keyboard changes' : 'Save the current keyboard to your account'}
+            aria-label="Save keyboard"
           >
             {saving ? 'Saving...' : 'Save'}
           </button>
           <button
             className={styles.instructionsBtn}
             onClick={() => setShowInstructions(true)}
+            title="Open stage-specific instructions"
+            aria-label="Open instructions"
           >
             Instructions
           </button>
@@ -164,7 +171,17 @@ export default function Layout() {
             <img src={user.avatarUrl} alt={user.name} className={styles.avatar} />
           )}
           <span>{user?.name}</span>
-          <button onClick={handleLogout} className={styles.logout}>
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/admin')}
+              className={styles.adminBtn}
+              title="Open admin dashboard"
+              aria-label="Admin dashboard"
+            >
+              Admin
+            </button>
+          )}
+          <button onClick={handleLogout} className={styles.logout} title="Sign out of QMK Nexus" aria-label="Logout">
             Logout
           </button>
         </div>
@@ -177,7 +194,12 @@ export default function Layout() {
           <div className={styles.instructionsModal} role="dialog" aria-modal="true" aria-labelledby="instructions-title">
             <div className={styles.modalHeader}>
               <h2 id="instructions-title">{currentInstructions.title}</h2>
-              <button className={styles.modalClose} onClick={() => setShowInstructions(false)}>x</button>
+              <button
+                className={styles.modalClose}
+                onClick={() => setShowInstructions(false)}
+                title="Close instructions"
+                aria-label="Close instructions"
+              >x</button>
             </div>
             <ol className={styles.instructionsList}>
               {currentInstructions.items.map((item) => (

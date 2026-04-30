@@ -131,9 +131,6 @@ elcantorhs
 era/sirind/tomak
 era/sirind/tomak79h
 era/sirind/tomak79s
-ergodox_ez/base
-ergodox_ez/glow
-ergodox_ez/shine
 etiennecollin/wave
 evyd13/wasdat
 evyd13/wasdat_code

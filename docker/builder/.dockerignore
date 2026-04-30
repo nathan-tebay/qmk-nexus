@@ -3,3 +3,4 @@
 !api.sh
 !build.sh
 !entrypoint.sh
+!fargate_build.py

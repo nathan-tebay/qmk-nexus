@@ -417,7 +417,18 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   setConfig: (updates) =>
     set((s) => {
       const config = normalizeKeyboardConfig({ ...s.config, ...updates })
-      return { config }
+      const keyboardLoaded = updates.id !== undefined || updates.layers !== undefined || updates.keys !== undefined
+      const activeLayerStillExists = config.layers.some((layer) => layer.id === s.activeLayerId)
+      return {
+        config,
+        activeLayerId: keyboardLoaded || !activeLayerStillExists
+          ? config.layers[0]?.id ?? 'layer0'
+          : s.activeLayerId,
+        selectedKeyId: keyboardLoaded ? null : s.selectedKeyId,
+        selectedKeyIds: keyboardLoaded ? [] : s.selectedKeyIds,
+        selectedPeripheralId: keyboardLoaded ? null : s.selectedPeripheralId,
+        selectedPeripheralType: keyboardLoaded ? null : s.selectedPeripheralType,
+      }
     }),
 
   setSelectedKey: (id) =>

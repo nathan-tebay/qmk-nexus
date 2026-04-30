@@ -9,6 +9,7 @@ from auth import clear_auth_cookies, get_current_user, set_auth_cookies
 from config import settings
 from dynamo import create_refresh_token, revoke_refresh_token, verify_refresh_token
 from models import User
+import telemetry
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
@@ -73,6 +74,7 @@ async def google_callback(
         name=info.get('name', info['email']),
         avatar_url=info.get('picture'),
     )
+    telemetry.record_user_seen(user)
 
     redirect = RedirectResponse(f'{settings.frontend_url}/auth/callback')
     set_auth_cookies(redirect, user)
@@ -87,6 +89,7 @@ async def google_callback(
 
 @router.get('/me', response_model=User)
 async def me(user: User = Depends(get_current_user)):
+    telemetry.record_user_seen(user)
     return user
 
 
@@ -99,6 +102,7 @@ async def refresh(response: Response, refresh_token: str | None = Cookie(default
     if not user:
         raise HTTPException(status_code=401, detail='Refresh token invalid or expired')
 
+    telemetry.record_user_seen(user)
     revoke_refresh_token(refresh_token)
     new_refresh = create_refresh_token(user)
 

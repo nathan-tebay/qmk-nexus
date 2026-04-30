@@ -1,0 +1,144 @@
+.page {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+  background: var(--bg);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.header h1 {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.header p {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.refreshBtn {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.refreshBtn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.refreshBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.metric {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-surface);
+  padding: 14px;
+}
+
+.metricLabel {
+  display: block;
+  color: var(--text-muted);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.tableWrap {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: auto;
+  background: var(--bg-surface);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  background: var(--bg-elevated);
+}
+
+.table td {
+  color: var(--text);
+}
+
+.status {
+  display: inline-block;
+  min-width: 64px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.success {
+  color: var(--success);
+  background: rgba(43, 199, 168, 0.12);
+}
+
+.failed {
+  color: var(--danger);
+  background: rgba(223, 91, 47, 0.12);
+}
+
+.empty,
+.denied,
+.error {
+  color: var(--text-muted);
+  padding: 16px;
+}
+
+.error {
+  margin-bottom: 16px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  color: var(--danger);
+  background: rgba(223, 91, 47, 0.08);
+}
+
+@media (max-width: 900px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}

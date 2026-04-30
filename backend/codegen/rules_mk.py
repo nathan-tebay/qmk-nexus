@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from models import KeyboardConfig
-from codegen._mcu import MCU_ARCH
-
-_AVR_MCUS = {'atmega32u4', 'atmega32u2', 'at90usb1286', 'atmega328p'}
-_ARM_MCUS = {'stm32f072', 'stm32f103', 'stm32f303', 'rp2040'}
+from codegen._mcu import MCU_ARCH, MCU_QMK_NAME
 
 
 def generate_rules_mk(config: KeyboardConfig) -> str:
@@ -15,7 +12,7 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
     arch = arch_info[0]
 
     # MCU
-    lines.append(f'MCU = {mcu}')
+    lines.append(f'MCU = {MCU_QMK_NAME.get(mcu, mcu)}')
     if arch == 'avr':
         lines.append(f'F_CPU = {arch_info[1]}')
     elif arch == 'chibios':
@@ -51,7 +48,7 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
     if features.get('rgb_matrix'):
         rgb = fc.get('rgb_matrix', {})
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
-        lines.append(f'RGB_MATRIX_DRIVER = {driver}')
+        lines.append(f'RGB_MATRIX_DRIVER = {driver.lower()}')
         lines.append('')
 
     if features.get('backlight'):

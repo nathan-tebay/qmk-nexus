@@ -10,9 +10,17 @@ function evalConditional(
   cfg: Record<string, string>,
 ): boolean {
   return Object.entries(conditionalOn).every(([k, v]) => {
-    const current = cfg[k] ?? ''
+    const current = effectiveConfigValue(cfg, k)
     return Array.isArray(v) ? v.includes(current) : current === v
   })
+}
+
+function effectiveConfigValue(cfg: Record<string, string>, key: string): string {
+  if (cfg[key] !== undefined) return cfg[key]
+  for (const field of FEATURE_MODULES.flatMap((mod) => mod.inputs)) {
+    if (field.key === key && field.defaultValue !== undefined) return field.defaultValue
+  }
+  return ''
 }
 
 function repeatKey(key: string, index: number): string {
