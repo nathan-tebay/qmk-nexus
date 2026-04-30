@@ -8,13 +8,16 @@ from __future__ import annotations
 import sqlite3
 import tempfile
 import threading
+import logging
 from pathlib import Path
 
 from config import settings
+from db import ensure_schema
 
 _LOCAL_DB_DIR = Path(tempfile.gettempdir()) / 'qmk-nexus-dbs'
 _etag_lock = threading.Lock()
 _etags: dict[str, str | None] = {}  # temp db path -> last-seen etag (None means object did not exist)
+logger = logging.getLogger(__name__)
 
 
 class S3ConflictError(Exception):
@@ -56,8 +59,7 @@ def _get_etag(db_path: Path) -> str | None:
 def pull_user_db(user_id: str) -> Path:
     if not settings.is_prod:
         path = _local_db_path(user_id)
-        if not path.exists():
-            _init_db(path)
+        _ensure_readable_db(path)
         return path
 
     s3 = _s3_client()
@@ -76,6 +78,7 @@ def pull_user_db(user_id: str) -> Path:
             _set_etag(tmp_path, None)
         else:
             raise
+    _ensure_readable_db(tmp_path)
     return tmp_path
 
 
@@ -104,13 +107,13 @@ def push_user_db(user_id: str, db_path: Path) -> None:
 
 
 def _init_db(path: Path) -> None:
-    with sqlite3.connect(path) as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS keyboards (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                config_json TEXT NOT NULL,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            );
-        """)
+    ensure_schema(path)
+
+
+def _ensure_readable_db(path: Path) -> None:
+    try:
+        ensure_schema(path)
+    except sqlite3.DatabaseError:
+        logger.exception('Repairing unreadable user db at %s', path)
+        path.unlink(missing_ok=True)
+        _init_db(path)
