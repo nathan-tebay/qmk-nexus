@@ -419,7 +419,7 @@ build_iam_policy() {
       "Resource": "arn:aws:s3:::${AWS_BUCKET}",
       "Condition": {
         "StringLike": {
-          "s3:prefix": ["users/", "users/*/", "qmk-index/", "qmk-index/*", "builds/", "builds/*"]
+          "s3:prefix": ["users/", "users/*", "users/*/", "qmk-index/", "qmk-index/*", "builds/", "builds/*"]
         }
       }
     },
