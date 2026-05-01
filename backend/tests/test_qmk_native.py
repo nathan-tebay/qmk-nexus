@@ -245,41 +245,64 @@ def test_import_extracts_rgb_matrix_i2c_pins_from_upstream_config():
     assert config.feature_configs['rgb_matrix']['RGB_MATRIX_I2C_SCL'] == 'B9'
 
 
-def test_import_extracts_hotdox_custom_matrix_pins():
-    config = _convert_to_config('hotdox', {
-        'keyboard_name': 'Ergodox 76 "HotDox"',
+def test_import_extracts_custom_matrix_pins_from_native_sources():
+    matrix_c = '''
+static matrix_row_t read_cols(uint8_t row) {
+  matrix_row_t cols0 = expander_read_cols();
+  matrix_row_t cols1 = (PINC&(1<<PC6) ? 0 : (1<<(0+7))) |
+                       (PIND&(1<<PD3) ? 0 : (1<<(1+7))) |
+                       (PINB&(1<<PB0) ? 0 : (1<<(6+7))) ;
+  return cols0 | cols1;
+}
+static void select_row(uint8_t row) {
+  switch (row) {
+  case 2:
+    gpio_set_pin_output(F5);
+    gpio_write_pin_low(F5);
+    break;
+  case 0:
+    gpio_set_pin_output(F7);
+    gpio_write_pin_low(F7);
+    break;
+  case 1:
+    gpio_set_pin_output(F6);
+    gpio_write_pin_low(F6);
+    break;
+  }
+}
+'''
+    expander_c = '''
+uint8_t expander_read_cols(void) {
+    uint8_t data = 0;
+    expander_read(MCP23017_B0_GPIOA, &data);
+    return data;
+}
+void expander_config(void) {
+  expander_write(MCP23017_B0_IODIRA, 0x07);
+}
+'''
+    config = _convert_to_config('vendor/custom_matrix', {
+        'keyboard_name': 'Custom Matrix',
         'processor': 'atmega32u4',
         'matrix_pins': {'custom': True},
         'layouts': {
-            'LAYOUT_ergodox': {
+            'LAYOUT': {
                 'layout': [
                     {'matrix': [row, col], 'x': col, 'y': row}
-                    for row in range(6)
+                    for row in range(3)
                     for col in range(14)
                 ],
             },
         },
         '_nexus': {
             'source_mode': 'qmk_native',
-            'upstream_keyboard': 'hotdox',
-            'upstream_files': {'keyboards/hotdox/matrix.c': 'void matrix_scan(void) {}'},
+            'upstream_keyboard': 'vendor/custom_matrix',
+            'upstream_files': {
+                'keyboards/vendor/custom_matrix/matrix.c': matrix_c,
+                'keyboards/vendor/custom_matrix/expander.c': expander_c,
+            },
         },
     })
 
-    assert [pin.pin for pin in config.row_pins] == ['F7', 'F6', 'F5', 'F4', 'F1', 'F0']
-    assert [pin.pin for pin in config.col_pins] == [
-        'MCP_A0',
-        'MCP_A1',
-        'MCP_A2',
-        'MCP_A3',
-        'MCP_A4',
-        'MCP_A5',
-        'MCP_A6',
-        'C6',
-        'D3',
-        'D2',
-        'B3',
-        'B2',
-        'B1',
-        'B0',
-    ]
+    assert [pin.pin for pin in config.row_pins] == ['F7', 'F6', 'F5']
+    assert [pin.pin for pin in config.col_pins] == ['MCP_A0', 'MCP_A1', 'MCP_A2', 'C6', 'D3', 'B0']

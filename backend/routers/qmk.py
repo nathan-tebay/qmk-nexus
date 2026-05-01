@@ -20,6 +20,18 @@ _INDEX_PATH = Path(__file__).parent.parent / 'data' / 'qmk_index.json'
 _KB_DATA_DIR = Path(__file__).parent.parent / 'data' / 'keyboards'
 _DEFINE_ARRAY_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+\{([^}]+)\}')
 _DEFINE_VALUE_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+([^\s/]+)')
+_ROW_CASE_PIN_RE = re.compile(
+    r'case\s+(\d+)\s*:(?P<body>.*?break\s*;)',
+    re.DOTALL,
+)
+_GPIO_PIN_RE = re.compile(r'gpio_(?:set_pin_output|write_pin_low)\(\s*([A-Z]\d+)\s*\)')
+_PIN_READ_COL_RE = re.compile(
+    r'PIN([A-Z])\s*&\s*\(\s*1\s*<<\s*P[A-Z](\d+)\s*\).*?'
+    r'\(\s*1\s*<<\s*\(?\s*(\d+)(?:\s*\+\s*(\d+))?\s*\)?\s*\)',
+    re.DOTALL,
+)
+_MCP_GPIO_READ_RE = re.compile(r'\w+_read\(\s*([A-Z0-9_]*GPIO([AB]))\s*,')
+_MCP_IODIR_WRITE_RE = re.compile(r'\w+_write\(\s*([A-Z0-9_]*IODIR([AB]))\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*\)')
 
 
 @lru_cache(maxsize=1)
@@ -232,46 +244,48 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
         col_pins = [ColPin(col=i, pin=f'MCP_B{pin}') for i, pin in enumerate(expander_cols)]
 
     if not row_pins and not col_pins:
-        row_pins, col_pins = _matrix_pins_from_hotdox(info)
+        row_pins, col_pins = _matrix_pins_from_custom_sources(info)
 
     return row_pins, col_pins
 
 
-def _matrix_pins_from_hotdox(info: dict[str, Any]) -> tuple[list[MatrixPin], list[ColPin]]:
-    upstream_keyboard = (info.get('_nexus') or {}).get('upstream_keyboard')
-    if upstream_keyboard != 'hotdox':
-        return [], []
-
+def _matrix_pins_from_custom_sources(info: dict[str, Any]) -> tuple[list[MatrixPin], list[ColPin]]:
     files = (info.get('_nexus') or {}).get('upstream_files') or {}
-    if not any(rel_path.endswith('/matrix.c') for rel_path in files):
+    source_text = '\n'.join(
+        str(content)
+        for rel_path, content in files.items()
+        if rel_path.endswith(('.c', '.h'))
+    )
+    if not source_text:
         return [], []
 
-    return (
-        [
-            MatrixPin(row=0, pin='F7'),
-            MatrixPin(row=1, pin='F6'),
-            MatrixPin(row=2, pin='F5'),
-            MatrixPin(row=3, pin='F4'),
-            MatrixPin(row=4, pin='F1'),
-            MatrixPin(row=5, pin='F0'),
-        ],
-        [
-            ColPin(col=0, pin='MCP_A0'),
-            ColPin(col=1, pin='MCP_A1'),
-            ColPin(col=2, pin='MCP_A2'),
-            ColPin(col=3, pin='MCP_A3'),
-            ColPin(col=4, pin='MCP_A4'),
-            ColPin(col=5, pin='MCP_A5'),
-            ColPin(col=6, pin='MCP_A6'),
-            ColPin(col=7, pin='C6'),
-            ColPin(col=8, pin='D3'),
-            ColPin(col=9, pin='D2'),
-            ColPin(col=10, pin='B3'),
-            ColPin(col=11, pin='B2'),
-            ColPin(col=12, pin='B1'),
-            ColPin(col=13, pin='B0'),
-        ],
-    )
+    row_by_index: dict[int, str] = {}
+    for match in _ROW_CASE_PIN_RE.finditer(source_text):
+        row = int(match.group(1))
+        pins = _GPIO_PIN_RE.findall(match.group('body'))
+        if pins:
+            row_by_index[row] = pins[0]
+
+    col_by_index: dict[int, str] = {}
+    for port, pin, base, offset in _PIN_READ_COL_RE.findall(source_text):
+        col_by_index[int(base) + int(offset or 0)] = f'{port}{pin}'
+
+    for gpio_register, bank in _MCP_GPIO_READ_RE.findall(source_text):
+        mask = _mcp_input_mask(source_text, gpio_register.replace('GPIO', 'IODIR'))
+        for bit in range(8):
+            if mask & (1 << bit):
+                col_by_index.setdefault(bit, f'MCP_{bank}{bit}')
+
+    row_pins = [MatrixPin(row=row, pin=pin) for row, pin in sorted(row_by_index.items())]
+    col_pins = [ColPin(col=col, pin=pin) for col, pin in sorted(col_by_index.items())]
+    return row_pins, col_pins
+
+
+def _mcp_input_mask(source_text: str, iodir_register: str) -> int:
+    for register, _bank, value in _MCP_IODIR_WRITE_RE.findall(source_text):
+        if register == iodir_register:
+            return int(value, 0)
+    return 0
 
 
 def _uses_custom_matrix(info: dict[str, Any]) -> bool:
