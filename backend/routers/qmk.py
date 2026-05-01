@@ -302,6 +302,65 @@ def _matrix_row_count(keys: list[KeyDef]) -> int:
     return max(rows) + 1 if rows else 0
 
 
+def _split_physical_sides(group: list[KeyDef], split_enabled: bool) -> list[list[KeyDef]]:
+    if not split_enabled or len(group) < 2:
+        return [group]
+
+    ordered = sorted(group, key=lambda key: key.x)
+    min_x = min(key.x for key in ordered)
+    max_x = max(key.x + key.w for key in ordered)
+    center_x = (min_x + max_x) / 2
+    split_candidates = [
+        (
+            abs(((ordered[i].x + ordered[i].w + ordered[i + 1].x) / 2) - center_x),
+            i,
+        )
+        for i in range(len(ordered) - 1)
+        if ordered[i + 1].x - (ordered[i].x + ordered[i].w) >= 1.5
+    ]
+    if not split_candidates:
+        return [group]
+    _distance_from_center, split_at = min(split_candidates)
+    return [ordered[:split_at + 1], ordered[split_at + 1:]]
+
+
+def _split_by_matrix_half(group: list[KeyDef], attr: str, extent: int, split_enabled: bool) -> list[list[KeyDef]]:
+    if not split_enabled or extent < 2 or extent % 2 != 0:
+        return [group]
+    midpoint = extent // 2
+    left = [key for key in group if getattr(key, attr) is not None and getattr(key, attr) < midpoint]
+    right = [key for key in group if getattr(key, attr) is not None and getattr(key, attr) >= midpoint]
+    if left and right:
+        return [left, right]
+    return [group]
+
+
+def _matrix_edges_from_keys(keys: list[KeyDef], split_enabled: bool) -> list[MatrixEdge]:
+    row_groups: dict[int, list[KeyDef]] = defaultdict(list)
+    col_groups: dict[int, list[KeyDef]] = defaultdict(list)
+    for key in keys:
+        if key.row is not None:
+            row_groups[key.row].append(key)
+        if key.col is not None:
+            col_groups[key.col].append(key)
+
+    row_count = _matrix_row_count(keys)
+    matrix_edges: list[MatrixEdge] = []
+    for group in row_groups.values():
+        for segment in _split_physical_sides(group, split_enabled):
+            ordered = sorted(segment, key=lambda key: (key.x, key.y))
+            for i in range(len(ordered) - 1):
+                matrix_edges.append(MatrixEdge(from_=ordered[i].id, to=ordered[i + 1].id, type='row'))
+    for group in col_groups.values():
+        for matrix_segment in _split_by_matrix_half(group, 'row', row_count, split_enabled):
+            for segment in _split_physical_sides(matrix_segment, split_enabled):
+                ordered = sorted(segment, key=lambda key: (key.y, key.x))
+                for i in range(len(ordered) - 1):
+                    matrix_edges.append(MatrixEdge(from_=ordered[i].id, to=ordered[i + 1].id, type='col'))
+
+    return matrix_edges
+
+
 def _infer_split_enabled(
     kb_path: str,
     info: dict[str, Any],
@@ -405,22 +464,7 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     feature_configs = _feature_configs_from_info(info, split_enabled=split_enabled)
     source_mode, upstream_keyboard, upstream_files = _source_mode_from_info(kb_path, info)
 
-    # Build matrix edges by chaining keys within each row/col group
-    row_groups: dict[int, list[KeyDef]] = defaultdict(list)
-    col_groups: dict[int, list[KeyDef]] = defaultdict(list)
-    for key in keys:
-        if key.row is not None:
-            row_groups[key.row].append(key)
-        if key.col is not None:
-            col_groups[key.col].append(key)
-
-    matrix_edges: list[MatrixEdge] = []
-    for group in row_groups.values():
-        for i in range(len(group) - 1):
-            matrix_edges.append(MatrixEdge(from_=group[i].id, to=group[i + 1].id, type='row'))
-    for group in col_groups.values():
-        for i in range(len(group) - 1):
-            matrix_edges.append(MatrixEdge(from_=group[i].id, to=group[i + 1].id, type='col'))
+    matrix_edges = _matrix_edges_from_keys(keys, split_enabled)
 
     # Parse embedded default keymap if available (from build_qmk_index.py)
     if raw_keymap and raw_keymap.get('layers'):

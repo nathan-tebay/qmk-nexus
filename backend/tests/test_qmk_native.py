@@ -220,6 +220,37 @@ def test_import_does_not_infer_split_for_full_large_matrix():
     assert imported.features.get('split_keyboard') is not True
 
 
+def test_import_split_matrix_edges_do_not_cross_physical_halves():
+    imported = _convert_to_config('split/example', {
+        'keyboard_name': 'Split Example',
+        'matrix_pins': {'rows': ['B0', 'B1'], 'cols': ['D0', 'D1']},
+        'split': {'enabled': True},
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [1, 0], 'x': 0, 'y': 1},
+                    {'matrix': [0, 1], 'x': 1, 'y': 0},
+                    {'matrix': [1, 1], 'x': 1, 'y': 1},
+                    {'matrix': [2, 0], 'x': 8, 'y': 0},
+                    {'matrix': [3, 0], 'x': 8, 'y': 1},
+                    {'matrix': [2, 1], 'x': 9, 'y': 0},
+                    {'matrix': [3, 1], 'x': 9, 'y': 1},
+                ],
+            },
+        },
+    })
+
+    by_id = {key.id: key for key in imported.keys}
+    col_edges = [edge for edge in imported.matrix_edges if edge.type == 'col']
+
+    assert col_edges
+    assert all(
+        abs(by_id[edge.from_].x - by_id[edge.to].x) <= 1
+        for edge in col_edges
+    )
+
+
 def test_import_extracts_rgb_matrix_i2c_pins_from_upstream_config():
     config = _convert_to_config('vendor/is31', {
         'keyboard_name': 'IS31 Board',
