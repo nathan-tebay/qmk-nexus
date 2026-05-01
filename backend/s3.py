@@ -1,7 +1,7 @@
-"""Per-user SQLite storage on S3 with If-Match conditional writes.
+"""Per-user SQLite storage on S3.
 
 Dev (is_prod=False): local files under /tmp/qmk-nexus-dbs/.
-Prod: S3 bucket, with ETag tracked per pulled temp DB so push fails on concurrent writes.
+Prod: S3 bucket, with each request pulling and pushing the per-user DB object.
 """
 from __future__ import annotations
 
@@ -88,15 +88,12 @@ def push_user_db(user_id: str, db_path: Path) -> None:
 
     s3 = _s3_client()
     key = _user_key(user_id)
-    etag = _get_etag(db_path)
-    extra_args = {'IfMatch': etag} if etag else {'IfNoneMatch': '*'}
 
     try:
         resp = s3.put_object(
             Bucket=settings.s3_bucket,
             Key=key,
             Body=db_path.read_bytes(),
-            **extra_args,
         )
         _set_etag(db_path, resp.get('ETag'))
     except Exception as e:

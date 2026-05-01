@@ -48,3 +48,28 @@ def test_pull_user_db_repairs_unreadable_local_db(tmp_path, monkeypatch):
 
     assert repaired == path
     assert db.list_keyboards(repaired) == []
+
+
+def test_push_user_db_uses_supported_put_object_args(tmp_path, monkeypatch):
+    class FakeS3:
+        def __init__(self):
+            self.put_kwargs = None
+
+        def put_object(self, **kwargs):
+            self.put_kwargs = kwargs
+            return {'ETag': '"etag"'}
+
+    fake_s3 = FakeS3()
+    path = tmp_path / 'user.sqlite'
+    path.write_bytes(b'db bytes')
+    monkeypatch.setattr(s3.settings, 'environment', 'production')
+    monkeypatch.setattr(s3.settings, 's3_bucket', 'bucket')
+    monkeypatch.setattr(s3, '_s3_client', lambda: fake_s3)
+
+    s3.push_user_db('user', path)
+
+    assert fake_s3.put_kwargs == {
+        'Bucket': 'bucket',
+        'Key': 'users/user/db.sqlite',
+        'Body': b'db bytes',
+    }
