@@ -49,6 +49,17 @@
   margin-bottom: 20px;
 }
 
+.section {
+  margin-top: 20px;
+}
+
+.section h2 {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .metric {
   border: 1px solid var(--border);
   border-radius: 6px;

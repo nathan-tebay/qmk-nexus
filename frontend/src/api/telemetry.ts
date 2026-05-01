@@ -8,8 +8,17 @@ export interface TelemetryBuild {
   completedAt: string | null
 }
 
+export interface TelemetryUser {
+  userId: string
+  email: string
+  name: string
+  firstSeenAt: string | null
+  lastSeenAt: string | null
+}
+
 export interface TelemetrySummary {
   uniqueUsers: number
+  users: TelemetryUser[]
   builds: {
     total: number
     byFinalStatus: Record<'failed' | 'success', number>

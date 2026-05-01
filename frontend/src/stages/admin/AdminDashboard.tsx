@@ -40,6 +40,10 @@ export default function AdminDashboard() {
     () => summary?.builds.completed.slice(0, 100) ?? [],
     [summary],
   )
+  const visitors = useMemo(
+    () => summary?.users ?? [],
+    [summary],
+  )
 
   if (!isAdmin) {
     return (
@@ -93,7 +97,42 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      <div className={styles.tableWrap}>
+      <section className={styles.section}>
+        <h2>Unique Visitors</h2>
+        <div className={styles.tableWrap}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Name</th>
+                <th>Last Seen</th>
+                <th>First Seen</th>
+                <th>User ID</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visitors.map((visitor) => (
+                <tr key={visitor.email || visitor.userId}>
+                  <td>{visitor.email || '-'}</td>
+                  <td>{visitor.name || '-'}</td>
+                  <td>{formatDate(visitor.lastSeenAt)}</td>
+                  <td>{formatDate(visitor.firstSeenAt)}</td>
+                  <td>{visitor.userId}</td>
+                </tr>
+              ))}
+              {!loading && visitors.length === 0 && (
+                <tr>
+                  <td colSpan={5} className={styles.empty}>No visitors recorded yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <h2>Completed Builds</h2>
+        <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -125,7 +164,8 @@ export default function AdminDashboard() {
             )}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
     </section>
   )
 }

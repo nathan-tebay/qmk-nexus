@@ -57,6 +57,8 @@ def record_user_seen(user: User) -> None:
         'id': f'{USER_PREFIX}{user.id}',
         'type': 'user',
         'user_id': user.id,
+        'email': user.email,
+        'name': user.name,
         'created_at': now,
         'last_seen_at': now,
     })
@@ -82,10 +84,22 @@ def record_build_final(status: BuildStatus, user_id: str) -> None:
 
 def summary() -> dict[str, Any]:
     items = _scan_telemetry()
-    users = {
-        item['user_id'] for item in items
-        if item.get('type') == 'user' and item.get('user_id')
-    }
+    users_by_identity: dict[str, dict[str, Any]] = {}
+    for item in items:
+        if item.get('type') != 'user' or not item.get('user_id'):
+            continue
+        email = str(item.get('email') or '').lower()
+        identity = email or str(item['user_id'])
+        existing = users_by_identity.get(identity)
+        if existing and str(existing.get('lastSeenAt') or '') >= str(item.get('last_seen_at') or ''):
+            continue
+        users_by_identity[identity] = {
+            'userId': item.get('user_id'),
+            'email': item.get('email') or '',
+            'name': item.get('name') or '',
+            'firstSeenAt': item.get('created_at'),
+            'lastSeenAt': item.get('last_seen_at'),
+        }
 
     builds_by_status = {status: 0 for status in sorted(FINAL_STATUSES)}
     completed_builds: list[dict[str, Any]] = []
@@ -107,9 +121,15 @@ def summary() -> dict[str, Any]:
         })
 
     completed_builds.sort(key=lambda item: item.get('completedAt') or '', reverse=True)
+    users = sorted(
+        users_by_identity.values(),
+        key=lambda item: item.get('lastSeenAt') or '',
+        reverse=True,
+    )
 
     return {
-        'uniqueUsers': len(users),
+        'uniqueUsers': len(users_by_identity),
+        'users': users,
         'builds': {
             'total': total_builds,
             'byFinalStatus': builds_by_status,

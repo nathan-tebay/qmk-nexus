@@ -14,6 +14,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from convert_keymaps import get_keymap
+
 SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
 OUTPUT = REPO_ROOT / 'backend' / 'data' / 'qmk_index.json'
@@ -181,6 +183,12 @@ def _collect_native_files(qmk_root: Path, kb_path: str) -> dict[str, str]:
                 _add_text_file(files, qmk_root, candidate)
                 break
 
+    default_keymap = qmk_root / 'keyboards' / kb_path / 'keymaps' / 'default'
+    if default_keymap.is_dir():
+        for child in default_keymap.iterdir():
+            if child.is_file():
+                _add_text_file(files, qmk_root, child)
+
     return files
 
 
@@ -307,14 +315,9 @@ def build(kb_root: Path) -> list[dict]:
 
         _preserve_existing_keymap(rel, data)
 
-        # Embed default keymap if keymap.json exists
-        keymap_file = dir_path / 'keymaps' / 'default' / 'keymap.json'
-        if keymap_file.exists():
-            try:
-                with open(keymap_file) as f:
-                    data['_default_keymap'] = json.load(f)
-            except Exception:
-                pass
+        keymap = get_keymap(rel, qmk_root)
+        if keymap:
+            data['_default_keymap'] = keymap
 
         # Write per-keyboard data file
         kb_file = KB_DATA_DIR / (rel + '.json')

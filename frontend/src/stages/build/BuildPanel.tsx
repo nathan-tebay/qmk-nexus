@@ -232,7 +232,11 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
     : 'mailto:nathan@tebay.dev'
 
   const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked || configBlocked || featureBlocked
-  const buildBtnCls = `${styles.buildBtn} ${triggering ? styles.triggering : ''}`
+  const buildBtnCls = [
+    styles.buildBtn,
+    triggering ? styles.triggering : '',
+    isRunning ? styles.running : '',
+  ].filter(Boolean).join(' ')
 
   return (
     <div className={styles.panel}>
@@ -276,7 +280,7 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
         <>
           <div className={styles.statusRow}>
             <StatusDot status={status.status} />
-            <span className={`${styles.statusText} ${isSuccess ? styles.success : ''} ${isFailed ? styles.failed : ''}`}>
+            <span className={`${styles.statusText} ${isRunning ? styles.running : ''} ${isSuccess ? styles.success : ''} ${isFailed ? styles.failed : ''}`}>
               {status.status === 'queued' ? 'Queued' : status.status === 'building' ? 'Compiling…' : status.status === 'success' ? 'Build successful' : 'Build failed'}
             </span>
           </div>

@@ -27,11 +27,19 @@
 
 .buildBtn:disabled {
   background: var(--bg-elevated);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
 .buildBtn.triggering {
   opacity: 0.7;
+}
+
+.buildBtn.running:disabled {
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: progress;
+  opacity: 0.88;
 }
 
 .sourcesBtn {
@@ -68,6 +76,11 @@
 .statusText {
   font-size: 16.25px;
   color: var(--text-muted);
+}
+
+.statusText.running {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .statusText.success {

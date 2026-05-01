@@ -231,7 +231,47 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
     elif expander_cols:
         col_pins = [ColPin(col=i, pin=f'MCP_B{pin}') for i, pin in enumerate(expander_cols)]
 
+    if not row_pins and not col_pins:
+        row_pins, col_pins = _matrix_pins_from_hotdox(info)
+
     return row_pins, col_pins
+
+
+def _matrix_pins_from_hotdox(info: dict[str, Any]) -> tuple[list[MatrixPin], list[ColPin]]:
+    upstream_keyboard = (info.get('_nexus') or {}).get('upstream_keyboard')
+    if upstream_keyboard != 'hotdox':
+        return [], []
+
+    files = (info.get('_nexus') or {}).get('upstream_files') or {}
+    if not any(rel_path.endswith('/matrix.c') for rel_path in files):
+        return [], []
+
+    return (
+        [
+            MatrixPin(row=0, pin='F7'),
+            MatrixPin(row=1, pin='F6'),
+            MatrixPin(row=2, pin='F5'),
+            MatrixPin(row=3, pin='F4'),
+            MatrixPin(row=4, pin='F1'),
+            MatrixPin(row=5, pin='F0'),
+        ],
+        [
+            ColPin(col=0, pin='MCP_A0'),
+            ColPin(col=1, pin='MCP_A1'),
+            ColPin(col=2, pin='MCP_A2'),
+            ColPin(col=3, pin='MCP_A3'),
+            ColPin(col=4, pin='MCP_A4'),
+            ColPin(col=5, pin='MCP_A5'),
+            ColPin(col=6, pin='MCP_A6'),
+            ColPin(col=7, pin='C6'),
+            ColPin(col=8, pin='D3'),
+            ColPin(col=9, pin='D2'),
+            ColPin(col=10, pin='B3'),
+            ColPin(col=11, pin='B2'),
+            ColPin(col=12, pin='B1'),
+            ColPin(col=13, pin='B0'),
+        ],
+    )
 
 
 def _uses_custom_matrix(info: dict[str, Any]) -> bool:

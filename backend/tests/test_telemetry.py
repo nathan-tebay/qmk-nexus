@@ -29,6 +29,7 @@ def test_summary_counts_unique_users_and_final_build_statuses():
     summary = telemetry.summary()
 
     assert summary['uniqueUsers'] == 2
+    assert {item['email'] for item in summary['users']} == {'one@example.test', 'two@example.test'}
     assert summary['builds']['total'] == 2
     assert summary['builds']['byFinalStatus'] == {'failed': 1, 'success': 1}
     assert {item['buildId'] for item in summary['builds']['completed']} == {'build-1', 'build-2'}

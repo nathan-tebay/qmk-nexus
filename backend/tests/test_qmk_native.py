@@ -243,3 +243,43 @@ def test_import_extracts_rgb_matrix_i2c_pins_from_upstream_config():
 
     assert config.feature_configs['rgb_matrix']['RGB_MATRIX_I2C_SDA'] == 'B8'
     assert config.feature_configs['rgb_matrix']['RGB_MATRIX_I2C_SCL'] == 'B9'
+
+
+def test_import_extracts_hotdox_custom_matrix_pins():
+    config = _convert_to_config('hotdox', {
+        'keyboard_name': 'Ergodox 76 "HotDox"',
+        'processor': 'atmega32u4',
+        'matrix_pins': {'custom': True},
+        'layouts': {
+            'LAYOUT_ergodox': {
+                'layout': [
+                    {'matrix': [row, col], 'x': col, 'y': row}
+                    for row in range(6)
+                    for col in range(14)
+                ],
+            },
+        },
+        '_nexus': {
+            'source_mode': 'qmk_native',
+            'upstream_keyboard': 'hotdox',
+            'upstream_files': {'keyboards/hotdox/matrix.c': 'void matrix_scan(void) {}'},
+        },
+    })
+
+    assert [pin.pin for pin in config.row_pins] == ['F7', 'F6', 'F5', 'F4', 'F1', 'F0']
+    assert [pin.pin for pin in config.col_pins] == [
+        'MCP_A0',
+        'MCP_A1',
+        'MCP_A2',
+        'MCP_A3',
+        'MCP_A4',
+        'MCP_A5',
+        'MCP_A6',
+        'C6',
+        'D3',
+        'D2',
+        'B3',
+        'B2',
+        'B1',
+        'B0',
+    ]
