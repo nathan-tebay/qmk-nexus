@@ -22,7 +22,7 @@ export default function LoginPage() {
             tebay.dev
           </a>
         </p>
-        <p>
+        <p className={styles.introduction}>
           QMK Nexus brings the entire QMK workflow into one place. Design your layout, build your matrix, assign keycodes, and generate firmware without jumping between tools or writing code.
 
           Built while creating a custom split keyboard, QMK Nexus removes the friction from QMK by unifying everything into a single interface. It also adds support for advanced features like rotary encoders, OLEDs, and trackballs with no coding required.

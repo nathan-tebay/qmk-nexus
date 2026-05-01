@@ -1,63 +1,43 @@
+import { useState } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import { FEATURE_MODULES, incompatMap, ConfigField } from './modules'
 import styles from './FeatureToggles.module.css'
 
+import {
+  conditionMatches,
+  expandConfigFields,
+  getFeatureConflictErrors,
+  effectiveConfigValue,
+} from '@/utils/validateFeatureConfig'
+
 const GROUPS = Array.from(new Set(FEATURE_MODULES.map((m) => m.group)))
-const MAX_REPEATED_FIELDS = 16
-
-function evalConditional(
-  conditionalOn: Record<string, string | string[]>,
-  cfg: Record<string, string>,
-): boolean {
-  return Object.entries(conditionalOn).every(([k, v]) => {
-    const current = effectiveConfigValue(cfg, k)
-    return Array.isArray(v) ? v.includes(current) : current === v
-  })
-}
-
-function effectiveConfigValue(cfg: Record<string, string>, key: string): string {
-  if (cfg[key] !== undefined) return cfg[key]
-  for (const field of FEATURE_MODULES.flatMap((mod) => mod.inputs)) {
-    if (field.key === key && field.defaultValue !== undefined) return field.defaultValue
-  }
-  return ''
-}
-
-function repeatKey(key: string, index: number): string {
-  return key.replace(/_0$/, `_${index}`)
-}
-
-function repeatDescription(field: ConfigField, index: number): string {
-  if (field.description.includes('0')) {
-    return field.description.replace(/\b0\b/g, String(index))
-  }
-  return field.key.startsWith('ENCODER_')
-    ? field.description.replace('Encoder ', `Encoder ${index} `)
-    : `${field.description} ${index}`
-}
-
-function expandConfigFields(fields: readonly ConfigField[], cfg: Record<string, string>): ConfigField[] {
-  return fields.flatMap((field) => {
-    if (!field.repeatPerCount) return [field]
-    const rawCount = cfg[field.repeatPerCount] ?? '1'
-    const parsed = Number.parseInt(rawCount, 10)
-    const count = Number.isFinite(parsed) && parsed > 0
-      ? Math.min(parsed, MAX_REPEATED_FIELDS)
-      : 0
-    return Array.from({ length: count }, (_, index) => ({
-      ...field,
-      key: repeatKey(field.key, index),
-      description: repeatDescription(field, index),
-      repeatPerCount: undefined,
-    }))
-  })
-}
 
 export default function FeatureToggles() {
   const features = useKeyboardStore((s) => s.config.features)
   const featureConfigs = useKeyboardStore((s) => s.config.featureConfigs)
   const toggleFeature = useKeyboardStore((s) => s.toggleFeature)
   const setFeatureConfig = useKeyboardStore((s) => s.setFeatureConfig)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set())
+
+  function toggleExpanded(id: string) {
+    setExpandedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleToggleFeature(id: string) {
+    const wasEnabled = !!features[id]
+    toggleFeature(id)
+    if (!wasEnabled) {
+      const mod = FEATURE_MODULES.find((m) => m.id === id)
+      if (mod && mod.inputs.length > 0) {
+        setExpandedIds((current) => new Set([...current, id]))
+      }
+    }
+  }
 
   // Build conflict set
   const conflictedIds = new Set<string>()
@@ -107,6 +87,7 @@ export default function FeatureToggles() {
                 const enabled = !!features[mod.id]
                 const hasConflict = conflictedIds.has(mod.id)
                 const cfg = featureConfigs[mod.id] ?? {}
+                const expanded = expandedIds.has(mod.id)
 
                 const cardClass = [
                   styles.featureCard,
@@ -117,12 +98,22 @@ export default function FeatureToggles() {
                 return (
                   <div key={mod.id} className={cardClass}>
                     <div className={styles.featureHeader}>
+                      <button
+                        type="button"
+                        className={`${styles.expandButton} ${expanded ? styles.expandButtonOpen : ''}`}
+                        aria-expanded={expanded}
+                        aria-controls={`feature-panel-${mod.id}`}
+                        title={expanded ? 'Collapse module' : 'Expand module'}
+                        onClick={() => toggleExpanded(mod.id)}
+                      >
+                        ▸
+                      </button>
                       <label className={styles.featureLabel}>
                         <span className={styles.featureCheckbox}>
                           <input
                             type="checkbox"
                             checked={enabled}
-                            onChange={() => toggleFeature(mod.id)}
+                            onChange={() => handleToggleFeature(mod.id)}
                           />
                         </span>
                         <span className={styles.featureName}>{mod.name}</span>
@@ -131,26 +122,29 @@ export default function FeatureToggles() {
                         <span className={styles.warningIcon} title="Incompatible with another enabled feature">⚠️</span>
                       )}
                     </div>
-                    <p className={styles.featureDesc}>{mod.description}</p>
 
-                    {enabled && mod.inputs.length > 0 && (
-                      <div className={styles.configPanel}>
-                        {expandConfigFields(mod.inputs, cfg).map((field) => {
-                          if (field.conditionalOn && !evalConditional(field.conditionalOn, cfg)) {
-                            return null
-                          }
-                          const value = cfg[field.key] ?? field.defaultValue ?? ''
-                          return (
-                            <ConfigRow
-                              key={field.key}
-                              field={field}
-                              value={value}
-                              onChange={(v) => setFeatureConfig(mod.id, field.key, v)}
-                            />
-                          )
-                        })}
-                      </div>
-                    )}
+                    <div id={`feature-panel-${mod.id}`} hidden={!expanded}>
+                      <p className={styles.featureDesc}>{mod.description}</p>
+
+                      {enabled && mod.inputs.length > 0 && (
+                        <div className={styles.configPanel}>
+                          {expandConfigFields(mod.inputs, cfg).map((field) => {
+                            if (field.conditionalOn && !conditionMatches(field.conditionalOn, cfg)) {
+                              return null
+                            }
+                            const value = cfg[field.key] ?? field.defaultValue ?? ''
+                            return (
+                              <ConfigRow
+                                key={field.key}
+                                field={field}
+                                value={value}
+                                onChange={(v) => setFeatureConfig(mod.id, field.key, v)}
+                              />
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}

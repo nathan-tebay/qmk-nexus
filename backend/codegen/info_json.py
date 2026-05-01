@@ -32,7 +32,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
         },
         'diode_direction': 'COL2ROW',
         'layouts': {
-            'LAYOUT': {
+            (config.layout_macro or 'LAYOUT'): {
                 'layout': [
                     {
                         'matrix': [k.row if k.row is not None else 0,

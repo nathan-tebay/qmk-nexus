@@ -85,3 +85,16 @@
 .credit a:hover {
   text-decoration: underline;
 }
+
+.introduction {
+  font-size: 14px;
+  color: var(--text-muted);
+  width: 90%;
+  text-indent: 5%;
+} 
+
+.introduction a {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}

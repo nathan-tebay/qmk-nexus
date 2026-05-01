@@ -8,73 +8,10 @@ import { mcuById } from './mcus'
 import { FEATURE_MODULES, incompatMap } from './modules'
 import styles from './BuildPanel.module.css'
 
-function effectiveConfigValue(
-  cfg: Record<string, string>,
-  key: string,
-): string {
-  if (cfg[key] !== undefined) return cfg[key]
-  for (const field of FEATURE_MODULES.flatMap((mod) => mod.inputs)) {
-    if (field.key === key && field.defaultValue !== undefined) return field.defaultValue
-  }
-  return ''
-}
-
-function conditionMatches(
-  conditionalOn: Record<string, string | string[]> | undefined,
-  cfg: Record<string, string>,
-): boolean {
-  if (!conditionalOn) return true
-  return Object.entries(conditionalOn).every(([key, expected]) => {
-    const current = effectiveConfigValue(cfg, key)
-    return Array.isArray(expected) ? expected.includes(current) : current === expected
-  })
-}
-
-function moduleConfigValue(
-  mod: (typeof FEATURE_MODULES)[number],
-  cfg: Record<string, string>,
-  key: string,
-): string {
-  if (cfg[key] !== undefined) return cfg[key]
-  const field = mod.inputs.find((input) => input.key === key)
-  return field?.defaultValue ?? ''
-}
-
-function getFeatureValidationErrors(
-  features: Record<string, boolean>,
-  featureConfigs: Record<string, Record<string, string>>,
-): string[] {
-  const errors: string[] = []
-  for (const mod of FEATURE_MODULES) {
-    if (!features[mod.id]) continue
-    const cfg = featureConfigs[mod.id] ?? {}
-    for (const key of mod.requiredConfig) {
-      const field = mod.inputs.find((input) => input.key === key)
-      if (field && !conditionMatches(field.conditionalOn, cfg)) continue
-      if (!moduleConfigValue(mod, cfg, key).trim()) {
-        errors.push(`${mod.name}: ${key} is required`)
-      }
-    }
-  }
-  return errors
-}
-
-function getFeatureConflictErrors(features: Record<string, boolean>): string[] {
-  const errors: string[] = []
-  const seenPairs = new Set<string>()
-  for (const mod of FEATURE_MODULES) {
-    if (!features[mod.id]) continue
-    for (const otherId of incompatMap.get(mod.id) ?? []) {
-      if (!features[otherId]) continue
-      const pairKey = [mod.id, otherId].sort().join('|')
-      if (seenPairs.has(pairKey)) continue
-      seenPairs.add(pairKey)
-      const other = FEATURE_MODULES.find((m) => m.id === otherId)
-      errors.push(`${mod.name} and ${other?.name ?? otherId} are incompatible`)
-    }
-  }
-  return errors
-}
+import {
+  getFeatureValidationErrors,
+  getFeatureConflictErrors,
+} from '@/utils/validateFeatureConfig'
 
 function likelyBuildIssue(status: BuildStatus | null): string | null {
   if (!status || status.status !== 'failed') return null

@@ -24,6 +24,11 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
     setEditingId(null)
   }
 
+  function confirmRemove(layer: Layer) {
+    const confirmed = window.confirm(`Delete layer "${layer.name}"? Key assignments on this layer will be lost.`)
+    if (confirmed) onRemove(layer.id)
+  }
+
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 12px', background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)', flexShrink: 0, overflowX: 'auto' }}>
       {layers.map((layer) => {
@@ -54,7 +59,7 @@ export function LayerManager({ layers, activeLayerId, onSelect, onAdd, onRemove,
             )}
             {!isBase && (
               <button
-                onClick={(e) => { e.stopPropagation(); onRemove(layer.id) }}
+                onClick={(e) => { e.stopPropagation(); confirmRemove(layer) }}
                 style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 17.5, cursor: 'pointer', lineHeight: 1, padding: '0 2px', opacity: 0.6 }}
                 title="Remove layer"
               >×</button>

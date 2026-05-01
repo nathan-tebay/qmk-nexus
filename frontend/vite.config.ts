@@ -16,6 +16,7 @@ export default defineConfig({
       '/api': {
         target: process.env.BACKEND_URL ?? 'http://backend:8000',
         changeOrigin: true,
+        xfwd: true,
         cookieDomainRewrite: '',
       },
     },

@@ -1,8 +1,8 @@
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 import httpx
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
 from auth import clear_auth_cookies, get_current_user, set_auth_cookies
@@ -18,12 +18,43 @@ GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v3/userinfo'
 
 
+def _forwarded_header_value(request: Request, name: str) -> str | None:
+    value = request.headers.get(name)
+    if not value:
+        return None
+    return value.split(',', 1)[0].strip()
+
+
+def _external_origin(request: Request) -> str:
+    forwarded_host = _forwarded_header_value(request, 'x-forwarded-host')
+    if forwarded_host:
+        forwarded_proto = _forwarded_header_value(request, 'x-forwarded-proto')
+        proto = forwarded_proto or request.url.scheme
+        return f'{proto}://{forwarded_host}'
+    return str(request.base_url).rstrip('/')
+
+
+def _callback_url(request: Request) -> str:
+    api_origin = settings.api_base_url.rstrip('/') if settings.is_prod else _external_origin(request)
+    return f'{api_origin}/api/auth/google/callback'
+
+
+def _frontend_callback_url(request: Request) -> str:
+    if settings.is_prod:
+        return f'{settings.frontend_url.rstrip("/")}/auth/callback'
+    origin = _external_origin(request)
+    expected_port = urlparse(settings.frontend_url).port
+    if expected_port and not origin.endswith(f':{expected_port}'):
+        origin = settings.frontend_url.rstrip('/')
+    return f'{origin}/auth/callback'
+
+
 @router.get('/google')
-async def google_login():
+async def google_login(request: Request):
     state = secrets.token_urlsafe(32)
     params = urlencode({
         'client_id': settings.google_client_id,
-        'redirect_uri': f'{settings.api_base_url}/api/auth/google/callback',
+        'redirect_uri': _callback_url(request),
         'response_type': 'code',
         'scope': 'openid email profile',
         'access_type': 'offline',
@@ -39,21 +70,20 @@ async def google_login():
 
 @router.get('/google/callback')
 async def google_callback(
-    response: Response,
+    request: Request,
     code: str,
     state: str,
     oauth_state: str | None = Cookie(default=None),
 ):
     if not oauth_state or not secrets.compare_digest(state, oauth_state):
         raise HTTPException(status_code=400, detail='Invalid OAuth state')
-    response.delete_cookie('oauth_state', path='/')
 
     async with httpx.AsyncClient() as client:
         token_res = await client.post(GOOGLE_TOKEN_URL, data={
             'code': code,
             'client_id': settings.google_client_id,
             'client_secret': settings.google_client_secret,
-            'redirect_uri': f'{settings.api_base_url}/api/auth/google/callback',
+            'redirect_uri': _callback_url(request),
             'grant_type': 'authorization_code',
         })
         if token_res.status_code != 200:
@@ -76,7 +106,8 @@ async def google_callback(
     )
     telemetry.record_user_seen(user)
 
-    redirect = RedirectResponse(f'{settings.frontend_url}/auth/callback')
+    redirect = RedirectResponse(_frontend_callback_url(request))
+    redirect.delete_cookie('oauth_state', path='/', secure=settings.is_prod, samesite='lax')
     set_auth_cookies(redirect, user)
     refresh_token = create_refresh_token(user)
     redirect.set_cookie(

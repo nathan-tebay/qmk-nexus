@@ -9,24 +9,7 @@ import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
 import styles from './BuildStage.module.css'
 
-function featureSettingsOk(config: ReturnType<typeof useKeyboardStore.getState>['config']): boolean {
-  for (const mod of FEATURE_MODULES) {
-    if (!config.features[mod.id]) continue
-    const cfg = config.featureConfigs[mod.id] ?? {}
-    for (const key of mod.requiredConfig) {
-      if (!cfg[key]?.trim()) return false
-    }
-  }
-  return true
-}
-
-function HealthPill({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span className={`${styles.healthPill} ${ok ? styles.healthOk : styles.healthWarn}`}>
-      {ok ? '✓' : '!'} {label}
-    </span>
-  )
-}
+import { getFeatureValidationErrors, getFeatureConflictErrors, featureSettingsOk } from '@/utils/validateFeatureConfig'
 
 export default function BuildStage() {
   const config = useKeyboardStore((s) => s.config)
@@ -128,5 +111,13 @@ export default function BuildStage() {
         <FeatureToggles />
       </div>
     </div>
+  )
+}
+
+function HealthPill({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={`${styles.healthPill} ${ok ? styles.healthOk : styles.healthWarn}`}>
+      {ok ? '✓' : '!'} {label}
+    </span>
   )
 }

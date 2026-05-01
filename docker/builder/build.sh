@@ -84,9 +84,14 @@ for f in "${KB_NAME}.c" "${KB_NAME}.h" config.h rules.mk; do
     [ -f "${SRC_DIR}/${f}" ] && cp "${SRC_DIR}/${f}" "${KB_DIR}/${f}"
 done
 
-# info.json (modern QMK layout descriptor)
-[ -f "${SRC_DIR}/info.json" ] && cp "${SRC_DIR}/info.json" "${KB_DIR}/info.json"
-[ -f "${SRC_DIR}/keyboard.json" ] && cp "${SRC_DIR}/keyboard.json" "${KB_DIR}/keyboard.json"
+# keyboard.json (modern QMK layout descriptor).  Older generated bundles may
+# only provide info.json, but current QMK rejects root-level info.json when a
+# keyboard.json is available.
+if [ -f "${SRC_DIR}/keyboard.json" ]; then
+    cp "${SRC_DIR}/keyboard.json" "${KB_DIR}/keyboard.json"
+elif [ -f "${SRC_DIR}/info.json" ]; then
+    cp "${SRC_DIR}/info.json" "${KB_DIR}/info.json"
+fi
 
 # Keymap
 cp "${SRC_DIR}/keymap.c" "${KM_DIR}/keymap.c"

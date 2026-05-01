@@ -2,13 +2,4 @@
 
 #include "quantum.h"
 
-#define MATRIX_ROWS 2
-#define MATRIX_COLS 2
-
-#define LAYOUT(k0000, k0001, k0100, k0101) \
-    { \
-        { k0000, k0001 }, \
-        { k0100, k0101 } \
-    }
-
 extern const uint16_t keymaps[][MATRIX_ROWS][MATRIX_COLS];

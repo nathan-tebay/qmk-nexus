@@ -100,6 +100,33 @@
   gap: 8px;
 }
 
+.expandButton {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-muted, #888);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.12s, transform 0.12s, background 0.12s, border-color 0.12s;
+  flex-shrink: 0;
+}
+
+.expandButton:hover {
+  color: var(--text, #e0e0e0);
+  background: var(--accent-faint);
+  border-color: var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.expandButtonOpen {
+  color: var(--accent, #d18a00);
+  transform: rotate(90deg);
+}
+
 .featureLabel {
   display: flex;
   align-items: center;

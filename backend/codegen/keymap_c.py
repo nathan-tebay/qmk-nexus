@@ -6,7 +6,7 @@ from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
-_LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|OSL|LT|LM)\s*\(\s*([A-Z][A-Z0-9_]*)')
+_LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|OSL|LT|LM)\s*\(\s*([A-Z_][A-Z0-9_]*)')
 _BARE_KEYCODE_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
 _KNOWN_KEYCODE_PREFIXES = (
     'KC_',
@@ -46,7 +46,7 @@ def _all_keycodes(config: KeyboardConfig) -> list[str]:
     ]
 
 
-def _generated_layer_symbols(keycodes: list[str], layer_count: int) -> list[tuple[str, int]]:
+def _generated_layer_symbols(keycodes: list[str]) -> list[tuple[str, int]]:
     symbols: list[str] = []
     for keycode in keycodes:
         for match in _LAYER_MACRO_RE.finditer(keycode):
@@ -55,7 +55,7 @@ def _generated_layer_symbols(keycodes: list[str], layer_count: int) -> list[tupl
                 continue
             symbols.append(symbol)
 
-    return [(symbol, idx) for idx, symbol in enumerate(symbols, start=1) if idx < layer_count]
+    return [(symbol, idx) for idx, symbol in enumerate(symbols, start=1)]
 
 
 def _is_known_keycode(identifier: str) -> bool:
@@ -79,7 +79,7 @@ def _generated_custom_keycode_defines(
 
 def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     keycodes = _all_keycodes(config)
-    layer_symbols = _generated_layer_symbols(keycodes, len(config.layers))
+    layer_symbols = _generated_layer_symbols(keycodes)
     custom_keycodes = _generated_custom_keycode_defines(keycodes, layer_symbols)
     lines: list[str] = []
 

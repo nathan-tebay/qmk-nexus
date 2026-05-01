@@ -49,6 +49,14 @@ function buildLT(tapCode: string, layer: number): string {
   return `LT(${layer}, ${tapCode})`
 }
 
+function exactKeycodeMatch(query: string) {
+  const q = query.trim().toLowerCase()
+  if (!q) return null
+  return KEYCODES.find((k) => k.code.toLowerCase() === q)
+    ?? KEYCODES.find((k) => k.label.toLowerCase() === q)
+    ?? null
+}
+
 export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount = 5, inline = false }: Props) {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('basic')
@@ -105,6 +113,22 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
   function handleClearKey() {
     onSelect('KC_NO')
     onClose()
+  }
+
+  function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    const exact = exactKeycodeMatch(search)
+    if (!exact) return
+    e.preventDefault()
+    handlePickKey(exact.code)
+  }
+
+  function handleTapSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    const exact = exactKeycodeMatch(tapSearch)
+    if (!exact) return
+    e.preventDefault()
+    setTapCode(exact.code)
   }
 
   function toggleMod(key: ModKey) {
@@ -179,6 +203,7 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
               placeholder="Search tap key…"
               value={tapSearch}
               onChange={(e) => setTapSearch(e.target.value)}
+              onKeyDown={handleTapSearchKeyDown}
               className={styles.searchInput}
             />
             <div className={`${styles.grid} ${styles.gridCompact}`}>
@@ -212,6 +237,7 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
               placeholder="Search keycodes…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
               className={styles.searchInput}
             />
           </div>
