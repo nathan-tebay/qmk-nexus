@@ -232,6 +232,20 @@ function normalizeNestedFeatureConfig(
   return next
 }
 
+function mergeEnabledFeatureDefaults(
+  features: Record<string, boolean>,
+  configs: Record<string, Record<string, string>>,
+): Record<string, Record<string, string>> {
+  const next = { ...configs }
+  for (const [feature, enabled] of Object.entries(features)) {
+    if (!enabled) continue
+    const defaults = featureDefaults[feature] ?? {}
+    if (Object.keys(defaults).length === 0) continue
+    next[feature] = { ...defaults, ...(next[feature] ?? {}) }
+  }
+  return next
+}
+
 function sanitizeEncoderKeycodes(
   encoderKeycodes: Record<string, string>,
   layers: Layer[],
@@ -274,10 +288,15 @@ function trimMatrixPins(
 
 function normalizeKeyboardConfig(config: KeyboardConfig): KeyboardConfig {
   const pins = trimMatrixPins(config.keys ?? [], config.rowPins ?? [], config.colPins ?? [])
+  const features = normalizeFeatureFlags(config.features ?? {})
+  const featureConfigs = mergeEnabledFeatureDefaults(
+    features,
+    normalizeNestedFeatureConfig(config.featureConfigs ?? {}),
+  )
   return {
     ...config,
-    features: normalizeFeatureFlags(config.features ?? {}),
-    featureConfigs: normalizeNestedFeatureConfig(config.featureConfigs ?? {}),
+    features,
+    featureConfigs,
     featureInputValues: normalizeNestedFeatureConfig(config.featureInputValues ?? {}),
     layoutMacro: config.layoutMacro || 'LAYOUT',
     sourceMode: config.sourceMode || 'generated',
