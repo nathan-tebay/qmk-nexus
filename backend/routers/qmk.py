@@ -18,6 +18,7 @@ router = APIRouter(prefix='/qmk', tags=['qmk'])
 
 _INDEX_PATH = Path(__file__).parent.parent / 'data' / 'qmk_index.json'
 _KB_DATA_DIR = Path(__file__).parent.parent / 'data' / 'keyboards'
+_META_PATH = Path(__file__).parent.parent / 'data' / 'qmk_meta.json'
 _DEFINE_ARRAY_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+\{([^}]+)\}')
 _DEFINE_VALUE_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+([^\s/]+)')
 _ROW_CASE_PIN_RE = re.compile(
@@ -43,6 +44,19 @@ def _load_index() -> list[dict[str, Any]]:
         data = json.load(f)
     logger.info('QMK index loaded: %d keyboards', len(data))
     return data
+
+
+@lru_cache(maxsize=1)
+def _load_meta() -> dict:
+    if not _META_PATH.exists():
+        return {}
+    with open(_META_PATH) as f:
+        return json.load(f)
+
+
+@router.get('/meta')
+def get_qmk_meta() -> dict:
+    return _load_meta()
 
 
 @router.get('/search')
