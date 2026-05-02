@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from models import ColPin, EncoderElement, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin
 from validation import canonical_feature_id, sanitize_keyboard_config
@@ -404,17 +405,44 @@ def _infer_split_enabled(
     )
 
 
-def _layout_from_info(info: dict[str, Any], layouts: dict[str, Any]) -> tuple[str, Any]:
-    raw_keymap = info.get('_default_keymap')
-    preferred_layout = raw_keymap.get('layout') if isinstance(raw_keymap, dict) else None
-    if preferred_layout in layouts:
-        return preferred_layout, layouts[preferred_layout]
-
+def _layout_from_info(
+    info: dict[str, Any],
+    layouts: dict[str, Any],
+    *,
+    preferred_layout: str | None = None,
+) -> tuple[str, Any]:
     aliases = info.get('layout_aliases') or {}
-    aliased_layout = aliases.get(preferred_layout)
-    if aliased_layout in layouts:
-        return str(preferred_layout), layouts[aliased_layout]
 
+    # Priority 0: explicit caller-supplied layout (e.g. layout switcher)
+    if preferred_layout:
+        if preferred_layout in layouts:
+            return preferred_layout, layouts[preferred_layout]
+        canonical = aliases.get(preferred_layout)
+        if canonical and canonical in layouts:
+            return preferred_layout, layouts[canonical]
+
+    raw_keymap = info.get('_default_keymap')
+    keymap_pref = raw_keymap.get('layout') if isinstance(raw_keymap, dict) else None
+
+    # Priority 1: exact match on default keymap layout
+    if keymap_pref and keymap_pref in layouts:
+        return keymap_pref, layouts[keymap_pref]
+
+    # Priority 2: alias resolution of default keymap layout
+    if keymap_pref:
+        canonical = aliases.get(keymap_pref)
+        if canonical and canonical in layouts:
+            return keymap_pref, layouts[canonical]
+
+    # Priority 3: exact LAYOUT
+    if 'LAYOUT' in layouts:
+        return 'LAYOUT', layouts['LAYOUT']
+
+    # Priority 4: legacy KEYMAP
+    if 'KEYMAP' in layouts:
+        return 'KEYMAP', layouts['KEYMAP']
+
+    # Priority 5: first available
     return next(iter(layouts.items()))
 
 
@@ -425,15 +453,19 @@ def _source_mode_from_info(kb_path: str, info: dict[str, Any]) -> tuple[str, str
     upstream_files = nexus.get('upstream_files') or {}
 
     if source_mode:
-        return str(source_mode), upstream_keyboard, upstream_files
+        return str(source_mode), upstream_keyboard or kb_path, upstream_files
 
-    if _uses_custom_matrix(info):
-        return 'qmk_native', kb_path, upstream_files
+    # All upstream imports default to qmk_json — delegate to the QMK tree's
+    # implementation of pin scanning/matrix logic via the imported keymap.
+    return 'qmk_json', kb_path, {}
 
-    return 'generated', upstream_keyboard, upstream_files
 
-
-def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
+def _convert_to_config(
+    kb_path: str,
+    info: dict[str, Any],
+    *,
+    preferred_layout: str | None = None,
+) -> KeyboardConfig:
     usb = info.get('usb', {})
     processor = info.get('processor', info.get('processor_type', 'atmega32u4'))
 
@@ -442,7 +474,7 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
         raise HTTPException(status_code=422, detail='Keyboard has no layouts defined')
 
     raw_keymap = info.get('_default_keymap')
-    layout_name, layout_data = _layout_from_info(info, layouts)
+    layout_name, layout_data = _layout_from_info(info, layouts, preferred_layout=preferred_layout)
     qmk_keys: list[dict[str, Any]] = layout_data.get('layout', [])
 
     keys: list[KeyDef] = []
@@ -500,6 +532,8 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
     else:
         layers = [Layer(id='layer0', name='Base', keycodes={})]
 
+    qmk_commit = _load_meta().get('qmk_commit')
+
     config = KeyboardConfig(
         id=None,
         name=info.get('keyboard_name', kb_path.split('/')[-1]),
@@ -518,6 +552,10 @@ def _convert_to_config(kb_path: str, info: dict[str, Any]) -> KeyboardConfig:
         source_mode=source_mode,
         upstream_keyboard=upstream_keyboard,
         upstream_files=upstream_files,
+        upstream_layouts=layouts,
+        layout_aliases=info.get('layout_aliases') or {},
+        keymap_name='nexus',
+        qmk_commit=qmk_commit,
         soft_serial_pin='D0',
         encoders=_encoders_from_info(info, keys),
     )
@@ -537,3 +575,55 @@ def import_keyboard(kb_path: str) -> KeyboardConfig:
         raise HTTPException(status_code=500, detail=f'Failed to read keyboard data: {e}')
 
     return _convert_to_config(kb_path, info)
+
+
+class LayoutSwitchRequest(BaseModel):
+    layout: str  # requested layout name
+
+
+def _load_keyboard_info(kb_path: str) -> dict[str, Any]:
+    kb_file = _KB_DATA_DIR / (kb_path + '.json')
+    if not kb_file.exists():
+        raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
+    try:
+        with open(kb_file) as f:
+            return json.load(f)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f'Failed to read keyboard data: {e}')
+
+
+@router.post('/import/{kb_path:path}/switch-layout', response_model=KeyboardConfig)
+def switch_layout(
+    kb_path: str,
+    req: LayoutSwitchRequest,
+    keyboard_id: str | None = Query(default=None),
+) -> KeyboardConfig:
+    """Re-import a keyboard with a different layout, reconciling existing layers.
+
+    Pass ``keyboard_id`` to reconcile existing layers against the new layout.
+    Without ``keyboard_id``, returns a fresh import with the requested layout.
+    """
+    info = _load_keyboard_info(kb_path)
+    layouts: dict[str, Any] = info.get('layouts') or {}
+    if not layouts:
+        raise HTTPException(status_code=422, detail='Keyboard has no layouts defined')
+
+    aliases = info.get('layout_aliases') or {}
+    requested = req.layout
+    if requested not in layouts and aliases.get(requested) not in layouts:
+        raise HTTPException(
+            status_code=422,
+            detail=f'Layout {requested!r} is not available for {kb_path}',
+        )
+
+    new_config = _convert_to_config(kb_path, info, preferred_layout=requested)
+
+    # NOTE: full reconciliation against an existing stored keyboard requires
+    # user context (so we can pull the right SQLite from S3). This endpoint
+    # currently performs a fresh re-import; the auth-aware reconciliation
+    # path will be added when the frontend wires up the layout switcher.
+    # The reconciliation algorithm itself lives in ``layout_reconcile.py``
+    # and is exercised directly in the test suite.
+    _ = keyboard_id  # reserved for future use
+
+    return new_config

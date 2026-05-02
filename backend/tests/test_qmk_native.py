@@ -20,6 +20,11 @@ if 'fastapi' not in sys.modules:
                 return func
             return decorator
 
+        def post(self, *args, **kwargs):
+            def decorator(func):
+                return func
+            return decorator
+
     class _HTTPException(Exception):
         def __init__(self, status_code: int, detail: str):
             self.status_code = status_code
@@ -123,7 +128,9 @@ def test_import_custom_lite_matrix_uses_native_qmk_fallback():
     assert validate_build_ready(config) == []
 
 
-def test_import_custom_matrix_without_overlay_fails_as_native_not_generated_pins():
+def test_import_custom_matrix_without_overlay_defaults_to_qmk_json():
+    """Custom matrix keyboards without an explicit `_nexus` block now fall
+    through to ``qmk_json`` — pin scanning is delegated to the QMK tree."""
     config = _convert_to_config('vendor/custom', {
         'keyboard_name': 'Custom Matrix',
         'matrix_pins': {'custom': True},
@@ -136,9 +143,9 @@ def test_import_custom_matrix_without_overlay_fails_as_native_not_generated_pins
 
     errors = validate_build_ready(config)
 
-    assert config.source_mode == 'qmk_native'
+    assert config.source_mode == 'qmk_json'
     assert config.upstream_keyboard == 'vendor/custom'
-    assert errors == ['QMK-native builds require upstream source files.']
+    assert errors == []
 
 
 def test_import_tolerates_null_matrix_pins_before_native_fallback():

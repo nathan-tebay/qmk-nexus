@@ -233,8 +233,8 @@ def validate_keyboard_config(config: KeyboardConfig) -> list[str]:
         errors.append('MCU contains unsupported characters.')
     if config.layout_macro and not _C_IDENTIFIER_RE.fullmatch(config.layout_macro):
         errors.append('Layout macro must be a C identifier.')
-    if config.source_mode not in ('generated', 'qmk_native'):
-        errors.append('Source mode must be generated or qmk_native.')
+    if config.source_mode not in ('generated', 'qmk_native', 'qmk_json'):
+        errors.append('Source mode must be generated, qmk_native, or qmk_json.')
     if config.upstream_keyboard and (
         '..' in config.upstream_keyboard
         or config.upstream_keyboard.startswith('/')
@@ -320,6 +320,11 @@ def validate_build_ready(config: KeyboardConfig) -> list[str]:
             errors.append('QMK-native builds require an upstream keyboard path.')
         if not config.upstream_files:
             errors.append('QMK-native builds require upstream source files.')
+        return errors
+
+    if config.source_mode == 'qmk_json':
+        if not config.upstream_keyboard:
+            errors.append('QMK-json builds require an upstream keyboard path.')
         return errors
 
     row_count = _matrix_extent(config, 'row')
