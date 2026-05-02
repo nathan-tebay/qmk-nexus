@@ -236,3 +236,51 @@ def test_snapshot(request, fixture, gen_fn, suffix):
     kb: KeyboardConfig = request.getfixturevalue(fixture)
     output = gen_fn(kb)
     _check_or_update(suffix, output)
+
+
+# ── info_json field tests ──────────────────────────────────────────────────────
+
+def test_info_json_minimal_avr_required_fields(minimal_avr_kb):
+    info = json.loads(generate_info_json(minimal_avr_kb))
+    assert info['debounce'] == 5, 'debounce must default to 5'
+    assert 'url' in info, 'url field must be present'
+    assert 'maintainer' in info, 'maintainer field must be present'
+    assert 'bootloader' in info, 'bootloader field must be present'
+    assert 'processor' in info, 'processor field must be present'
+    assert info['processor'] == 'atmega32u4'
+    assert info['bootloader'] == 'atmel-dfu'
+
+
+def test_info_json_split_block_emitted_when_split_enabled(split_rgb_kb):
+    info = json.loads(generate_info_json(split_rgb_kb))
+    assert 'split' in info, 'split block must appear when split_keyboard feature is on'
+    assert info['split']['enabled'] is True
+    assert 'soft_serial_pin' in info['split']
+
+
+def test_info_json_no_split_block_when_not_split(minimal_avr_kb):
+    info = json.loads(generate_info_json(minimal_avr_kb))
+    assert 'split' not in info, 'split block must not appear for non-split keyboard'
+
+
+def test_info_json_rgb_matrix_block_emitted_when_enabled(split_rgb_kb):
+    info = json.loads(generate_info_json(split_rgb_kb))
+    assert 'rgb_matrix' in info, 'rgb_matrix block must appear when rgb_matrix feature is on'
+    rgb = info['rgb_matrix']
+    assert 'driver' in rgb
+    assert 'led_count' in rgb
+    assert rgb['led_count'] > 0
+    # split_rgb_kb has all 4 keys with led_index set
+    assert 'layout' in rgb
+    assert len(rgb['layout']) == 4
+    for entry in rgb['layout']:
+        assert 'matrix' in entry
+        assert 'x' in entry
+        assert 'y' in entry
+        assert entry['flags'] == 4
+
+
+def test_info_json_rp2040_bootloader(rp2040_oled_kb):
+    info = json.loads(generate_info_json(rp2040_oled_kb))
+    assert info['bootloader'] == 'rp2040'
+    assert info['processor'] == 'RP2040'
