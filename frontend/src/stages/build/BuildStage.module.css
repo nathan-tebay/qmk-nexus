@@ -13,7 +13,7 @@
 .topBar {
   flex-shrink: 0;
   overflow-y: auto;
-  max-height: 55%;
+  max-height: 85%;
   padding: 24px 16px 20px;
   border-bottom: 1px solid var(--border);
 
