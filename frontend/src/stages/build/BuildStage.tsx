@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { MetadataForm } from './MetadataForm'
@@ -19,6 +20,8 @@ export default function BuildStage() {
   function handleMetaChange(field: string, value: string) {
     setConfig({ [field]: value })
   }
+
+  const [featuresExpanded, setFeaturesExpanded] = useState(false)
 
   const enabledFeatures = Object.entries(config.features)
     .filter(([, on]) => on)
@@ -107,8 +110,19 @@ export default function BuildStage() {
 
       {/* ── Feature Modules ── */}
       <div className={styles.featuresSection}>
-        <div className={styles.featuresSectionTitle}>Feature Modules</div>
-        <FeatureToggles />
+        <button
+          type="button"
+          className={`${styles.featuresSectionTitle} ${featuresExpanded ? styles.featuresSectionTitleOpen : ''}`}
+          aria-expanded={featuresExpanded}
+          onClick={() => setFeaturesExpanded((v) => !v)}
+        >
+          <span className={`${styles.featuresSectionArrow} ${featuresExpanded ? styles.featuresSectionArrowOpen : ''}`}>▸</span>
+          Feature Modules
+          {enabledFeatures.length > 0 && (
+            <span className={styles.featuresEnabledBadge}>{enabledFeatures.length} active</span>
+          )}
+        </button>
+        {featuresExpanded && <FeatureToggles />}
       </div>
     </div>
   )

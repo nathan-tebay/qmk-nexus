@@ -166,10 +166,48 @@
 }
 
 .featuresSectionTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
   font-size: 13.75px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
-  padding: 14px 16px 0;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.12s;
+}
+
+.featuresSectionTitle:hover {
+  color: var(--text, #e0e0e0);
+}
+
+.featuresSectionTitleOpen {
+  border-bottom-color: var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.featuresSectionArrow {
+  font-size: 13px;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.featuresSectionArrowOpen {
+  transform: rotate(90deg);
+  color: var(--accent, #d18a00);
+}
+
+.featuresEnabledBadge {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent, #d18a00);
+  text-transform: none;
+  letter-spacing: 0;
 }

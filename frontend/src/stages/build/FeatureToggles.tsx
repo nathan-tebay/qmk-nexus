@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import { FEATURE_MODULES, incompatMap, ConfigField } from './modules'
 import styles from './FeatureToggles.module.css'
@@ -15,23 +14,8 @@ export default function FeatureToggles() {
   const featureConfigs = useKeyboardStore((s) => s.config.featureConfigs)
   const toggleFeature = useKeyboardStore((s) => s.toggleFeature)
   const setFeatureConfig = useKeyboardStore((s) => s.setFeatureConfig)
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set())
-
-  function toggleGroup(group: string) {
-    setExpandedGroups((current) => {
-      const next = new Set(current)
-      if (next.has(group)) next.delete(group)
-      else next.add(group)
-      return next
-    })
-  }
-
-  function handleToggleFeature(id: string, group: string) {
-    const wasEnabled = !!features[id]
+  function handleToggleFeature(id: string) {
     toggleFeature(id)
-    if (!wasEnabled) {
-      setExpandedGroups((current) => new Set([...current, group]))
-    }
   }
 
   // Build conflict set
@@ -69,23 +53,15 @@ export default function FeatureToggles() {
       {GROUPS.map((group) => {
         const mods = FEATURE_MODULES.filter((m) => m.group === group)
         const enabledCount = mods.filter((m) => features[m.id]).length
-        const expanded = expandedGroups.has(group)
 
         return (
           <div key={group} className={styles.group}>
-            <button
-              type="button"
-              className={`${styles.groupHeader} ${expanded ? styles.groupHeaderOpen : ''}`}
-              aria-expanded={expanded}
-              aria-controls={`group-content-${group}`}
-              onClick={() => toggleGroup(group)}
-            >
-              <span className={`${styles.groupArrow} ${expanded ? styles.groupArrowOpen : ''}`}>▸</span>
+            <div className={styles.groupHeader}>
               {group}
               <span className={styles.groupCount}>{enabledCount}/{mods.length}</span>
-            </button>
+            </div>
 
-            <div id={`group-content-${group}`} hidden={!expanded} className={styles.groupContent}>
+            <div className={styles.groupContent}>
               {mods.map((mod) => {
                 const enabled = !!features[mod.id]
                 const hasConflict = conflictedIds.has(mod.id)
@@ -105,7 +81,7 @@ export default function FeatureToggles() {
                           <input
                             type="checkbox"
                             checked={enabled}
-                            onChange={() => handleToggleFeature(mod.id, group)}
+                            onChange={() => handleToggleFeature(mod.id)}
                           />
                         </span>
                         <span className={styles.featureName}>{mod.name}</span>
