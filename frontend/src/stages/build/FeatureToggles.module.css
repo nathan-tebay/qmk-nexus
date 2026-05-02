@@ -44,14 +44,40 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   padding: 10px 14px;
   background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border: none;
+  border-bottom: 1px solid transparent;
   font-size: 13.75px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted, #888);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+
+.groupHeader:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text, #e0e0e0);
+}
+
+.groupHeaderOpen {
+  border-bottom-color: var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.groupArrow {
+  font-size: 14px;
+  color: var(--text-muted, #888);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.groupArrowOpen {
+  transform: rotate(90deg);
+  color: var(--accent, #d18a00);
 }
 
 .groupCount {
@@ -100,32 +126,6 @@
   gap: 8px;
 }
 
-.expandButton {
-  width: 22px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--text-muted, #888);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  transition: color 0.12s, transform 0.12s, background 0.12s, border-color 0.12s;
-  flex-shrink: 0;
-}
-
-.expandButton:hover {
-  color: var(--text, #e0e0e0);
-  background: var(--accent-faint);
-  border-color: var(--border, rgba(255, 255, 255, 0.08));
-}
-
-.expandButtonOpen {
-  color: var(--accent, #d18a00);
-  transform: rotate(90deg);
-}
 
 .featureLabel {
   display: flex;
