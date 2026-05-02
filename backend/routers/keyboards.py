@@ -4,7 +4,7 @@ import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
 from auth import get_current_user
@@ -218,6 +218,63 @@ async def reset_source_file(
     _push(user.id, path)
 
     return {'reset': filename, 'customFiles': custom}
+
+
+@router.post('/{keyboard_id}/migrate')
+async def migrate_keyboard(
+    keyboard_id: str,
+    force: bool = Query(default=False),
+    user: User = Depends(get_current_user),
+) -> KeyboardConfig:
+    """Migrate a keyboard to qmk_json source mode.
+
+    For qmk_native or generated keyboards that have an upstream_keyboard set,
+    this converts them to qmk_json mode (compile via `qmk compile keymap.json`).
+
+    If the keyboard has upstream_files or custom hardware edits, returns 409 unless
+    force=True is passed (which discards those edits).
+    """
+    path = pull_user_db(user.id)
+    config = database.get_keyboard(path, keyboard_id)
+    if not config:
+        raise HTTPException(status_code=404, detail='Keyboard not found')
+
+    # Already migrated
+    if config.source_mode == 'qmk_json':
+        return jsonable_out(config)
+
+    # Check if migration is supported
+    if config.source_mode not in ('qmk_native', 'generated'):
+        raise HTTPException(
+            status_code=400,
+            detail=f'Unsupported source mode for migration: {config.source_mode}',
+        )
+
+    # Must have upstream keyboard to migrate to qmk_json
+    if not config.upstream_keyboard:
+        raise HTTPException(
+            status_code=400,
+            detail='No upstream keyboard — cannot migrate to qmk_json mode',
+        )
+
+    # Detect custom edits
+    has_edits = bool(config.upstream_files) or bool(config.custom_files)
+    if has_edits and not force:
+        raise HTTPException(
+            status_code=409,
+            detail='Keyboard has upstream_files and/or custom_files overrides. These will be discarded on migration. Pass ?force=true to proceed.',
+        )
+
+    # Apply migration
+    config = config.model_copy(update={
+        'source_mode': 'qmk_json',
+        'upstream_files': {},
+        'custom_files': {},
+    })
+
+    saved = database.upsert_keyboard(path, config)
+    _push(user.id, path)
+    return jsonable_out(saved)
 
 
 @router.post('/import/configurator', response_model=KeyboardConfig)

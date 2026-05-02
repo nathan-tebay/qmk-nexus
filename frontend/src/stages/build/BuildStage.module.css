@@ -84,6 +84,12 @@
   white-space: nowrap;
 }
 
+.migrationHint {
+  font-size: 13px;
+  color: #f0a500;
+  margin-left: 8px;
+}
+
 .buildDisclaimer {
   margin-top: -6px;
   padding: 9px 11px;

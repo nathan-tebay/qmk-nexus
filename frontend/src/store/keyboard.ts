@@ -176,7 +176,7 @@ export interface KeyboardConfig {
   featureConfigs: Record<string, Record<string, string>>
   featureInputValues: Record<string, Record<string, string>>
   layoutMacro: string
-  sourceMode: 'generated' | 'qmk_native'
+  sourceMode: 'generated' | 'qmk_native' | 'qmk_json'
   upstreamKeyboard: string | null
   upstreamFiles: Record<string, string>
   softSerialPin: string
