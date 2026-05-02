@@ -22,6 +22,7 @@ REPO_ROOT = SCRIPT_DIR.parent
 OUTPUT = REPO_ROOT / 'backend' / 'data' / 'qmk_index.json'
 META_OUTPUT = REPO_ROOT / 'backend' / 'data' / 'qmk_meta.json'
 KB_DATA_DIR = REPO_ROOT / 'backend' / 'data' / 'keyboards'
+REMAP_PATH = REPO_ROOT / 'backend' / 'data' / 'qmk_remap.json'
 
 DEFAULT_KB_ROOT = Path('/mnt/LargeNVMe/Projects/GitHub/qmk_firmware/keyboards')
 NATIVE_QMK_PREFIXES = ('keychron/', 'zsa/', 'splitkb/')
@@ -368,12 +369,24 @@ def main() -> None:
     with open(OUTPUT, 'w') as f:
         json.dump(index, f, separators=(',', ':'))
     qmk_commit = _get_qmk_commit(kb_root)
+    remap_generated_at = datetime.now(timezone.utc).isoformat()
     meta = {
         'qmk_commit': qmk_commit,
-        'indexed_at': datetime.now(timezone.utc).isoformat(),
+        'indexed_at': remap_generated_at,
+        'remap_generated_at': remap_generated_at,
     }
     with open(META_OUTPUT, 'w') as f:
         json.dump(meta, f, indent=2)
+
+    # Preserve the hand-maintained remap table (write back as-is to normalize formatting)
+    remap: dict[str, str] = {}
+    if REMAP_PATH.exists():
+        with open(REMAP_PATH) as f:
+            remap = json.load(f)
+    with open(REMAP_PATH, 'w') as f:
+        json.dump(remap, f, indent=2)
+    print(f'  Remap: {REMAP_PATH} ({len(remap)} entries)')
+
     index_kb = OUTPUT.stat().st_size // 1024
     data_kb = sum(f.stat().st_size for f in KB_DATA_DIR.rglob('*.json')) // 1024
     print(f'Written {len(index)} keyboards')
