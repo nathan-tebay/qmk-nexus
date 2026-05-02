@@ -5,7 +5,6 @@ import { useKeyboardStore } from '@/store/keyboard'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
 import { mcuById } from './mcus'
-import { FEATURE_MODULES, incompatMap } from './modules'
 import styles from './BuildPanel.module.css'
 
 import {

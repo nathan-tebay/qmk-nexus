@@ -9,7 +9,7 @@ import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
 import styles from './BuildStage.module.css'
 
-import { getFeatureValidationErrors, getFeatureConflictErrors, featureSettingsOk } from '@/utils/validateFeatureConfig'
+import { featureSettingsOk } from '@/utils/validateFeatureConfig'
 
 export default function BuildStage() {
   const config = useKeyboardStore((s) => s.config)

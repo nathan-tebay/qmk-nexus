@@ -6,8 +6,6 @@ import styles from './FeatureToggles.module.css'
 import {
   conditionMatches,
   expandConfigFields,
-  getFeatureConflictErrors,
-  effectiveConfigValue,
 } from '@/utils/validateFeatureConfig'
 
 const GROUPS = Array.from(new Set(FEATURE_MODULES.map((m) => m.group)))
