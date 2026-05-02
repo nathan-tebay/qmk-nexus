@@ -18,6 +18,16 @@ _CANONICAL_MAP = {'keyboard.c': '{kb}.c', 'keyboard.h': '{kb}.h'}
 
 def generate_sources(config: KeyboardConfig, *, overrides: dict[str, str] | None = None) -> dict[str, str]:
     """Return canonical filename → content for all generated firmware files."""
+    if config.source_mode == 'qmk_json':
+        from codegen.keymap_json import generate_keymap_json
+        from codegen.validator import validate_keymap_json
+        import json as _json
+        payload_str = generate_keymap_json(config)
+        errors = validate_keymap_json(_json.loads(payload_str))
+        if errors:
+            raise ValueError(f'Invalid keymap.json: {"; ".join(errors)}')
+        return {'keymap.json': payload_str}
+
     if config.source_mode == 'qmk_native':
         return {
             'qmk_native.json': json.dumps({

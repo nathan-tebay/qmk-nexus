@@ -1,3 +1,5 @@
+from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from pydantic.alias_generators import to_camel
 
@@ -120,9 +122,15 @@ class KeyboardConfig(BaseModel):
     feature_configs: dict[str, dict[str, str]] = Field(default_factory=dict)
     feature_input_values: dict[str, dict[str, str]] = Field(default_factory=dict)
     layout_macro: str = 'LAYOUT'
-    source_mode: str = 'generated'
+    source_mode: Literal['generated', 'qmk_native', 'qmk_json'] = 'generated'
     upstream_keyboard: str | None = None
     upstream_files: dict[str, str] = Field(default_factory=dict)
+    upstream_layouts: dict[str, Any] = Field(default_factory=dict)
+    layout_aliases: dict[str, str] = Field(default_factory=dict)
+    keymap_name: str = 'nexus'
+    qmk_commit: str | None = None
+    author: str = ''
+    notes: str = ''
     soft_serial_pin: str = 'D0'
     encoders: list[EncoderElement] = Field(default_factory=list)
     oleds: list[OledElement] = Field(default_factory=list)

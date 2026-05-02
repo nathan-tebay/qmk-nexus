@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     ecs_security_groups: str = ''
     ecs_assign_public_ip: str = 'DISABLED'
 
+    builder_qmk_commit: str | None = None   # QMK commit baked into builder image
+    qmk_version_mismatch: str = 'warn'      # 'warn' or 'error'
+
     environment: str = 'development'
 
     @property

@@ -35,6 +35,11 @@ _BUILDS_ROOT.mkdir(parents=True, exist_ok=True)
 
 _BUILD_TTL = 600  # seconds
 
+# In-memory store for keymap.json payloads, keyed by build_id. Used so the
+# download endpoint can return the generated keymap.json for qmk_json builds
+# without re-running codegen. Cleared when the build cookie is cleared.
+_KEYMAP_PAYLOADS: dict[str, str] = {}
+
 
 def _record_final_build(status: BuildStatus, user: User) -> None:
     try:
@@ -62,9 +67,11 @@ def _set_build_cookie(response: Response, build_id: str, keyboard_id: str, **ext
     )
 
 
-def _clear_build_cookie(response: Response) -> None:
+def _clear_build_cookie(response: Response, build_id: str | None = None) -> None:
     response.delete_cookie('build_token', path='/api/builds',
                             secure=settings.is_prod, samesite='lax')
+    if build_id is not None:
+        _KEYMAP_PAYLOADS.pop(build_id, None)
 
 
 def _decode_build_cookie(build_token: str | None) -> dict | None:
@@ -223,6 +230,10 @@ async def trigger_build(
         generate_all(config, build_dir)
         (build_dir / 'src').chmod(0o777)
         status.log.append('Code generation complete')
+        if config.source_mode == 'qmk_json':
+            keymap_path = build_dir / 'src' / 'keymap.json'
+            if keymap_path.exists():
+                _KEYMAP_PAYLOADS[build_id] = keymap_path.read_text(encoding='utf-8')
     except Exception as exc:
         logger.exception('Codegen failed for build %s', build_id)
         status.status = 'failed'
@@ -452,4 +463,41 @@ async def download_artifact(
         iter([content]),
         media_type='application/octet-stream',
         headers={'Content-Disposition': cd},
+    )
+
+
+@router.get('/{build_id}/keymap')
+async def download_keymap_json(
+    build_id: str,
+    build_token: str | None = Cookie(default=None),
+    user: User = Depends(get_current_user),
+):
+    """Return the generated keymap.json payload for a qmk_json-mode build."""
+    payload = _decode_build_cookie(build_token)
+    if not payload or payload.get('build_id') != build_id:
+        raise HTTPException(status_code=404, detail='No active build found')
+
+    keyboard_id = payload.get('keyboard_id')
+    if not keyboard_id:
+        raise HTTPException(status_code=404, detail='Build is not associated with a keyboard')
+
+    db_path = pull_user_db(user.id)
+    config = database.get_keyboard(db_path, keyboard_id)
+    if not config or config.source_mode != 'qmk_json':
+        raise HTTPException(status_code=404, detail='Keymap JSON not available for this build')
+
+    content = _KEYMAP_PAYLOADS.get(build_id)
+    if content is None:
+        # Fallback: attempt to read from the on-disk staging directory (dev mode).
+        keymap_path = _BUILDS_ROOT / build_id / 'src' / 'keymap.json'
+        if keymap_path.exists():
+            content = keymap_path.read_text(encoding='utf-8')
+
+    if content is None:
+        raise HTTPException(status_code=404, detail='Keymap JSON not available')
+
+    return StreamingResponse(
+        iter([content.encode('utf-8')]),
+        media_type='application/json',
+        headers={'Content-Disposition': 'attachment; filename="keymap.json"'},
     )

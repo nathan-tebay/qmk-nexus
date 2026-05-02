@@ -81,3 +81,24 @@ def validate_upload(files: dict[str, str]) -> list[str]:
         errors.append(f'Total upload size {total // 1024} KB exceeds {MAX_TOTAL_BYTES // 1024} KB limit')
 
     return errors
+
+
+def validate_keymap_json(payload: dict) -> list[str]:
+    """Validate a decoded keymap.json payload. Returns list of errors — empty means OK."""
+    errors = []
+    for field in ('version', 'keyboard', 'keymap', 'layout', 'layers'):
+        if field not in payload:
+            errors.append(f'missing required field: {field}')
+    if errors:
+        return errors  # can't validate further without required fields
+    if not isinstance(payload['layers'], list) or len(payload['layers']) == 0:
+        errors.append('layers must be a non-empty list')
+    else:
+        layer_lengths = [len(l) for l in payload['layers'] if isinstance(l, list)]
+        if len(set(layer_lengths)) > 1:
+            errors.append(f'all layers must have the same length; got {sorted(set(layer_lengths))}')
+    if not payload.get('keyboard'):
+        errors.append('keyboard must not be empty')
+    if not payload.get('layout'):
+        errors.append('layout must not be empty')
+    return errors
