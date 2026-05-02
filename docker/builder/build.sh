@@ -16,6 +16,9 @@ QMK_HOME="${QMK_HOME:-/qmk_firmware}"
 KEYBOARD_NAME="${KEYBOARD_NAME:-keyboard}"
 MCU="${TARGET_MCU:-atmega32u4}"
 
+echo "[builder] QMK commit: ${QMK_COMMIT:-unknown}"
+echo "[builder] QMK CLI: $(qmk --version 2>/dev/null || echo 'not installed')"
+
 # Sanitize: lowercase letters, digits, underscores only; must start with a letter
 KB_NAME=$(echo "$KEYBOARD_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9_' '_' | sed 's/^[_0-9]*//' | sed 's/_*$//')
 if [[ -z "$KB_NAME" ]]; then
@@ -28,6 +31,48 @@ mkdir -p "$OUT_DIR"
 echo "[builder] MCU=${MCU} keyboard=${KB_NAME}"
 echo "[builder] Source files:"
 ls -1 "$SRC_DIR"
+
+if [[ -f "${SRC_DIR}/keymap.json" ]]; then
+  echo "[builder] Mode: qmk_json"
+  QMK_KEYBOARD=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["keyboard"])' "${SRC_DIR}/keymap.json")
+  QMK_LAYOUT=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["layout"])' "${SRC_DIR}/keymap.json")
+  QMK_KEYMAP=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d.get("keymap","nexus"))' "${SRC_DIR}/keymap.json")
+
+  if [[ -z "$QMK_KEYBOARD" || "$QMK_KEYBOARD" == /* || "$QMK_KEYBOARD" == *..* ]]; then
+    echo "[builder] ERROR: invalid keyboard path '${QMK_KEYBOARD}'"
+    exit 1
+  fi
+
+  echo "[builder] keyboard=${QMK_KEYBOARD} layout=${QMK_LAYOUT} keymap=${QMK_KEYMAP}"
+  echo "[builder] QMK CLI version: $(qmk --version 2>/dev/null || echo 'unknown')"
+  echo "[builder] QMK commit: ${QMK_COMMIT:-unknown}"
+
+  # Copy keymap.json to a temp location qmk compile can find
+  # qmk compile accepts a path to a keymap.json file
+  cp "${SRC_DIR}/keymap.json" /tmp/nexus_keymap.json
+
+  qmk compile /tmp/nexus_keymap.json 2>&1
+
+  # Artifacts land in QMK_HOME/.build/
+  # QMK naming: keyboard_keymap.ext with slashes → underscores
+  ARTIFACT_PREFIX=$(echo "${QMK_KEYBOARD}_${QMK_KEYMAP}" | tr '/' '_')
+  echo "[builder] Looking for artifacts with prefix: ${ARTIFACT_PREFIX}"
+  find "${QMK_HOME}/.build" -maxdepth 1 \
+      \( -name "${ARTIFACT_PREFIX}.hex" -o -name "${ARTIFACT_PREFIX}.bin" -o -name "${ARTIFACT_PREFIX}.uf2" \) \
+      -exec cp -v {} "${OUT_DIR}/" \; 2>/dev/null || true
+  # Fallback: any artifact
+  find "${QMK_HOME}/.build" -maxdepth 1 \
+      \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) \
+      -exec cp -n {} "${OUT_DIR}/" \; 2>/dev/null || true
+
+  if ! find "${OUT_DIR}" -maxdepth 1 \( -name "*.hex" -o -name "*.bin" -o -name "*.uf2" \) | grep -q .; then
+    echo "[builder] ERROR: qmk compile produced no firmware artifact"
+    exit 1
+  fi
+  echo "[builder] Done."
+  ls -lh "$OUT_DIR"
+  exit 0
+fi
 
 if [[ -f "${SRC_DIR}/qmk_native.json" ]]; then
   QMK_KEYBOARD=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["keyboard"])' "${SRC_DIR}/qmk_native.json")

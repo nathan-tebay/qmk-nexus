@@ -54,9 +54,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=qmk-source /qmk_firmware /qmk_firmware
 
+ARG QMK_FIRMWARE_REF=master
+ENV QMK_COMMIT=${QMK_FIRMWARE_REF}
 ENV QMK_HOME=/qmk_firmware
 ENV PATH=/qmk_firmware/bin:$PATH
 RUN python3 -m pip install --no-cache-dir --break-system-packages qmk -r /qmk_firmware/requirements.txt
+RUN qmk --version
 
 WORKDIR /build
 COPY build.sh /usr/local/bin/build.sh

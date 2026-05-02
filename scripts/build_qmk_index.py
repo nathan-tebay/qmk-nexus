@@ -12,6 +12,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from convert_keymaps import get_keymap
@@ -19,6 +20,7 @@ from convert_keymaps import get_keymap
 SCRIPT_DIR = Path(__file__).parent
 REPO_ROOT = SCRIPT_DIR.parent
 OUTPUT = REPO_ROOT / 'backend' / 'data' / 'qmk_index.json'
+META_OUTPUT = REPO_ROOT / 'backend' / 'data' / 'qmk_meta.json'
 KB_DATA_DIR = REPO_ROOT / 'backend' / 'data' / 'keyboards'
 
 DEFAULT_KB_ROOT = Path('/mnt/LargeNVMe/Projects/GitHub/qmk_firmware/keyboards')
@@ -29,6 +31,17 @@ _TEXT_SUFFIXES = {
     '.c', '.h', '.cpp', '.hpp', '.mk', '.json', '.ld', '.inc',
 }
 _TEXT_NAMES = {'rules.mk', 'post_rules.mk', 'config.h', 'post_config.h', 'halconf.h', 'mcuconf.h'}
+
+
+def _get_qmk_commit(kb_root: Path) -> str:
+    try:
+        result = subprocess.run(
+            ['git', '-C', str(kb_root.parent), 'rev-parse', 'HEAD'],
+            capture_output=True, text=True, check=True
+        )
+        return result.stdout.strip()
+    except Exception:
+        return 'unknown'
 
 
 def extract_summary(info: dict, path: str) -> dict | None:
@@ -354,11 +367,19 @@ def main() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     with open(OUTPUT, 'w') as f:
         json.dump(index, f, separators=(',', ':'))
+    qmk_commit = _get_qmk_commit(kb_root)
+    meta = {
+        'qmk_commit': qmk_commit,
+        'indexed_at': datetime.now(timezone.utc).isoformat(),
+    }
+    with open(META_OUTPUT, 'w') as f:
+        json.dump(meta, f, indent=2)
     index_kb = OUTPUT.stat().st_size // 1024
     data_kb = sum(f.stat().st_size for f in KB_DATA_DIR.rglob('*.json')) // 1024
     print(f'Written {len(index)} keyboards')
     print(f'  Index: {OUTPUT} ({index_kb} KB)')
     print(f'  Data:  {KB_DATA_DIR}/ ({data_kb} KB across {len(index)} files)')
+    print(f'  Meta:  {META_OUTPUT} (qmk_commit={qmk_commit})')
 
 
 if __name__ == '__main__':
