@@ -1,18 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { useKeyboardStore, type KeyboardConfig } from '@/store/keyboard'
+import { useBuildStore } from '@/store/build'
 import { keyboardsApi, qmkApi, type QMKKeyboardSummary } from '@/api/keyboards'
 import styles from './LoadKeyboardModal.module.css'
 
 interface Props {
   onClose: () => void
+  initialTab?: 'user' | 'qmk'
 }
 
 type Tab = 'user' | 'qmk'
 
 const MAX_KEYBOARDS = 20
 
-export default function LoadKeyboardModal({ onClose }: Props) {
-  const [tab, setTab] = useState<Tab>('user')
+export default function LoadKeyboardModal({ onClose, initialTab = 'user' }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') onClose()
@@ -59,15 +61,22 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  function loadKeyboards() {
+    setLoading(true)
+    setError(null)
     keyboardsApi.list()
       .then(setKeyboards)
       .catch(() => setError('Failed to load keyboards'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadKeyboards()
   }, [])
 
   function handleLoad(kb: KeyboardConfig) {
     setConfig(kb as Partial<KeyboardConfig>)
+    useBuildStore.getState().clearActiveBuild()
     onClose()
   }
 
@@ -91,6 +100,7 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
         pointing_device: false,
       },
     })
+    useBuildStore.getState().clearActiveBuild()
     onClose()
   }
 
@@ -110,7 +120,12 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {error && <div className={styles.error}>{error}</div>}
+      {error && (
+        <div className={styles.error}>
+          {error}&nbsp;
+          <button className={styles.loadBtn} onClick={loadKeyboards}>Retry</button>
+        </div>
+      )}
       <div className={styles.list}>
         {loading && <div className={styles.empty}>Loading…</div>}
         {!loading && keyboards.length === 0 && (
@@ -200,8 +215,16 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     setImporting(entry.path)
     setError(null)
     try {
-      const config = await qmkApi.importKeyboard(entry.path)
-      setConfig(config)
+      const imported = await qmkApi.importKeyboard(entry.path)
+      const existingId = useKeyboardStore.getState().config.id
+      if (existingId) {
+        const merged: KeyboardConfig = { ...imported, id: existingId }
+        await keyboardsApi.update(existingId, merged)
+        setConfig(merged)
+      } else {
+        setConfig(imported)
+      }
+      useBuildStore.getState().clearActiveBuild()
       onClose()
     } catch {
       setError(`Failed to import ${entry.name}`)

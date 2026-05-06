@@ -7,9 +7,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Keep QMK core and required platform submodules, but prune the upstream
-# keyboard catalog and VCS metadata before the final image copy. QMK-native
-# builds restore selected keyboard files through /build/upstream_overlay.
+# Keep the full QMK keyboard catalog so qmk compile can resolve any upstream
+# keyboard by path. Strip only VCS metadata, docs, and build artefacts.
+# qmk_json builds rely on the keyboards/ tree being present; qmk_native builds
+# additionally restore files via /build/upstream_overlay.
+# To pin to a specific commit, pass --build-arg QMK_FIRMWARE_REF=<sha>.
+# Rebuild the builder image + regenerate qmk_index.json at the same ref.
 RUN git clone --depth 1 --branch "${QMK_FIRMWARE_REF}" \
         https://github.com/qmk/qmk_firmware.git /qmk_firmware && \
     cd /qmk_firmware && \
@@ -19,7 +22,6 @@ RUN git clone --depth 1 --branch "${QMK_FIRMWARE_REF}" \
         .git \
         .github \
         docs \
-        keyboards/* \
         layouts/community \
         tests \
         users \

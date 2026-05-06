@@ -29,3 +29,13 @@
   color: var(--text);
   font-size: 16.25px;
 }
+
+.vidHint {
+  font-size: 12px;
+  color: #f0a500;
+  line-height: 1.4;
+}
+
+.vidHint a {
+  color: #f0a500;
+}

@@ -53,3 +53,18 @@
   font-size: 16.25px;
   color: var(--text-muted);
 }
+
+.emptyLink {
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  padding: 2px 10px;
+  font-size: 15px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.emptyLink:hover {
+  background: var(--accent-soft);
+}

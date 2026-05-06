@@ -152,3 +152,28 @@
   opacity: 0.5;
   cursor: default;
 }
+
+.externalLink {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.externalLink:hover {
+  filter: brightness(1.15);
+}
+
+.flashNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.flashSubheading {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 16px 0 6px;
+  color: var(--text-primary, #e8e8e8);
+}

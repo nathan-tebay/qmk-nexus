@@ -84,6 +84,20 @@
   border-color: var(--accent);
 }
 
+.donateBtn {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #3D95CE;
+  font-size: 15px;
+  color: #3D95CE;
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.donateBtn:hover {
+  background: rgba(61, 149, 206, 0.12);
+}
+
 .logout:hover {
   color: var(--danger);
   border-color: var(--danger);

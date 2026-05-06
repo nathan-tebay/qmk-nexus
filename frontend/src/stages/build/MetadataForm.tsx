@@ -10,7 +10,11 @@ interface Props {
   onChange: (field: string, value: string) => void
 }
 
+const SHARED_VID = '0xfeed'
+
 export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, onChange }: Props) {
+  const isSharedVid = usbVid.toLowerCase() === SHARED_VID
+
   return (
     <div className={styles.grid}>
       <div className={styles.field}>
@@ -19,7 +23,7 @@ export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, onChange
       </div>
       <div className={styles.field}>
         <label className={styles.label}>Manufacturer</label>
-        <input className={styles.input} value={manufacturer} onChange={(e) => onChange('manufacturer', e.target.value)} placeholder="Tebay" />
+        <input className={styles.input} value={manufacturer} onChange={(e) => onChange('manufacturer', e.target.value)} placeholder="e.g. My Workshop" />
       </div>
       <div className={`${styles.field} ${styles.fieldFull}`}>
         <label className={styles.label}>MCU</label>
@@ -34,6 +38,12 @@ export function MetadataForm({ name, manufacturer, mcu, usbVid, usbPid, onChange
       <div className={styles.field}>
         <label className={styles.label}>USB VID</label>
         <input className={styles.input} value={usbVid} onChange={(e) => onChange('usbVid', e.target.value)} placeholder="0xFEED" />
+        {isSharedVid && (
+          <span className={styles.vidHint}>
+            <code>0xFEED</code> is the QMK shared testing VID. For personal firmware this is fine, but request a real VID at{' '}
+            <a href="https://pid.codes" target="_blank" rel="noreferrer">pid.codes</a> if you intend to distribute.
+          </span>
+        )}
       </div>
       <div className={styles.field}>
         <label className={styles.label}>USB PID</label>

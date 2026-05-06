@@ -7,6 +7,25 @@ export interface BuildStatus {
   log: string[]
   artifactAvailable: boolean
   error: string | null
+  warning?: string
+  configHash?: string | null
+  keyboardName?: string | null
+  createdAt?: string | null
+  mode?: string | null
+  mcu?: string | null
+}
+
+export interface RecentBuild {
+  id: string
+  keyboardId: string
+  keyboardName: string | null
+  status: 'queued' | 'building' | 'success' | 'failed'
+  configHash: string | null
+  createdAt: string | null
+  mode: string | null
+  mcu: string | null
+  artifactAvailable: boolean
+  error: string | null
 }
 
 export const buildsApi = {
@@ -17,11 +36,7 @@ export const buildsApi = {
     api.get<BuildStatus>(`/builds/${buildId}/status`),
 
   download: async (buildId: string, filename: string) => {
-    const res = await fetch(`/api/builds/${buildId}/download`, {
-      credentials: 'include',
-    })
-    if (!res.ok) throw new Error('Download failed')
-    const blob = await res.blob()
+    const blob = await api.blob(`/builds/${buildId}/download`)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -29,4 +44,10 @@ export const buildsApi = {
     a.click()
     URL.revokeObjectURL(url)
   },
+
+  recent: () =>
+    api.get<RecentBuild[]>('/builds/recent'),
+
+  restore: (buildId: string) =>
+    api.post<BuildStatus>(`/builds/${buildId}/restore`, {}),
 }

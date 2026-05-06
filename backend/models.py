@@ -149,6 +149,29 @@ class BuildStatus(BaseModel):
     artifact_path: str | None = Field(default=None, exclude=True)
     artifact_available: bool = False
     error: str | None = None
+    warning: str | None = None
+    config_hash: str | None = None
+    keyboard_name: str | None = None
+    created_at: str | None = None
+    mode: str | None = None
+    mcu: str | None = None
+    bucket: str | None = Field(default=None, exclude=True)
+    prefix: str | None = Field(default=None, exclude=True)
+
+
+class RecentBuildSummary(BaseModel):
+    model_config = _camel()
+
+    id: str
+    keyboard_id: str
+    keyboard_name: str | None = None
+    status: str
+    config_hash: str | None = None
+    created_at: str | None = None
+    mode: str | None = None
+    mcu: str | None = None
+    artifact_available: bool = False
+    error: str | None = None
 
 
 class TokenResponse(BaseModel):

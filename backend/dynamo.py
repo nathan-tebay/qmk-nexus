@@ -16,6 +16,7 @@ _refresh_mem: dict[str, dict] = {}  # token_hash → record
 
 REFRESH_TTL = timedelta(days=30)
 BUILD_TTL = timedelta(hours=1)
+CACHE_TTL = timedelta(days=5)
 
 
 def _now() -> datetime:
@@ -38,10 +39,14 @@ def _refresh_table():
 
 # ── Build state ────────────────────────────────────────────────────────────────
 
-def put_build(status: BuildStatus, user_id: str) -> None:
+def put_build(status: BuildStatus, user_id: str, ttl_override: timedelta | None = None) -> None:
     data = status.model_dump()
     data['user_id'] = user_id
-    data['ttl'] = _ts(_now() + BUILD_TTL)
+    data['ttl'] = _ts(_now() + (ttl_override if ttl_override is not None else BUILD_TTL))
+    if status.bucket is not None:
+        data['bucket'] = status.bucket
+    if status.prefix is not None:
+        data['prefix'] = status.prefix
     if not settings.is_prod:
         _builds_mem[status.id] = data
         return
@@ -53,6 +58,69 @@ def get_build(build_id: str) -> dict | None:
         return _builds_mem.get(build_id)
     resp = _builds_table().get_item(Key={'id': build_id})
     return resp.get('Item')
+
+
+def find_cached_build(user_id: str, config_hash: str) -> dict | None:
+    """Return the most recent successful ECS build for user+config_hash within CACHE_TTL."""
+    cutoff_iso = (_now() - CACHE_TTL).isoformat()
+    if not settings.is_prod:
+        candidates = [
+            rec for key, rec in _builds_mem.items()
+            if not key.startswith('telemetry#')
+            and rec.get('user_id') == user_id
+            and rec.get('config_hash') == config_hash
+            and rec.get('status') == 'success'
+            and rec.get('mode') == 'ecs'
+            and rec.get('artifact_available') is True
+            and rec.get('bucket')
+            and rec.get('prefix')
+            and (rec.get('created_at') or '') >= cutoff_iso
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda r: r.get('created_at') or '')
+
+    # TODO: Replace scan with GSI query on (user_id, config_hash) for production scale
+    from boto3.dynamodb.conditions import Attr
+    resp = _builds_table().scan(
+        FilterExpression=(
+            Attr('user_id').eq(user_id)
+            & Attr('config_hash').eq(config_hash)
+            & Attr('status').eq('success')
+            & Attr('mode').eq('ecs')
+            & Attr('artifact_available').eq(True)
+            & Attr('created_at').gte(cutoff_iso)
+        )
+    )
+    items = [
+        item for item in resp.get('Items', [])
+        if item.get('bucket') and item.get('prefix')
+    ]
+    if not items:
+        return None
+    return max(items, key=lambda r: r.get('created_at') or '')
+
+
+def list_user_builds(user_id: str, limit: int = 10) -> list[dict]:
+    """Return the most recent builds for user_id, sorted by created_at desc."""
+    # TODO: Replace scan with GSI query on user_id + created_at sort key for production scale
+    if not settings.is_prod:
+        candidates = [
+            rec for key, rec in _builds_mem.items()
+            if not key.startswith('telemetry#')
+            and rec.get('user_id') == user_id
+        ]
+        candidates.sort(key=lambda r: r.get('created_at') or '', reverse=True)
+        return candidates[:limit]
+
+    from boto3.dynamodb.conditions import Attr
+    resp = _builds_table().scan(FilterExpression=Attr('user_id').eq(user_id))
+    items = [
+        item for item in resp.get('Items', [])
+        if not str(item.get('id', '')).startswith('telemetry#')
+    ]
+    items.sort(key=lambda r: r.get('created_at') or '', reverse=True)
+    return items[:limit]
 
 
 def update_build_fields(build_id: str, **patch) -> None:
@@ -67,21 +135,6 @@ def update_build_fields(build_id: str, **patch) -> None:
         ExpressionAttributeNames={f'#{k}': k for k in patch},
         ExpressionAttributeValues={f':{k}': v for k, v in patch.items()},
     )
-
-
-def active_builds_for_user(user_id: str) -> list[dict]:
-    """Returns builds with status queued/building for rate limiting."""
-    if not settings.is_prod:
-        return [
-            b for b in _builds_mem.values()
-            if b.get('user_id') == user_id and b.get('status') in ('queued', 'building')
-        ]
-    resp = _builds_table().scan(
-        FilterExpression='user_id = :uid AND #s IN (:q, :b)',
-        ExpressionAttributeNames={'#s': 'status'},
-        ExpressionAttributeValues={':uid': user_id, ':q': 'queued', ':b': 'building'},
-    )
-    return resp.get('Items', [])
 
 
 # ── Refresh tokens ─────────────────────────────────────────────────────────────

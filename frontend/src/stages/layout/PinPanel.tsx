@@ -40,6 +40,8 @@ export default function PinPanel() {
     return (
       <div className={styles.empty}>
         Assign row/col to keys first, then map pins here.
+        <br />
+        Enable Matrix Mode in the toolbar to wire row/col edges between keys.
       </div>
     )
   }

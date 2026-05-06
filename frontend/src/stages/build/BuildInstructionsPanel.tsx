@@ -299,14 +299,168 @@ function makePrintableLayoutHtml(config: KeyboardConfig): string {
 </html>`
 }
 
+type LinuxStep =
+  | { type: 'text'; label: string }
+  | { type: 'udev' }
+  | { type: 'cmd'; label: string; cmd: string }
+
+interface FlashInfo {
+  bootloader: string
+  steps: string[]
+  note?: string
+  linuxSteps: LinuxStep[]
+  linuxNote?: string
+}
+
+const UDEV_RULE_CMD = `curl -fsSL https://raw.githubusercontent.com/qmk/qmk_firmware/master/util/udev/50-qmk.rules \\
+  | sudo tee /etc/udev/rules.d/50-qmk.rules > /dev/null
+sudo udevadm control --reload-rules && sudo udevadm trigger`
+
+const MCU_FLASH_INFO: Record<string, FlashInfo> = {
+  atmega32u4: {
+    bootloader: 'Atmel DFU',
+    steps: [
+      'Double-tap the reset button quickly (within ~500 ms). The status LED usually turns solid or turns off.',
+      'QMK Toolbox will show "Atmel DFU device connected".',
+      'Open your .hex file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-programmer' },
+      { type: 'udev' },
+      { type: 'text', label: 'Double-tap reset to enter bootloader.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-programmer atmega32u4 erase\ndfu-programmer atmega32u4 flash --force keyboard.hex\ndfu-programmer atmega32u4 reset' },
+    ],
+  },
+  atmega32u2: {
+    bootloader: 'Atmel DFU',
+    steps: [
+      'Double-tap the reset button quickly. Status LED turns solid or off.',
+      'QMK Toolbox will show "Atmel DFU device connected".',
+      'Open your .hex file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-programmer' },
+      { type: 'udev' },
+      { type: 'text', label: 'Double-tap reset to enter bootloader.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-programmer atmega32u2 erase\ndfu-programmer atmega32u2 flash --force keyboard.hex\ndfu-programmer atmega32u2 reset' },
+    ],
+  },
+  at90usb1286: {
+    bootloader: 'Atmel DFU',
+    steps: [
+      'Hold the reset button for ~3 s, or double-tap it quickly.',
+      'QMK Toolbox will show "Atmel DFU device connected".',
+      'Open your .hex file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-programmer' },
+      { type: 'udev' },
+      { type: 'text', label: 'Hold reset ~3 s to enter bootloader.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-programmer at90usb1286 erase\ndfu-programmer at90usb1286 flash --force keyboard.hex\ndfu-programmer at90usb1286 reset' },
+    ],
+  },
+  stm32f072: {
+    bootloader: 'STM32 DFU',
+    steps: [
+      'Short the BOOT0 pin to VCC, then tap RESET (or press a BOOT0 button if your board has one).',
+      'QMK Toolbox will show "STM32 DFU device connected".',
+      'Open your .bin file in QMK Toolbox and click Flash.',
+    ],
+    note: 'Some boards can auto-reset into DFU via software. Run qmk flash locally to trigger this without manually shorting BOOT0.',
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
+      { type: 'udev' },
+      { type: 'text', label: 'Short BOOT0 to VCC, tap RESET to enter DFU.' },
+      { type: 'cmd', label: 'Find the device alt setting:', cmd: 'dfu-util -l' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-util -a 0 -D keyboard.bin' },
+    ],
+    linuxNote: 'Some boards support software reset into DFU: qmk flash -kb <keyboard> -km default — no need to short BOOT0.',
+  },
+  stm32f103: {
+    bootloader: 'STM32duino (Maple)',
+    steps: [
+      'Short BOOT0 to VCC, then tap RESET.',
+      'QMK Toolbox will show "STM32duino device connected".',
+      'Open your .bin file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
+      { type: 'udev' },
+      { type: 'text', label: 'Short BOOT0 to VCC, tap RESET.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-util -d 1EAF:0003 -a 2 -D keyboard.bin' },
+    ],
+  },
+  stm32f303: {
+    bootloader: 'STM32 DFU',
+    steps: [
+      'Short the BOOT0 pin to VCC, then tap RESET.',
+      'QMK Toolbox will show "STM32 DFU device connected".',
+      'Open your .bin file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
+      { type: 'udev' },
+      { type: 'text', label: 'Short BOOT0 to VCC, tap RESET.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-util -a 0 -D keyboard.bin' },
+    ],
+  },
+  mk20dx256: {
+    bootloader: 'Kiibohd DFU',
+    steps: [
+      'Double-tap the reset button.',
+      'QMK Toolbox will show "Kiibohd DFU device connected".',
+      'Open your .bin file in QMK Toolbox and click Flash.',
+    ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
+      { type: 'udev' },
+      { type: 'text', label: 'Double-tap reset.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-util -D keyboard.bin' },
+    ],
+  },
+  rp2040: {
+    bootloader: 'RP2040 UF2 (mass storage)',
+    steps: [
+      'Hold the BOOTSEL button, then connect the USB cable (or tap RESET while holding BOOTSEL if your board has a reset button).',
+      'A USB drive named RPI-RP2 mounts on your computer.',
+      'Drag your .uf2 file onto the RPI-RP2 drive. The keyboard reboots automatically when the copy finishes.',
+    ],
+    note: 'QMK Toolbox does not support RP2040. Use drag-and-drop as described — no extra software needed.',
+    linuxSteps: [
+      { type: 'text', label: 'Hold BOOTSEL, connect USB — drive mounts as RPI-RP2.' },
+      { type: 'cmd', label: 'Copy the firmware (Fedora/openSUSE):', cmd: 'cp keyboard.uf2 /run/media/$(id -un)/RPI-RP2/' },
+      { type: 'cmd', label: 'Copy the firmware (Ubuntu/Debian):', cmd: 'cp keyboard.uf2 /media/$USER/RPI-RP2/' },
+    ],
+    linuxNote: 'No udev rules or extra tools needed. The drive unmounts automatically after the copy.',
+  },
+  atmega328p: {
+    bootloader: 'USBasp (ISP programmer)',
+    steps: [
+      'This MCU uses an external USBasp programmer and does not enter DFU mode over USB.',
+      'Connect the USBasp to the ISP header (MOSI, MISO, SCK, RESET, VCC, GND).',
+      'Flash via avrdude or QMK CLI: qmk flash -kb custom/<keyboard> -km default',
+    ],
+    note: 'QMK Toolbox does not support USBasp. Use avrdude or QMK CLI instead.',
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install avrdude' },
+      { type: 'udev' },
+      { type: 'text', label: 'Connect USBasp to the ISP header (MOSI, MISO, SCK, RESET, VCC, GND).' },
+      { type: 'cmd', label: 'Flash:', cmd: 'avrdude -p atmega328p -c usbasp -U flash:w:keyboard.hex:i' },
+    ],
+    linuxNote: 'USBasp udev rule is included in the QMK rules file linked above.',
+  },
+}
+
 export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, onSaveFirst }: Props) {
   const base = filenameBase(config.name)
   const keyboardSlug = base || 'my_keyboard'
   const isNativeQmk = config.sourceMode === 'qmk_native'
   const upstreamKeyboard = config.upstreamKeyboard || keyboardSlug
   const [showSourcesModal, setShowSourcesModal] = useState(false)
+  const [showFlashModal, setShowFlashModal] = useState(false)
   const [downloadingSources, setDownloadingSources] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const flashInfo = MCU_FLASH_INFO[config.mcu] ?? null
 
   async function downloadQmkSources() {
     setDownloadingSources(true)
@@ -366,8 +520,85 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
         >
           Download QMK Files
         </button>
+        <button
+          className={styles.primary}
+          onClick={() => setShowFlashModal(true)}
+          title="Step-by-step instructions for entering bootloader mode and flashing firmware"
+          aria-label="Flash firmware instructions"
+        >
+          Flash Firmware
+        </button>
       </div>
       {error && <div className={styles.error}>{error}</div>}
+
+      {showFlashModal && (
+        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowFlashModal(false) }}>
+          <div className={styles.sourcesModal} role="dialog" aria-modal="true" aria-labelledby="flash-modal-title">
+            <div className={styles.modalHeader}>
+              <h2 id="flash-modal-title">Flash Firmware to Keyboard</h2>
+              <button
+                className={styles.modalClose}
+                onClick={() => setShowFlashModal(false)}
+                title="Close flash instructions"
+                aria-label="Close flash instructions"
+              >x</button>
+            </div>
+            <div className={styles.modalBody}>
+              <p>
+                MCU: <strong>{config.mcu}</strong>
+                {flashInfo && <> &mdash; Bootloader: <strong>{flashInfo.bootloader}</strong></>}
+              </p>
+
+              {flashInfo ? (
+                <>
+                  <h3 className={styles.flashSubheading}>Windows / macOS — QMK Toolbox</h3>
+                  <ol>
+                    {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+                      <li>
+                        Download the compiled firmware from the Build panel above (.hex for AVR, .bin for ARM).
+                      </li>
+                    )}
+                    {flashInfo.steps.map((step, i) => <li key={i}>{step}</li>)}
+                  </ol>
+                  {flashInfo.note && (
+                    <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.note}</p>
+                  )}
+                  {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+                    <a
+                      className={styles.externalLink}
+                      href="https://github.com/qmk/qmk_toolbox/releases/latest"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Download QMK Toolbox &rarr;
+                    </a>
+                  )}
+
+                  <h3 className={styles.flashSubheading}>Linux — CLI</h3>
+                  <ol>
+                    {flashInfo.linuxSteps.map((step, i) => (
+                      <li key={i}>
+                        {step.type === 'udev' ? (
+                          <>Add udev rule (once):<pre className={styles.commandBlock}>{UDEV_RULE_CMD}</pre></>
+                        ) : step.type === 'cmd' ? (
+                          <>{step.label}<pre className={styles.commandBlock}>{step.cmd}</pre></>
+                        ) : (
+                          step.label
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  {flashInfo.linuxNote && (
+                    <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.linuxNote}</p>
+                  )}
+                </>
+              ) : (
+                <p>No flashing guidance available for <code>{config.mcu}</code>. Check your controller's datasheet or QMK documentation.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSourcesModal && (
         <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowSourcesModal(false) }}>

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import re
+from pathlib import PurePosixPath
 
 from codegen.validator import validate_upload
 from models import KeyboardConfig, Layer
+
+_MAX_UPSTREAM_FILES = 200
+_MAX_UPSTREAM_KEY_LEN = 256
 
 _VALID_ENCODER_DIRS = frozenset({'cw', 'ccw'})
 _FEATURE_ALIASES = {
@@ -307,6 +311,27 @@ def validate_keyboard_config(config: KeyboardConfig) -> list[str]:
 
     if config.custom_files:
         errors.extend(validate_upload(config.custom_files))
+
+    if config.upstream_files:
+        if len(config.upstream_files) > _MAX_UPSTREAM_FILES:
+            errors.append(
+                f'upstream_files has {len(config.upstream_files)} entries; max is {_MAX_UPSTREAM_FILES}.'
+            )
+        for rel_path in config.upstream_files:
+            if not isinstance(rel_path, str) or not rel_path:
+                errors.append('upstream_files keys must be non-empty strings.')
+                continue
+            if len(rel_path) > _MAX_UPSTREAM_KEY_LEN:
+                errors.append(f'upstream_files key exceeds {_MAX_UPSTREAM_KEY_LEN} chars.')
+                continue
+            if (
+                rel_path.startswith('/')
+                or '\x00' in rel_path
+                or _has_control_chars(rel_path)
+                or '..' in PurePosixPath(rel_path).parts
+                or '\\' in rel_path
+            ):
+                errors.append(f'upstream_files key {rel_path!r} contains unsupported path segments.')
 
     return errors
 

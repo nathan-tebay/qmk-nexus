@@ -106,10 +106,12 @@ async def google_callback(
     )
     telemetry.record_user_seen(user)
 
+    # Create refresh token first; if this fails, no auth cookies are set yet.
+    refresh_token = create_refresh_token(user)
+
     redirect = RedirectResponse(_frontend_callback_url(request))
     redirect.delete_cookie('oauth_state', path='/', secure=settings.is_prod, samesite='lax')
     set_auth_cookies(redirect, user)
-    refresh_token = create_refresh_token(user)
     redirect.set_cookie(
         'refresh_token', refresh_token,
         httponly=True, secure=settings.is_prod, samesite='lax',

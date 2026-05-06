@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException
 
 import telemetry
 from auth import get_current_user
+from config import settings
 from models import User
 from utils import jsonable_out
 
 router = APIRouter(prefix='/telemetry', tags=['telemetry'])
-ADMIN_EMAIL = 'nathan.tebay80@gmail.com'
 
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.email.lower() != ADMIN_EMAIL:
+    if user.email.lower() != settings.admin_email.lower():
         raise HTTPException(status_code=403, detail='Admin access required')
     return user
 

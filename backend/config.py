@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     builder_qmk_commit: str | None = None   # QMK commit baked into builder image
     qmk_version_mismatch: str = 'warn'      # 'warn' or 'error'
 
+    admin_email: str = ''                   # Email required for /api/telemetry/summary access
+
     environment: str = 'development'
 
     @property

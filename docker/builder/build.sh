@@ -75,6 +75,7 @@ if [[ -f "${SRC_DIR}/keymap.json" ]]; then
 fi
 
 if [[ -f "${SRC_DIR}/qmk_native.json" ]]; then
+  echo "[builder] WARNING: qmk_native build mode is deprecated. Migrate this keyboard to qmk_json mode."
   QMK_KEYBOARD=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["keyboard"])' "${SRC_DIR}/qmk_native.json")
   QMK_KEYMAP=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("keymap", "nexus"))' "${SRC_DIR}/qmk_native.json")
 

@@ -83,6 +83,12 @@ def pull_user_db(user_id: str) -> Path:
 
 
 def push_user_db(user_id: str, db_path: Path) -> None:
+    """Upload user keyboard database to S3.
+
+    Concurrency note: this is intentionally last-write-wins. S3 PutObject does not
+    check IfMatch; concurrent writes from the same user (e.g. two browser tabs) will
+    silently overwrite each other. Acceptable for current single-user usage.
+    """
     if not settings.is_prod:
         return
 

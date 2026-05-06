@@ -3,6 +3,7 @@ import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/auth'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { useKeyboardStore } from '@/store/keyboard'
+import { useBuildStore } from '@/store/build'
 import { applyTheme, getStoredTheme, storeTheme, themes, type ThemeId } from '@/theme'
 import styles from './Layout.module.css'
 
@@ -57,6 +58,8 @@ export default function Layout() {
   const location = useLocation()
   const kbName = useKeyboardStore((s) => s.config.name)
   const setConfig = useKeyboardStore((s) => s.setConfig)
+  const resetKeyboard = useKeyboardStore((s) => s.reset)
+  const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
   const { save, saving, error, warning } = useKeyboardSync()
   const [editingName, setEditingName] = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
@@ -69,6 +72,8 @@ export default function Layout() {
   function handleLogout() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
       logout()
+      resetKeyboard()
+      clearActiveBuild()
       navigate('/login')
     })
   }
@@ -181,6 +186,15 @@ export default function Layout() {
               Admin
             </button>
           )}
+          <a
+            href="https://venmo.com/NathanTebay"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.donateBtn}
+            title="Support QMK Nexus on Venmo"
+          >
+            Donate
+          </a>
           <button onClick={handleLogout} className={styles.logout} title="Sign out of QMK Nexus" aria-label="Logout">
             Logout
           </button>

@@ -4,6 +4,7 @@ import { useBuildStore } from '@/store/build'
 import { useKeyboardStore } from '@/store/keyboard'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
+import { firmwareExtension } from '@/utils/firmwareExtension'
 import { mcuById } from './mcus'
 import styles from './BuildPanel.module.css'
 
@@ -28,11 +29,12 @@ function likelyBuildIssue(status: BuildStatus | null): string | null {
 interface Props {
   keyboardId: string | null
   onSaveFirst: () => Promise<string | null>
+  onBuildSuccess?: () => void
 }
 
 const POLL_MS = 2000
 
-export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
+export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
   const config = useKeyboardStore((s) => s.config)
   const keyboardName = config.name
   const mcu = config.mcu
@@ -54,6 +56,7 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
   const [copiedLog, setCopiedLog] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollErrorCount = useRef<number>(0)
 
   function stopPolling() {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
@@ -71,11 +74,27 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
       try {
         const updated = await buildsApi.status(buildId)
         if (stopped) return
+        pollErrorCount.current = 0
         setActiveBuild(updated)
-        if (updated.status === 'success' || updated.status === 'failed') stopPolling()
+        if (updated.status === 'success') { stopPolling(); onBuildSuccess?.() }
+        else if (updated.status === 'failed') stopPolling()
       } catch (e) {
         if (stopped) return
-        setError(e instanceof Error ? e.message : 'Build status polling failed')
+        pollErrorCount.current += 1
+        if (pollErrorCount.current >= 10) {
+          setActiveBuild({
+            ...(status ?? { id: buildId, keyboardId: '', artifactAvailable: false, error: null }),
+            status: 'failed',
+            log: [...(status?.log ?? []), 'Build status unavailable — refresh to retry'],
+          })
+          stopPolling()
+          return
+        }
+        setActiveBuild({
+          ...(status ?? { id: buildId, keyboardId: '', artifactAvailable: false, error: null }),
+          status: 'failed',
+          log: [...(status?.log ?? []), `Poll error: ${e instanceof Error ? e.message : String(e)}`],
+        })
         stopPolling()
       }
     }, POLL_MS)
@@ -83,7 +102,7 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
       stopped = true
       stopPolling()
     }
-  }, [buildId, isPersistedBuildRunning, setActiveBuild])
+  }, [buildId, isPersistedBuildRunning, setActiveBuild, status])
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -115,15 +134,30 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
           throw e
         }
       }
+      pollErrorCount.current = 0
       setActiveBuild(s)
-      if (s.status === 'queued' || s.status === 'building') {
+      if (s.status === 'success') {
+        onBuildSuccess?.()
+      } else if (s.status === 'queued' || s.status === 'building') {
+        let currentStatus = s
         pollRef.current = setInterval(async () => {
           try {
             const updated = await buildsApi.status(s.id)
+            pollErrorCount.current = 0
+            currentStatus = updated
             setActiveBuild(updated)
-            if (updated.status === 'success' || updated.status === 'failed') stopPolling()
+            if (updated.status === 'success') { stopPolling(); onBuildSuccess?.() }
+            else if (updated.status === 'failed') stopPolling()
           } catch (e) {
-            setError(e instanceof Error ? e.message : 'Build status polling failed')
+            pollErrorCount.current += 1
+            const msg = pollErrorCount.current >= 10
+              ? 'Build status unavailable — refresh to retry'
+              : `Poll error: ${e instanceof Error ? e.message : String(e)}`
+            setActiveBuild({
+              ...currentStatus,
+              status: 'failed',
+              log: [...(currentStatus.log ?? []), msg],
+            })
             stopPolling()
           }
         }, POLL_MS)
@@ -137,8 +171,9 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
 
   function downloadArtifact() {
     if (!buildId) return
-    const ext = keyboardName.toLowerCase().replace(/\s+/g, '_')
-    buildsApi.download(buildId, `${ext}.hex`).catch(() => {})
+    const nameSlug = keyboardName.toLowerCase().replace(/\s+/g, '_')
+    const ext = firmwareExtension(mcu)
+    buildsApi.download(buildId, `${nameSlug}.${ext}`).catch(() => {})
   }
 
   async function copyBuildLog() {
@@ -214,6 +249,10 @@ export function BuildPanel({ keyboardId, onSaveFirst }: Props) {
 
       {status && (
         <>
+          {status.warning && (
+            <div className={styles.warningNotice}>{status.warning}</div>
+          )}
+
           <div className={styles.statusRow}>
             <StatusDot status={status.status} />
             <span className={`${styles.statusText} ${isRunning ? styles.running : ''} ${isSuccess ? styles.success : ''} ${isFailed ? styles.failed : ''}`}>

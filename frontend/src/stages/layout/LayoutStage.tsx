@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { nanoid } from './nanoid'
 import KeyCanvas, { type KeyCanvasHandle } from './KeyCanvas'
 import Toolbar from './Toolbar'
@@ -14,9 +15,12 @@ import { type ColorScheme, COLOR_SCHEME_LABELS, SCHEME_COLORS } from './MatrixLi
 type RightTab = 'properties' | 'pins'
 
 export default function LayoutStage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [showMatrix, setShowMatrix] = useState(false)
   const [snapGrid, setSnapGrid] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [importTab, setImportTab] = useState<'user' | 'qmk'>('user')
   const [rightTab, setRightTab] = useState<RightTab>('properties')
   const [validation, setValidation] = useState<MatrixValidationResult | null>(null)
   const [colorScheme, setColorScheme] = useState<ColorScheme>('default')
@@ -24,6 +28,7 @@ export default function LayoutStage() {
   const canvasContainerRef = useRef<HTMLDivElement>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<KeyCanvasHandle>(null)
+  const handledImportRef = useRef(false)
   const {
     selectedKeyIds, removeKey, setSelectedKeys, addKey,
     selectedPeripheralId, selectedPeripheralType,
@@ -63,6 +68,15 @@ export default function LayoutStage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedKeyIds, removeKey, setSelectedKeys, selectedPeripheralId, selectedPeripheralType, removeEncoder, removeOled, removeTrackball, setSelectedPeripheral])
+
+  useEffect(() => {
+    if ((location.state as { openImport?: boolean } | null)?.openImport && !handledImportRef.current) {
+      handledImportRef.current = true
+      setImportTab('qmk')
+      setShowImport(true)
+      navigate('/layout', { replace: true, state: {} })
+    }
+  }, [location.state, navigate])
 
   return (
     <>
@@ -104,7 +118,7 @@ export default function LayoutStage() {
                   <span className={styles.stepNum}>2</span>
                   <div>
                     <strong>Keymap / Layers</strong>
-                    <span>Assign keycodes per layer, configure tap-dance, combos and macros.</span>
+                    <span>Assign keycodes per layer, manage layers, and configure encoder and OLED mappings.</span>
                   </div>
                 </div>
                 <div className={styles.welcomeStep}>
@@ -210,7 +224,7 @@ export default function LayoutStage() {
         </div>
       </aside>
     </div>
-    {showImport && <LoadKeyboardModal onClose={() => setShowImport(false)} />}
+    {showImport && <LoadKeyboardModal onClose={() => { setShowImport(false); setImportTab('user') }} initialTab={importTab} />}
     </>
   )
 }

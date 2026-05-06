@@ -49,6 +49,14 @@ app.include_router(qmk.router, prefix='/api')
 app.include_router(telemetry.router, prefix='/api')
 
 
+@app.on_event('startup')
+async def _startup() -> None:
+    if settings.is_prod and not settings.builder_qmk_commit:
+        logger.warning(
+            'builder_qmk_commit not set in production — version mismatch checks will be skipped'
+        )
+
+
 @app.get('/api/health')
 async def health():
     return {'status': 'ok'}

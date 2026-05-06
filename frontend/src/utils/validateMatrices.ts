@@ -7,7 +7,9 @@ export interface MatrixValidationResult {
 }
 
 export function validateMatrices(config: KeyboardConfig): MatrixValidationResult {
-  if (config.sourceMode === 'qmk_native') {
+  // Both qmk_native and qmk_json compile against upstream QMK files that already
+  // own the matrix/pin definition — client-side wiring validation does not apply.
+  if (config.sourceMode === 'qmk_native' || config.sourceMode === 'qmk_json') {
     return { matrixOk: true, ledOk: true, errors: [] }
   }
 
@@ -62,7 +64,7 @@ export function validateMatrices(config: KeyboardConfig): MatrixValidationResult
     ? hasSingleRowPin && hasSingleColPin
     : missingRow.length === 0 && missingCol.length === 0 && missingRowPins.length === 0 && missingColPins.length === 0
 
-  const ledEnabled = !!config.features['rgb_matrix']
+  const ledEnabled = !!config.features['rgb_matrix'] || !!config.features['rgblight']
   let ledOk = true
 
   if (ledEnabled) {

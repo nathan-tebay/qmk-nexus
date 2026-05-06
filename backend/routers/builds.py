@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import shutil
@@ -16,12 +17,14 @@ from jose import JWTError, jwt
 
 import aws_builds
 import db as database
+import dynamo
 import telemetry
 from auth import get_current_user
 from codegen._mcu import SUPPORTED_GENERATED_MCUS
 from codegen.generator import generate_all
 from config import settings
-from models import BuildStatus, User
+from models import BuildStatus, KeyboardConfig, RecentBuildSummary, User
+from routers.qmk import _load_meta as _load_qmk_meta
 from s3 import pull_user_db
 from utils import jsonable_out, safe_name
 from validation import sanitize_keyboard_config, validate_build_ready
@@ -30,7 +33,7 @@ logger = logging.getLogger('qmk-nexus.builds')
 
 router = APIRouter(prefix='/builds', tags=['builds'])
 
-_BUILDS_ROOT = Path('/tmp/tebay-builds')
+_BUILDS_ROOT = Path('/tmp/qmk-nexus-builds')
 _BUILDS_ROOT.mkdir(parents=True, exist_ok=True)
 
 _BUILD_TTL = 600  # seconds
@@ -39,6 +42,11 @@ _BUILD_TTL = 600  # seconds
 # download endpoint can return the generated keymap.json for qmk_json builds
 # without re-running codegen. Cleared when the build cookie is cleared.
 _KEYMAP_PAYLOADS: dict[str, str] = {}
+
+
+def _compute_config_hash(config: KeyboardConfig) -> str:
+    raw = config.model_dump_json(exclude={'id': True})
+    return hashlib.sha256(raw.encode()).hexdigest()[:12]
 
 
 def _record_final_build(status: BuildStatus, user: User) -> None:
@@ -219,21 +227,71 @@ async def trigger_build(
     if config.source_mode != 'qmk_native' and config.mcu.lower() not in SUPPORTED_GENERATED_MCUS:
         raise HTTPException(status_code=400, detail=f'MCU {config.mcu} not yet supported')
 
+    config_hash = _compute_config_hash(config)
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    if settings.build_runner.lower() == 'ecs':
+        cached = dynamo.find_cached_build(user.id, config_hash)
+        if cached and cached.get('bucket') and cached.get('prefix'):
+            logger.info('Cache hit for build %s (hash %s)', cached['id'], config_hash)
+            cached_status = BuildStatus(
+                id=cached['id'],
+                keyboard_id=keyboard_id,
+                status='success',
+                log=['Served from cache (config unchanged)'],
+                artifact_available=True,
+                config_hash=config_hash,
+                keyboard_name=config.name,
+                created_at=cached.get('created_at'),
+                mode='ecs',
+                mcu=config.mcu,
+            )
+            _set_build_cookie(
+                response, cached['id'], keyboard_id,
+                mode='ecs', bucket=cached['bucket'], prefix=cached['prefix'],
+            )
+            return jsonable_out(cached_status)
+
+    _version_mismatch_warning: str | None = None
+    if config.source_mode == 'qmk_json':
+        index_commit = _load_qmk_meta().get('qmk_commit')
+        builder_commit = settings.builder_qmk_commit
+        if index_commit and builder_commit and index_commit != builder_commit:
+            _version_mismatch_warning = (
+                f'QMK version mismatch: index built at {index_commit[:8]}, '
+                f'builder image at {builder_commit[:8]}'
+            )
+            if settings.qmk_version_mismatch == 'error':
+                raise HTTPException(status_code=409, detail=_version_mismatch_warning)
+            logger.warning(_version_mismatch_warning)
+
     build_id = str(uuid.uuid4())
     build_dir = _BUILDS_ROOT / build_id
     build_dir.mkdir(parents=True)
     build_dir.chmod(0o777)
 
-    status = BuildStatus(id=build_id, keyboard_id=keyboard_id, status='building', log=['Build started'])
+    status = BuildStatus(
+        id=build_id, keyboard_id=keyboard_id, status='building', log=['Build started'],
+        config_hash=config_hash, keyboard_name=config.name, created_at=created_at, mcu=config.mcu,
+    )
+    if _version_mismatch_warning:
+        status.warning = _version_mismatch_warning
+        status.log.append(f'WARNING: {_version_mismatch_warning}')
 
     try:
-        generate_all(config, build_dir)
+        try:
+            generate_all(config, build_dir)
+        except ValueError as exc:
+            shutil.rmtree(build_dir, ignore_errors=True)
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
         (build_dir / 'src').chmod(0o777)
         status.log.append('Code generation complete')
         if config.source_mode == 'qmk_json':
             keymap_path = build_dir / 'src' / 'keymap.json'
             if keymap_path.exists():
                 _KEYMAP_PAYLOADS[build_id] = keymap_path.read_text(encoding='utf-8')
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception('Codegen failed for build %s', build_id)
         status.status = 'failed'
@@ -264,6 +322,10 @@ async def trigger_build(
             )
             status.log.append('Build staged on S3')
             status.log.append('ECS task started')
+            dynamo.put_build(
+                status.model_copy(update={'mode': 'ecs', 'bucket': bundle['bucket'], 'prefix': bundle['prefix']}),
+                user.id,
+            )
             shutil.rmtree(build_dir, ignore_errors=True)
         except Exception as exc:
             logger.exception('ECS dispatch failed for build %s', build_id)
@@ -297,6 +359,7 @@ async def trigger_build(
                 r.raise_for_status()
             _set_build_cookie(response, build_id, keyboard_id, mode='proxy', proxy_url=proxy_url)
             status.log.append('Build queued on proxy')
+            dynamo.put_build(status.model_copy(update={'mode': 'proxy'}), user.id)
         except Exception as exc:
             logger.exception('Proxy dispatch failed for build %s', build_id)
             status.status = 'failed'
@@ -311,6 +374,7 @@ async def trigger_build(
             _set_build_cookie(response, build_id, keyboard_id,
                               mode='direct', endpoint=endpoint, container_id=container_id)
             status.log.append('Container started')
+            dynamo.put_build(status.model_copy(update={'mode': 'direct'}), user.id)
         except Exception as exc:
             logger.exception('Container spawn failed for build %s', build_id)
             status.status = 'failed'
@@ -319,8 +383,56 @@ async def trigger_build(
             shutil.rmtree(build_dir, ignore_errors=True)
             _record_final_build(status, user)
 
-    _record_final_build(status, user)
     return jsonable_out(status)
+
+
+@router.get('/recent')
+async def list_recent_builds_route(user: User = Depends(get_current_user)):
+    records = dynamo.list_user_builds(user.id, limit=10)
+    return [
+        RecentBuildSummary(
+            id=r['id'],
+            keyboard_id=r.get('keyboard_id', ''),
+            keyboard_name=r.get('keyboard_name'),
+            status=r.get('status', 'failed'),
+            config_hash=r.get('config_hash'),
+            created_at=r.get('created_at'),
+            mode=r.get('mode'),
+            mcu=r.get('mcu'),
+            artifact_available=bool(r.get('artifact_available')),
+            error=r.get('error'),
+        )
+        for r in records
+    ]
+
+
+@router.post('/{build_id}/restore')
+async def restore_cached_build(
+    build_id: str,
+    response: Response,
+    user: User = Depends(get_current_user),
+):
+    record = dynamo.get_build(build_id)
+    if not record or record.get('user_id') != user.id:
+        raise HTTPException(status_code=404, detail='Build not found')
+    if record.get('mode') != 'ecs' or not record.get('artifact_available'):
+        raise HTTPException(status_code=400, detail='Build artifact not available for restore')
+    bucket, prefix = record.get('bucket'), record.get('prefix')
+    if not bucket or not prefix:
+        raise HTTPException(status_code=400, detail='Build artifact location not recorded')
+    keyboard_id = record.get('keyboard_id', '')
+    _set_build_cookie(response, build_id, keyboard_id, mode='ecs', bucket=bucket, prefix=prefix)
+    return jsonable_out(BuildStatus(
+        id=build_id,
+        keyboard_id=keyboard_id,
+        status='success',
+        artifact_available=True,
+        config_hash=record.get('config_hash'),
+        keyboard_name=record.get('keyboard_name'),
+        created_at=record.get('created_at'),
+        mode='ecs',
+        mcu=record.get('mcu'),
+    ))
 
 
 @router.get('/{build_id}/status')
@@ -386,6 +498,10 @@ async def get_build_status(
             artifact_available=raw.get('artifact_available', False),
             error=raw.get('error'),
         )
+
+    if status.status == 'success' and status.artifact_available:
+        new_ttl = dynamo._ts(dynamo._now() + dynamo.CACHE_TTL)
+        dynamo.update_build_fields(build_id, status='success', artifact_available=True, ttl=new_ttl)
 
     _record_final_build(status, user)
     return jsonable_out(status)
@@ -458,6 +574,15 @@ async def download_artifact(
         if container_id:
             _kill_direct(container_id)
         shutil.rmtree(build_dir, ignore_errors=True)
+
+    build_record = dynamo.get_build(build_id)
+    if build_record:
+        kb_name = build_record.get('keyboard_name') or ''
+        c_hash = build_record.get('config_hash') or ''
+        if kb_name and c_hash:
+            raw_filename = cd.split('filename=')[-1].strip('"') if 'filename=' in cd else 'firmware.hex'
+            raw_ext = raw_filename.rsplit('.', 1)[-1] if '.' in raw_filename else 'hex'
+            cd = f'attachment; filename="{safe_name(kb_name)}_{c_hash[:8]}.{raw_ext}"'
 
     return StreamingResponse(
         iter([content]),

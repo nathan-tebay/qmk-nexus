@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useKeyboardStore } from '@/store/keyboard'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { MetadataForm } from './MetadataForm'
 import FeatureToggles from './FeatureToggles'
 import { BuildPanel } from './BuildPanel'
 import { BuildInstructionsPanel } from './BuildInstructionsPanel'
+import { RecentBuildsPanel, type RecentBuildsPanelHandle } from './RecentBuildsPanel'
 import { FEATURE_MODULES } from './modules'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
@@ -21,7 +23,8 @@ export default function BuildStage() {
     setConfig({ [field]: value })
   }
 
-  const [featuresExpanded, setFeaturesExpanded] = useState(false)
+  const navigate = useNavigate()
+  const recentBuildsRef = useRef<RecentBuildsPanelHandle>(null)
 
   const enabledFeatures = Object.entries(config.features)
     .filter(([, on]) => on)
@@ -29,6 +32,10 @@ export default function BuildStage() {
   const matrixValidation = validateMatrices(config)
   const configOk = validateKeyboardConfig(config).length === 0
   const featuresOk = featureSettingsOk(config)
+
+  // Auto-expand when features are misconfigured so the user can see what's wrong.
+  // useState initial value only — user can manually collapse afterwards.
+  const [featuresExpanded, setFeaturesExpanded] = useState(() => !featuresOk)
   const sourceModeLabel =
     config.sourceMode === 'qmk_json' ? 'Upstream QMK' :
     config.sourceMode === 'qmk_native' ? 'Legacy Native' :
@@ -57,6 +64,7 @@ export default function BuildStage() {
             keyboardId={config.id}
             onSaveFirst={save}
           />
+          <RecentBuildsPanel ref={recentBuildsRef} />
         </div>
 
         <div className={styles.buildSection}>
@@ -76,7 +84,15 @@ export default function BuildStage() {
             </span>
             {config.sourceMode === 'qmk_native' && (
               <span className={styles.migrationHint}>
-                ⚠ Legacy mode — consider re-importing this keyboard to use Upstream QMK mode
+                ⚠ Legacy mode —{' '}
+                <button
+                  className={styles.migrationLink}
+                  onClick={() => navigate('/layout', { state: { openImport: true } })}
+                  title="Go to Layout stage and re-import this keyboard from QMK to use Upstream QMK mode"
+                >
+                  re-import from QMK
+                </button>
+                {' '}to use Upstream QMK mode
               </span>
             )}
           </div>
@@ -115,7 +131,11 @@ export default function BuildStage() {
             )}
           </div>
 
-          <BuildPanel keyboardId={config.id} onSaveFirst={save} />
+          <BuildPanel
+            keyboardId={config.id}
+            onSaveFirst={save}
+            onBuildSuccess={() => recentBuildsRef.current?.refresh()}
+          />
         </div>
        </div>
       </div>

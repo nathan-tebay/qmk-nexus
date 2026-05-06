@@ -423,6 +423,7 @@ interface KeyboardStore {
   updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
   setCustomFiles: (files: Record<string, string>) => void
   setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw', keycode: string) => void
+  reset: () => void
 }
 
 export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
@@ -701,6 +702,16 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
           [`${layerId}:${encoderId}:${dir}`]: keycode,
         },
       },
+    })),
+
+  reset: () =>
+    set(() => ({
+      config: defaultConfig,
+      selectedKeyId: null,
+      selectedKeyIds: [],
+      activeLayerId: 'layer0',
+      selectedPeripheralId: null,
+      selectedPeripheralType: null,
     })),
 }), {
   name: 'keyboard-store',

@@ -19,7 +19,20 @@ router = APIRouter(prefix='/qmk', tags=['qmk'])
 
 _INDEX_PATH = Path(__file__).parent.parent / 'data' / 'qmk_index.json'
 _KB_DATA_DIR = Path(__file__).parent.parent / 'data' / 'keyboards'
+_KB_DATA_DIR_RESOLVED = _KB_DATA_DIR.resolve()
 _META_PATH = Path(__file__).parent.parent / 'data' / 'qmk_meta.json'
+
+
+def _safe_kb_file(kb_path: str) -> Path:
+    """Resolve ``kb_path`` under ``_KB_DATA_DIR`` and reject any escape attempts."""
+    if not kb_path or kb_path.startswith('/') or '\x00' in kb_path:
+        raise HTTPException(status_code=400, detail='Invalid keyboard path')
+    candidate = (_KB_DATA_DIR / (kb_path + '.json')).resolve()
+    try:
+        candidate.relative_to(_KB_DATA_DIR_RESOLVED)
+    except ValueError:
+        raise HTTPException(status_code=400, detail='Invalid keyboard path')
+    return candidate
 _DEFINE_ARRAY_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+\{([^}]+)\}')
 _DEFINE_VALUE_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+([^\s/]+)')
 _ROW_CASE_PIN_RE = re.compile(
@@ -38,6 +51,7 @@ _MCP_IODIR_WRITE_RE = re.compile(r'\w+_write\(\s*([A-Z0-9_]*IODIR([AB]))\s*,\s*(
 
 @lru_cache(maxsize=1)
 def _load_index() -> list[dict[str, Any]]:
+    """Load QMK keyboard index from disk. Cached indefinitely; restart to refresh."""
     if not _INDEX_PATH.exists():
         logger.warning('QMK index not found at %s', _INDEX_PATH)
         return []
@@ -49,6 +63,7 @@ def _load_index() -> list[dict[str, Any]]:
 
 @lru_cache(maxsize=1)
 def _load_meta() -> dict:
+    """Load QMK metadata (e.g. qmk_commit). Cached indefinitely; restart to refresh."""
     if not _META_PATH.exists():
         return {}
     with open(_META_PATH) as f:
@@ -564,7 +579,7 @@ def _convert_to_config(
 
 @router.get('/import/{kb_path:path}', response_model=KeyboardConfig)
 def import_keyboard(kb_path: str) -> KeyboardConfig:
-    kb_file = _KB_DATA_DIR / (kb_path + '.json')
+    kb_file = _safe_kb_file(kb_path)
     if not kb_file.exists():
         raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
 
@@ -582,7 +597,7 @@ class LayoutSwitchRequest(BaseModel):
 
 
 def _load_keyboard_info(kb_path: str) -> dict[str, Any]:
-    kb_file = _KB_DATA_DIR / (kb_path + '.json')
+    kb_file = _safe_kb_file(kb_path)
     if not kb_file.exists():
         raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
     try:

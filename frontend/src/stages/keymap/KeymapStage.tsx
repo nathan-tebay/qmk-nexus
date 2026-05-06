@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useKeyboardStore } from '@/store/keyboard'
 import { LayerManager } from './LayerManager'
 import { KeycodePicker } from './KeycodePicker'
@@ -63,7 +64,9 @@ export default function KeymapStage() {
     return (
       <div className={styles.root}>
         <div className={styles.empty}>
-          <span>No keys defined. Add keys in Stage 1 first.</span>
+          <span>No keys defined.&nbsp;</span>
+          <Link to="/layout" className={styles.emptyLink}>Go to Layout &amp; Wiring</Link>
+          <span>&nbsp;to add keys first.</span>
         </div>
       </div>
     )
