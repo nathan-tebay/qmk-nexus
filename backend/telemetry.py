@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Any
 
 from config import settings
 from dynamo import _builds_mem, _builds_table
 from models import BuildStatus, User
+
+logger = logging.getLogger(__name__)
 
 USER_PREFIX = 'telemetry#user#'
 BUILD_PREFIX = 'telemetry#build#'
@@ -26,6 +29,13 @@ def _put_item(item: dict[str, Any]) -> None:
         _builds_mem[item['id']] = item
         return
     _builds_table().put_item(Item=item)
+
+
+def _record_item(item: dict[str, Any]) -> None:
+    try:
+        _put_item(item)
+    except Exception:
+        logger.warning('telemetry write failed', exc_info=True)
 
 
 def _scan_telemetry() -> list[dict[str, Any]]:
@@ -53,7 +63,7 @@ def _scan_telemetry() -> list[dict[str, Any]]:
 
 def record_user_seen(user: User) -> None:
     now = _now_iso()
-    _put_item({
+    _record_item({
         'id': f'{USER_PREFIX}{user.id}',
         'type': 'user',
         'user_id': user.id,
@@ -68,7 +78,7 @@ def record_build_final(status: BuildStatus, user_id: str) -> None:
     if status.status not in FINAL_STATUSES:
         return
     now = _now_iso()
-    _put_item({
+    _record_item({
         'id': f'{BUILD_PREFIX}{status.id}',
         'type': 'build',
         'build_id': status.id,

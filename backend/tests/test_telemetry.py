@@ -47,3 +47,16 @@ def test_final_build_records_are_idempotent_per_build_id():
 
     assert summary['builds']['total'] == 1
     assert summary['builds']['byFinalStatus']['failed'] == 1
+
+
+def test_telemetry_write_failure_is_nonfatal(monkeypatch, caplog):
+    user = User(id='google_1', email='one@example.test', name='One')
+
+    def fail_put(_item):
+        raise RuntimeError('denied')
+
+    monkeypatch.setattr(telemetry, '_put_item', fail_put)
+
+    telemetry.record_user_seen(user)
+
+    assert 'telemetry write failed' in caplog.text
