@@ -33,7 +33,7 @@ logger = logging.getLogger('qmk-nexus.builds')
 
 router = APIRouter(prefix='/builds', tags=['builds'])
 
-_BUILDS_ROOT = Path('/tmp/qmk-nexus-builds')
+_BUILDS_ROOT = Path(os.environ.get('BUILDS_ROOT', '/tmp/tebay-builds'))
 _BUILDS_ROOT.mkdir(parents=True, exist_ok=True)
 
 _BUILD_TTL = 600  # seconds
