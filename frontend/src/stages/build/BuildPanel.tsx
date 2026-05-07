@@ -64,6 +64,7 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
   const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
   const { status, startPolling, stopPolling } = useBuildPoller(onBuildSuccess)
   const [triggering, setTriggering] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copiedLog, setCopiedLog] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
@@ -108,6 +109,19 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
       setError(e instanceof Error ? e.message : 'Build trigger failed')
     } finally {
       setTriggering(false)
+    }
+  }
+
+  async function downloadFirmware() {
+    if (!status) return
+    setDownloading(true)
+    try {
+      const name = [keyboardName, status.configHash?.slice(0, 8)].filter(Boolean).join('_') || 'firmware'
+      await buildsApi.download(status.id, `${name}.hex`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Download failed')
+    } finally {
+      setDownloading(false)
     }
   }
 
@@ -210,6 +224,17 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
           </div>
 
           <div className={styles.logActions}>
+            {isSuccess && (
+              <button
+                className={styles.downloadBtn}
+                onClick={downloadFirmware}
+                disabled={downloading}
+                title="Download compiled firmware file"
+                aria-label="Download firmware"
+              >
+                {downloading ? 'Downloading…' : 'Download Firmware'}
+              </button>
+            )}
             <button
               className={styles.secondaryBtn}
               onClick={copyBuildLog}
