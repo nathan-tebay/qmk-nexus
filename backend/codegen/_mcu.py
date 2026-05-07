@@ -43,7 +43,7 @@ MCU_QMK_NAME: dict[str, str] = {
 # Without this, QMK falls back to the common board config which cannot
 # resolve mcuconf.h, causing compile failure on all ChibiOS targets.
 MCU_QMK_BOARD: dict[str, str] = {
-    'mk20dx256': 'TEENSY_3_X',
+    'mk20dx256': 'PJRC_TEENSY_3_1',
 }
 
 MCU_RGB_DRIVER: dict[str, str] = {
