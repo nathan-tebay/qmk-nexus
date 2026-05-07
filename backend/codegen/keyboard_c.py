@@ -1,11 +1,54 @@
 from __future__ import annotations
 
 from models import KeyboardConfig, OledElement
-from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_led_count
+from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_led_count, pins_json_safe
 
 
 def _c_string(text: str) -> str:
     return text.replace('\\', '\\\\').replace('"', '\\"').replace('\r', ' ').replace('\n', ' ')
+
+
+def _rgb_matrix_driver(config: KeyboardConfig) -> str:
+    rgb = (config.feature_configs or {}).get('rgb_matrix', {})
+    return str(rgb.get('RGB_MATRIX_DRIVER', 'WS2812')).upper()
+
+
+def _is31fl3731_driver_count(config: KeyboardConfig) -> int:
+    rgb = (config.feature_configs or {}).get('rgb_matrix', {})
+    default_count = 2 if (config.features or {}).get('split_keyboard') else 1
+    try:
+        return max(1, int(rgb.get('IS31FL3731_DRIVER_COUNT', str(default_count))))
+    except ValueError:
+        return default_count
+
+
+def _is31fl3731_channel_triplet(index: int) -> tuple[str, str, str]:
+    group = index // 16
+    row = (index % 16) + 1
+    first_col = (group * 3) + 1
+    return (
+        f'C{first_col}_{row}',
+        f'C{first_col + 1}_{row}',
+        f'C{first_col + 2}_{row}',
+    )
+
+
+def _emit_is31fl3731_leds(config: KeyboardConfig, led_count: int) -> list[str]:
+    driver_count = _is31fl3731_driver_count(config)
+    leds_per_driver = max(1, (led_count + driver_count - 1) // driver_count)
+    leds_per_driver = min(48, leds_per_driver)
+
+    lines = [
+        'const is31fl3731_led_t PROGMEM g_is31fl3731_leds[IS31FL3731_LED_COUNT] = {',
+    ]
+    for led_index in range(led_count):
+        driver = min(driver_count - 1, led_index // leds_per_driver)
+        local_index = led_index - (driver * leds_per_driver)
+        red, green, blue = _is31fl3731_channel_triplet(local_index)
+        lines.append(f'    {{ {driver}, {red}, {green}, {blue} }},')
+    lines.append('};')
+    lines.append('')
+    return lines
 
 
 def _oled_block_snippet(block_id: str, indent: str, config: KeyboardConfig, oled_idx: int = 0, oled: OledElement | None = None) -> list[str]:
@@ -111,10 +154,13 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
     split_enabled = config.features.get('split_keyboard', False)
     oled_enabled  = config.features.get('oled', False) and bool(config.oleds)
     fc = config.feature_configs or {}
+    rgb_driver = _rgb_matrix_driver(config) if rgb_enabled else ''
 
     lines: list[str] = ['#include QMK_KEYBOARD_H']
     if rgb_enabled:
         lines.append('#include "rgb_matrix.h"')
+        if rgb_driver == 'IS31FL3731':
+            lines.append('#include "drivers/led/issi/is31fl3731.h"')
     if split_enabled:
         lines.append('#include "split_util.h"')
     if oled_enabled:
@@ -126,6 +172,9 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         # must match RGB_MATRIX_LED_COUNT emitted by config_h (which may be
         # an explicit value imported from the upstream keyboard's LED layout).
         led_count = resolve_rgb_led_count(config)
+        if rgb_driver == 'IS31FL3731':
+            lines.extend(_emit_is31fl3731_leds(config, led_count))
+
         explicit_led_keys = sorted(
             [k for k in keys if k.led_index is not None],
             key=lambda k: k.led_index,  # type: ignore[arg-type]
@@ -220,5 +269,20 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         lines.append('    return false;')
         lines.append('}')
         lines.append('')
+
+    # CUSTOM_MATRIX = lite stubs for keyboards with non-GPIO expander pins.
+    # These no-ops let the firmware link; the matrix never registers key presses
+    # until the user wires up real custom matrix code via custom_files.
+    all_pins = [p.pin for p in (config.row_pins or []) + (config.col_pins or [])]
+    if all_pins and not pins_json_safe(all_pins):
+        lines += [
+            'void matrix_init_custom(void) {}',
+            '',
+            'bool matrix_scan_custom(matrix_row_t current_matrix[]) {',
+            '    (void)current_matrix;',
+            '    return false;',
+            '}',
+            '',
+        ]
 
     return '\n'.join(lines)

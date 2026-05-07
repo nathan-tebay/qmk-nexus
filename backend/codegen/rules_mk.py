@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from models import KeyboardConfig
 from codegen._mcu import MCU_ARCH, MCU_QMK_NAME, MCU_QMK_BOARD
+from codegen._matrix import pins_json_safe
 
 
 def generate_rules_mk(config: KeyboardConfig) -> str:
@@ -10,6 +11,13 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
     mcu = (config.mcu or 'atmega32u4').lower()
     arch_info = MCU_ARCH.get(mcu, ('avr', '16000000'))
     arch = arch_info[0]
+
+    # Custom matrix lite for keyboards with non-GPIO expander pins (e.g. MCP_A0).
+    # The keyboard .c file provides matrix_init_custom / matrix_scan_custom stubs.
+    all_pins = [p.pin for p in (config.row_pins or []) + (config.col_pins or [])]
+    if all_pins and not pins_json_safe(all_pins):
+        lines.append('CUSTOM_MATRIX = lite')
+        lines.append('')
 
     # MCU
     lines.append(f'MCU = {MCU_QMK_NAME.get(mcu, mcu)}')
@@ -54,6 +62,8 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         rgb = fc.get('rgb_matrix', {})
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
         lines.append(f'RGB_MATRIX_DRIVER = {driver.lower()}')
+        if driver.upper() == 'IS31FL3731' and arch == 'chibios':
+            lines.append('CFLAGS += -Wno-error=unused-but-set-variable')
         if driver.upper() == 'WS2812' and mcu == 'rp2040':
             lines.append('WS2812_DRIVER = vendor')
             ws2812_driver_emitted = True
@@ -75,6 +85,8 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         sp = fc.get('split_keyboard', {})
         transport = sp.get('SPLIT_TRANSPORT', 'serial')
         lines.append(f'SPLIT_TRANSPORT = {transport}')
+        if mcu == 'mk20dx256':
+            lines.append('SERIAL_DRIVER = usart')
         for key in ('SPLIT_USB_DETECT', 'SPLIT_TRANSPORT_MIRROR',
                     'SPLIT_LAYER_STATE_ENABLE', 'SPLIT_RGB_MATRIX_ENABLE'):
             val = sp.get(key)

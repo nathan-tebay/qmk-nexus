@@ -1,5 +1,23 @@
 from __future__ import annotations
+import re
 from models import KeyboardConfig, KeyDef
+
+# QMK's JSON schema only accepts standard MCU GPIO pin names.
+# GPIO expander aliases (e.g. MCP_A0) are C macros — including them in
+# keyboard.json causes fatal schema rejection; and defining them in config.h
+# MATRIX_COL_PINS causes QMK's data merge to pull them into matrix_pins.cols
+# where they also fail validation. Skip both when any pin is a macro alias.
+_JSON_SAFE_PIN = re.compile(
+    r'^[A-Z][0-9]+$'           # AVR style: B6, C5
+    r'|^GPIO[A-Z0-9_]+$'       # ChibiOS: GPIOB_PIN6
+    r'|^GP[0-9]+$'             # RP2040: GP25
+    r'|^PAL_LINE\(.+\)$'       # ChibiOS PAL_LINE macro
+)
+
+
+def pins_json_safe(pins: list[str]) -> bool:
+    """Return True only if every non-empty pin in the list is a standard GPIO identifier."""
+    return all(_JSON_SAFE_PIN.match(p) for p in pins if p.strip())
 
 
 def is_single_key_direct(config: KeyboardConfig) -> bool:

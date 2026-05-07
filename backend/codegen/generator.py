@@ -37,9 +37,38 @@ def _generate_qmk_native(config: KeyboardConfig) -> dict[str, str]:
     }
 
 
+_MK20DX256_MCUCONF = """\
+#pragma once
+#ifndef _MCUCONF_H_
+#define _MCUCONF_H_
+
+#define K20x_MCUCONF
+#define K20x7
+
+#define KINETIS_NO_INIT                     FALSE
+#define KINETIS_MCG_MODE                    KINETIS_MCG_MODE_PEE
+#define KINETIS_PLLCLK_FREQUENCY            72000000UL
+#define KINETIS_SYSCLK_FREQUENCY            72000000UL
+#define KINETIS_BUSCLK_FREQUENCY            36000000UL
+#define KINETIS_FLASHCLK_FREQUENCY          24000000UL
+
+#define KINETIS_SERIAL_USE_UART0            TRUE
+#define KINETIS_USB_USE_USB0                TRUE
+#define KINETIS_USB_USB0_IRQ_PRIORITY       5
+#define KINETIS_I2C_USE_I2C0                TRUE
+#define KINETIS_SPI_USE_SPI0                TRUE
+
+#endif /* _MCUCONF_H_ */
+"""
+
+_MCU_EXTRA_HEADERS: dict[str, dict[str, str]] = {
+    'mk20dx256': {'mcuconf.h': _MK20DX256_MCUCONF},
+}
+
+
 def _generate_full(config: KeyboardConfig) -> dict[str, str]:
     info = generate_info_json(config)
-    return {
+    files: dict[str, str] = {
         'keyboard.c': generate_keyboard_c(config),
         'keyboard.h': generate_keyboard_h(config),
         'config.h': generate_config_h(config),
@@ -48,6 +77,9 @@ def _generate_full(config: KeyboardConfig) -> dict[str, str]:
         'info.json': info,
         'keyboard.json': info,
     }
+    mcu = (config.mcu or 'atmega32u4').lower()
+    files.update(_MCU_EXTRA_HEADERS.get(mcu, {}))
+    return files
 
 
 _SOURCE_GENERATORS = {

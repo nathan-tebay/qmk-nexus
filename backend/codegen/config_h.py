@@ -1,12 +1,35 @@
 from __future__ import annotations
 
 from models import KeyboardConfig
-from codegen._matrix import matrix_rows, matrix_cols, resolve_rgb_led_count
+from codegen._matrix import matrix_rows, matrix_cols, resolve_rgb_led_count, pins_json_safe
 from codegen._mcu import MCU_BOOTLOADER
 
 
 def _c_string(text: str) -> str:
     return text.replace('\\', '\\\\').replace('"', '\\"').replace('\r', ' ').replace('\n', ' ')
+
+
+_RGBLIGHT_EFFECT_DEFINES = (
+    '#define RGBLIGHT_EFFECT_BREATHING',
+    '#define RGBLIGHT_EFFECT_RAINBOW_MOOD',
+    '#define RGBLIGHT_EFFECT_RAINBOW_SWIRL',
+    '#define RGBLIGHT_EFFECT_SNAKE',
+    '#define RGBLIGHT_EFFECT_KNIGHT',
+    '#define RGBLIGHT_EFFECT_CHRISTMAS',
+    '#define RGBLIGHT_EFFECT_STATIC_GRADIENT',
+    '#define RGBLIGHT_EFFECT_RGB_TEST',
+    '#define RGBLIGHT_EFFECT_ALTERNATING',
+    '#define RGBLIGHT_EFFECT_TWINKLE',
+)
+
+
+def _rgblight_default_mode(value: str) -> str:
+    """QMK enables effects with RGBLIGHT_EFFECT_* but stores modes as RGBLIGHT_MODE_*."""
+    if value == 'RGBLIGHT_EFFECT_SOLID':
+        return 'RGBLIGHT_MODE_STATIC_LIGHT'
+    if value.startswith('RGBLIGHT_EFFECT_'):
+        return 'RGBLIGHT_MODE_' + value.removeprefix('RGBLIGHT_EFFECT_')
+    return value
 
 
 def generate_config_h(config: KeyboardConfig) -> str:
@@ -31,7 +54,10 @@ def generate_config_h(config: KeyboardConfig) -> str:
         '',
     ]
 
-    if config.row_pins:
+    all_pins = [p.pin for p in config.row_pins + config.col_pins]
+    _gpio_pins = pins_json_safe(all_pins)
+
+    if config.row_pins and _gpio_pins:
         sorted_row_pins = sorted(
             (p for p in config.row_pins if p.pin.strip()),
             key=lambda p: p.row,
@@ -44,7 +70,7 @@ def generate_config_h(config: KeyboardConfig) -> str:
     else:
         lines.append('/* #define MATRIX_ROW_PINS { } */')
 
-    if config.col_pins:
+    if config.col_pins and _gpio_pins:
         pin_list = ', '.join(p.pin for p in sorted(config.col_pins, key=lambda p: p.col))
         lines.append(f'#define MATRIX_COL_PINS {{ {pin_list} }}')
     else:
@@ -79,6 +105,26 @@ def generate_config_h(config: KeyboardConfig) -> str:
             sda = rgb.get('RGB_MATRIX_I2C_SDA', 'D2')
             scl = rgb.get('RGB_MATRIX_I2C_SCL', 'D1')
             lines += [f'#define RGB_MATRIX_I2C_SDA {sda}', f'#define RGB_MATRIX_I2C_SCL {scl}']
+            if driver == 'IS31FL3731':
+                is_split = bool(features.get('split_keyboard'))
+                driver_count = rgb.get('IS31FL3731_DRIVER_COUNT', '2' if is_split else '1')
+                addr1 = rgb.get('IS31FL3731_I2C_ADDRESS_1', 'IS31FL3731_I2C_ADDRESS_GND')
+                lines += [
+                    f'#define IS31FL3731_DRIVER_COUNT {driver_count}',
+                    f'#define IS31FL3731_I2C_ADDRESS_1 {addr1}',
+                ]
+                try:
+                    cnt = int(driver_count)
+                except ValueError:
+                    cnt = 1
+                if cnt >= 2:
+                    addr2 = rgb.get('IS31FL3731_I2C_ADDRESS_2', 'IS31FL3731_I2C_ADDRESS_GND')
+                    lines.append(f'#define IS31FL3731_I2C_ADDRESS_2 {addr2}')
+                if config.mcu.lower() == 'mk20dx256':
+                    lines += [
+                        '#define I2C1_SCL_PAL_MODE PAL_MODE_OUTPUT_OPENDRAIN',
+                        '#define I2C1_SDA_PAL_MODE PAL_MODE_OUTPUT_OPENDRAIN',
+                    ]
         elif driver == 'WS2812':
             pin = rgb.get('RGB_MATRIX_PIN', 'D3')
             lines.append(f'#define WS2812_DI_PIN {pin}')
@@ -90,8 +136,9 @@ def generate_config_h(config: KeyboardConfig) -> str:
         pin = rgl.get('RGBLIGHT_DI_PIN', rgl.get('RGBLIGHT_PIN', 'D3'))
         count = rgl.get('RGBLIGHT_LED_COUNT', '12')
         limit = rgl.get('RGBLIGHT_LIMIT_VAL', '200')
-        mode = rgl.get('RGBLIGHT_DEFAULT_MODE', 'RGBLIGHT_MODE_BREATHING')
+        mode = _rgblight_default_mode(rgl.get('RGBLIGHT_DEFAULT_MODE', 'RGBLIGHT_MODE_BREATHING'))
         rgl_lines = [
+            *_RGBLIGHT_EFFECT_DEFINES,
             f'#define RGBLIGHT_DI_PIN {pin}',
             f'#define RGBLIGHT_LED_COUNT {count}',
             f'#define RGBLIGHT_LIMIT_VAL {limit}',

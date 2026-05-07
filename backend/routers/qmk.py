@@ -616,7 +616,7 @@ def _infer_split_enabled(
 
     row_count = _matrix_row_count(keys)
     matrix_pins = info.get('matrix_pins') or {}
-    return (
+    if (
         row_count > 8
         and (
             _uses_custom_matrix(info)
@@ -624,7 +624,26 @@ def _infer_split_enabled(
             or (not row_pins and not matrix_pins.get('rows'))
             or (not col_pins and not matrix_pins.get('cols'))
         )
-    )
+    ):
+        return True
+
+    # Symmetric physical layout: large center gap with balanced key count on each side.
+    # Catches ergodox-style boards (6×14 custom matrix) that omit split.enabled.
+    if len(keys) >= 20:
+        xs = sorted(k.x + k.w / 2 for k in keys)
+        gaps = [(xs[i + 1] - xs[i], (xs[i] + xs[i + 1]) / 2) for i in range(len(xs) - 1)]
+        if gaps:
+            max_gap_size, gap_mid = max(gaps, key=lambda g: g[0])
+            total_width = xs[-1] - xs[0]
+            if total_width > 0 and max_gap_size >= 1.5:
+                near_center = abs(gap_mid - (xs[0] + xs[-1]) / 2) / total_width < 0.30
+                if near_center:
+                    left = sum(1 for x in xs if x < gap_mid)
+                    right = sum(1 for x in xs if x > gap_mid)
+                    if max(left, right) > 0 and min(left, right) / max(left, right) >= 0.85:
+                        return True
+
+    return False
 
 
 def _layout_from_info(

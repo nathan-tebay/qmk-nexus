@@ -213,6 +213,18 @@ def test_mk20dx256_generates_arm_rules_and_kiibohd_bootloader(minimal_avr_kb):
     assert '#define BOOTLOADER kiibohd' in config
 
 
+def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
+    """IC_TEENSY_3_1 board has no configs/mcuconf.h; keyboard must supply its own."""
+    from codegen.generator import generate_sources
+    kb = minimal_avr_kb.model_copy(update={'mcu': 'mk20dx256'})
+
+    sources = generate_sources(kb)
+
+    assert 'mcuconf.h' in sources, 'mcuconf.h must be generated for mk20dx256'
+    assert 'K20x_MCUCONF' in sources['mcuconf.h']
+    assert 'KINETIS_USB_USE_USB0' in sources['mcuconf.h']
+
+
 # ── Snapshot tests ─────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize('fixture,gen_fn,suffix', [
@@ -288,3 +300,131 @@ def test_info_json_rp2040_bootloader(rp2040_oled_kb):
     info = json.loads(generate_info_json(rp2040_oled_kb))
     assert info['bootloader'] == 'rp2040'
     assert info['processor'] == 'RP2040'
+
+
+def test_is31fl3731_split_generates_driver_count_and_addresses(split_rgb_kb):
+    kb = split_rgb_kb.model_copy(update={
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    config = generate_config_h(kb)
+    assert '#define IS31FL3731_DRIVER_COUNT 2' in config
+    assert '#define IS31FL3731_I2C_ADDRESS_1 IS31FL3731_I2C_ADDRESS_GND' in config
+    assert '#define IS31FL3731_I2C_ADDRESS_2 IS31FL3731_I2C_ADDRESS_GND' in config
+
+
+def test_is31fl3731_non_split_generates_single_driver(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'features': {**minimal_avr_kb.features, 'rgb_matrix': True},
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    config = generate_config_h(kb)
+    assert '#define IS31FL3731_DRIVER_COUNT 1' in config
+    assert '#define IS31FL3731_I2C_ADDRESS_1 IS31FL3731_I2C_ADDRESS_GND' in config
+    assert 'IS31FL3731_I2C_ADDRESS_2' not in config
+
+
+def test_is31fl3731_keyboard_c_generates_driver_led_table(split_rgb_kb):
+    kb = split_rgb_kb.model_copy(update={
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    keyboard_c = generate_keyboard_c(kb)
+
+    assert '#include "drivers/led/issi/is31fl3731.h"' in keyboard_c
+    assert 'const is31fl3731_led_t PROGMEM g_is31fl3731_leds[IS31FL3731_LED_COUNT]' in keyboard_c
+    assert '{ 0, C1_1, C2_1, C3_1 },' in keyboard_c
+    assert '{ 1, C1_1, C2_1, C3_1 },' in keyboard_c
+
+
+def test_is31fl3731_on_mk20dx256_adds_i2c_pal_mode_overrides(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'mcu': 'mk20dx256',
+        'features': {**minimal_avr_kb.features, 'rgb_matrix': True},
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    config = generate_config_h(kb)
+    assert '#define I2C1_SCL_PAL_MODE PAL_MODE_OUTPUT_OPENDRAIN' in config
+    assert '#define I2C1_SDA_PAL_MODE PAL_MODE_OUTPUT_OPENDRAIN' in config
+
+
+def test_is31fl3731_on_non_kinetis_no_pal_mode_overrides(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'mcu': 'stm32f303',
+        'features': {**minimal_avr_kb.features, 'rgb_matrix': True},
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    config = generate_config_h(kb)
+    assert 'I2C1_SCL_PAL_MODE' not in config
+    assert 'I2C1_SDA_PAL_MODE' not in config
+
+
+def test_mk20dx256_split_emits_usart_serial_driver(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'mcu': 'mk20dx256',
+        'features': {**minimal_avr_kb.features, 'split_keyboard': True},
+        'soft_serial_pin': 'D2',
+    })
+    rules = generate_rules_mk(kb)
+    assert 'SPLIT_TRANSPORT = serial' in rules
+    assert 'SERIAL_DRIVER = usart' in rules
+
+
+def test_is31fl3731_on_chibios_suppresses_unused_var_warning(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'mcu': 'stm32f303',
+        'features': {**minimal_avr_kb.features, 'rgb_matrix': True},
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    rules = generate_rules_mk(kb)
+    assert 'CFLAGS += -Wno-error=unused-but-set-variable' in rules
+
+
+def test_is31fl3731_on_avr_no_cflags_suppression(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'features': {**minimal_avr_kb.features, 'rgb_matrix': True},
+        'feature_configs': {'rgb_matrix': {'RGB_MATRIX_DRIVER': 'IS31FL3731'}},
+    })
+    rules = generate_rules_mk(kb)
+    assert 'unused-but-set-variable' not in rules
+
+
+def test_rgblight_enables_effects_for_default_mode_symbols(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'features': {**minimal_avr_kb.features, 'rgblight': True},
+        'feature_configs': {'rgblight': {'RGBLIGHT_DEFAULT_MODE': 'RGBLIGHT_EFFECT_BREATHING'}},
+    })
+    config = generate_config_h(kb)
+
+    assert '#define RGBLIGHT_EFFECT_BREATHING' in config
+    assert '#define RGBLIGHT_EFFECT_RAINBOW_SWIRL' in config
+    assert '#define RGBLIGHT_DEFAULT_MODE RGBLIGHT_MODE_BREATHING' in config
+    assert '#define RGBLIGHT_DEFAULT_MODE RGBLIGHT_EFFECT_BREATHING' not in config
+    assert 'RGBLIGHT_ANIMATIONS' not in config
+
+
+def test_rgblight_solid_effect_alias_uses_static_light_mode(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'features': {**minimal_avr_kb.features, 'rgblight': True},
+        'feature_configs': {'rgblight': {'RGBLIGHT_DEFAULT_MODE': 'RGBLIGHT_EFFECT_SOLID'}},
+    })
+    config = generate_config_h(kb)
+
+    assert '#define RGBLIGHT_DEFAULT_MODE RGBLIGHT_MODE_STATIC_LIGHT' in config
+
+
+def test_mcp_expander_pins_emit_custom_matrix(minimal_avr_kb):
+    """MCP_A0-style pins must not appear in matrix_pins.rows/cols (QMK schema rejects them).
+    keyboard.json should signal custom matrix, and config.h must not define MATRIX_COL/ROW_PINS."""
+    config = minimal_avr_kb.model_copy(update={
+        'row_pins': [MatrixPin(row=i, pin=p) for i, p in enumerate(['F7', 'F6', 'F5'])],
+        'col_pins': [ColPin(col=i, pin=p) for i, p in enumerate(['MCP_A0', 'MCP_A1', 'MCP_A2', 'C6', 'D3', 'B0'])],
+    })
+    info = json.loads(generate_info_json(config))
+    assert info.get('matrix_pins') == {'custom': True}, \
+        'Non-GPIO pins must yield matrix_pins.custom=true, not a pin list'
+
+    cfg = generate_config_h(config)
+    assert 'MATRIX_ROW_PINS' not in cfg or cfg.count('MATRIX_ROW_PINS') == cfg.count('/* #define MATRIX_ROW_PINS'), \
+        'MATRIX_ROW_PINS must be commented out when any pin is a C-macro alias'
+    assert 'MATRIX_COL_PINS' not in cfg or cfg.count('MATRIX_COL_PINS') == cfg.count('/* #define MATRIX_COL_PINS'), \
+        'MATRIX_COL_PINS must be commented out when any pin is a C-macro alias'
+    assert 'MCP_A0' not in cfg, 'MCP_A0 must not appear in config.h'
