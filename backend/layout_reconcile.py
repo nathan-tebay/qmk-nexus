@@ -1,6 +1,8 @@
 """Layout reconciliation — preserve keycodes when switching layouts."""
 from __future__ import annotations
 
+from codegen._matrix import keys_by_matrix
+from codegen.keycodes import TRIVIAL_KEYCODES
 from models import KeyDef, Layer
 
 
@@ -26,10 +28,7 @@ def reconcile_layers(
         no matching position in the new layout.
     """
     # Build lookup: (row, col) → old key id, for keys with matrix data
-    old_by_matrix: dict[tuple[int, int], str] = {}
-    for k in old_keys:
-        if k.row is not None and k.col is not None:
-            old_by_matrix[(k.row, k.col)] = k.id
+    old_by_matrix = keys_by_matrix(old_keys)
 
     # Build lookup: position_index → old key id
     old_by_index: dict[int, str] = {i: k.id for i, k in enumerate(old_keys)}
@@ -75,13 +74,12 @@ def reconcile_layers(
     # Count discarded positions: old keys with non-trivial keycodes that
     # didn't get matched into the new layout.
     discarded = 0
-    trivial = {'KC_TRNS', 'KC_NO', 'XXXXXXX', ''}
     for old_key in old_keys:
         if old_key.id in matched_old_ids:
             continue
         for layer in old_layers:
             kc = layer.keycodes.get(old_key.id, '')
-            if kc and kc not in trivial:
+            if kc and kc not in TRIVIAL_KEYCODES:
                 discarded += 1
                 break
 

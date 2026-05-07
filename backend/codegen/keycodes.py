@@ -1,6 +1,8 @@
 """Keycode alias normalization — matches QMK Configurator longFormKeycodes semantics."""
 from __future__ import annotations
 
+TRIVIAL_KEYCODES: frozenset[str] = frozenset({'KC_TRNS', 'KC_NO', 'XXXXXXX', ''})
+
 # Long-form → short-form aliases from QMK Configurator
 _ALIASES: dict[str, str] = {
     'KC_ENTER': 'KC_ENT',

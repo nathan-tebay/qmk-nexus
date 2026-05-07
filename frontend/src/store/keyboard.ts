@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { matrixExtentOrNull } from '@/utils/matrixExtent'
 
 function makeUF(ids: string[]) {
   const parent = new Map<string, string>()
@@ -179,6 +180,8 @@ export interface KeyboardConfig {
   sourceMode: 'generated' | 'qmk_native' | 'qmk_json'
   upstreamKeyboard: string | null
   upstreamFiles: Record<string, string>
+  upstreamLayouts: Record<string, unknown>
+  layoutAliases: Record<string, string>
   softSerialPin: string
   encoders: EncoderElement[]
   oleds: OledElement[]
@@ -266,20 +269,13 @@ function sanitizeEncoderKeycodes(
   return next
 }
 
-function matrixExtent(keys: KeyDef[], field: 'row' | 'col'): number | null {
-  const values = keys
-    .map((key) => key[field])
-    .filter((value): value is number => value !== null && value !== undefined)
-  return values.length ? Math.max(...values) + 1 : null
-}
-
 function trimMatrixPins(
   keys: KeyDef[],
   rowPins: MatrixPin[],
   colPins: ColPin[],
 ): Pick<KeyboardConfig, 'rowPins' | 'colPins'> {
-  const rowCount = matrixExtent(keys, 'row')
-  const colCount = matrixExtent(keys, 'col')
+  const rowCount = matrixExtentOrNull(keys, 'row')
+  const colCount = matrixExtentOrNull(keys, 'col')
   return {
     rowPins: rowCount === null ? rowPins : rowPins.filter((pin) => pin.row >= 0 && pin.row < rowCount),
     colPins: colCount === null ? colPins : colPins.filter((pin) => pin.col >= 0 && pin.col < colCount),
@@ -302,6 +298,8 @@ function normalizeKeyboardConfig(config: KeyboardConfig): KeyboardConfig {
     sourceMode: config.sourceMode || 'generated',
     upstreamKeyboard: config.upstreamKeyboard ?? null,
     upstreamFiles: config.upstreamFiles ?? {},
+    upstreamLayouts: config.upstreamLayouts ?? {},
+    layoutAliases: config.layoutAliases ?? {},
     ...pins,
     encoderKeycodes: sanitizeEncoderKeycodes(
       config.encoderKeycodes ?? {},
@@ -379,6 +377,8 @@ const defaultConfig: KeyboardConfig = {
   sourceMode: 'generated',
   upstreamKeyboard: null,
   upstreamFiles: {},
+  upstreamLayouts: {},
+  layoutAliases: {},
   softSerialPin: 'D0',
   encoders: [],
   oleds: [],

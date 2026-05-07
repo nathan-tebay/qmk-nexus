@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from models import KeyboardConfig
-from codegen._matrix import matrix_rows, matrix_cols
+from codegen._matrix import matrix_rows, matrix_cols, resolve_rgb_led_count
 from codegen._mcu import MCU_BOOTLOADER
 
 
@@ -47,9 +47,7 @@ def generate_config_h(config: KeyboardConfig) -> str:
 
     if features.get('rgb_matrix'):
         rgb = fc.get('rgb_matrix', {})
-        led_count = len([k for k in config.keys if k.led_index is not None])
-        if led_count == 0:
-            led_count = len([k for k in config.keys if k.row is not None])
+        led_count = resolve_rgb_led_count(config)
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
         max_bright = rgb.get('RGB_MATRIX_MAXIMUM_BRIGHTNESS', '200')
         default_mode = rgb.get('RGB_MATRIX_DEFAULT_MODE', 'RGB_MATRIX_BREATHING')

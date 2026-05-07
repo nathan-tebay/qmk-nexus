@@ -17,6 +17,9 @@ interface Props {
   onSelect: (id: string, shiftKey: boolean) => void
   onChange: (id: string, updates: Partial<KeyDef>) => void
   onMatrixClick?: (id: string, mods: { shift: boolean; ctrl: boolean; alt: boolean }) => void
+  onDragStart?: (id: string, node: Konva.Node) => void
+  onDragMove?: (id: string, node: Konva.Node) => void
+  onDragEnd?: (id: string, node: Konva.Node) => boolean
 }
 
 const SNAP_UNIT = UNIT * 0.25
@@ -36,7 +39,7 @@ function isoEnterPath(ctx: Context, w: number, h: number) {
 
 export default function KeyShape({
   keyDef, selected, showMatrix, keycodeLabel, snapGrid,
-  onSelect, onChange, onMatrixClick,
+  onSelect, onChange, onMatrixClick, onDragStart, onDragMove, onDragEnd,
 }: Props) {
   const w = keyDef.w * UNIT - GAP
   const h = keyDef.h * UNIT - GAP
@@ -44,6 +47,7 @@ export default function KeyShape({
 
   function handleDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
     const node = e.target
+    if (onDragEnd?.(keyDef.id, node)) return
     if (keyDef.rotation !== 0) {
       onChange(keyDef.id, { x: node.x() / UNIT, y: node.y() / UNIT })
       return
@@ -86,6 +90,8 @@ export default function KeyShape({
       draggable={!showMatrix}
       onClick={handleClick}
       onTap={handleClick}
+      onDragStart={(e) => onDragStart?.(keyDef.id, e.target)}
+      onDragMove={(e) => onDragMove?.(keyDef.id, e.target)}
       onDragEnd={handleDragEnd}
     >
       {isRect ? (

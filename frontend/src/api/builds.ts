@@ -1,9 +1,10 @@
 import { api } from './client'
+import { triggerBlobDownload } from '@/utils/downloadBlob'
 
 export interface BuildStatus {
   id: string
   keyboardId: string
-  status: 'queued' | 'building' | 'success' | 'failed'
+  status: 'queued' | 'building' | 'running' | 'success' | 'failed'
   log: string[]
   artifactAvailable: boolean
   error: string | null
@@ -19,7 +20,7 @@ export interface RecentBuild {
   id: string
   keyboardId: string
   keyboardName: string | null
-  status: 'queued' | 'building' | 'success' | 'failed'
+  status: 'queued' | 'building' | 'running' | 'success' | 'failed'
   configHash: string | null
   createdAt: string | null
   mode: string | null
@@ -37,12 +38,7 @@ export const buildsApi = {
 
   download: async (buildId: string, filename: string) => {
     const blob = await api.blob(`/builds/${buildId}/download`)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, filename)
   },
 
   recent: () =>

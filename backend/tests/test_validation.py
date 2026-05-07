@@ -1,7 +1,20 @@
 from codegen.generator import generate_all
+from codegen.keycodes import TRIVIAL_KEYCODES
 from codegen.keyboard_c import generate_keyboard_c
 from models import ColPin, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
+from validation import _FEATURE_ALIASES
 from validation import sanitize_keyboard_config, validate_build_ready, validate_keyboard_config
+
+
+def test_feature_aliases_match_frontend_contract():
+    assert _FEATURE_ALIASES == {
+        'extrakey': 'extrakeys',
+        'mousekey': 'mousekeys',
+    }
+
+
+def test_trivial_keycodes_include_configurator_no_key_alias():
+    assert TRIVIAL_KEYCODES == frozenset({'KC_TRNS', 'KC_NO', 'XXXXXXX', ''})
 
 
 def test_sanitize_keyboard_config_drops_unsupported_encoder_press_binding():

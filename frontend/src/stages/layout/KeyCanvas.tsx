@@ -26,17 +26,26 @@ interface MatrixPending {
   mode: MatrixMode
 }
 
+interface MultiDragState {
+  draggedId: string
+  startX: number
+  startY: number
+  positions: Map<string, { x: number; y: number }>
+}
+
 const ZOOM_FACTOR = 1.15
 const MIN_SCALE = 0.2
 const MAX_SCALE = 4
 const GRID_U = 40
 const SNAP_U = 0.25
+const SNAP_UNIT = UNIT * SNAP_U
 
 const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
   { showMatrix, snapGrid, width, height, colorScheme = 'default' },
   ref,
 ) {
   const stageRef = useRef<Konva.Stage>(null)
+  const multiDragRef = useRef<MultiDragState | null>(null)
   const {
     config, selectedKeyIds, activeLayerId,
     setSelectedKey, setSelectedKeys, toggleSelectedKey, updateKey,
@@ -116,6 +125,72 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     setMatrixPending(null)
   }
 
+  function handleKeyDragStart(id: string, node: Konva.Node) {
+    if (!selectedKeyIds.includes(id) || selectedKeyIds.length < 2) {
+      multiDragRef.current = null
+      return
+    }
+    const stage = stageRef.current
+    if (!stage) return
+
+    const positions = new Map<string, { x: number; y: number }>()
+    for (const keyId of selectedKeyIds) {
+      const selectedNode = stage.findOne(`#${keyId}`)
+      if (!selectedNode) continue
+      positions.set(keyId, { x: selectedNode.x(), y: selectedNode.y() })
+    }
+    multiDragRef.current = {
+      draggedId: id,
+      startX: node.x(),
+      startY: node.y(),
+      positions,
+    }
+  }
+
+  function handleKeyDragMove(id: string, node: Konva.Node) {
+    const drag = multiDragRef.current
+    const stage = stageRef.current
+    if (!drag || drag.draggedId !== id || !stage) return
+
+    const dx = node.x() - drag.startX
+    const dy = node.y() - drag.startY
+    for (const [keyId, start] of drag.positions) {
+      if (keyId === id) continue
+      const selectedNode = stage.findOne(`#${keyId}`)
+      selectedNode?.position({ x: start.x + dx, y: start.y + dy })
+    }
+    stage.batchDraw()
+  }
+
+  function handleKeyDragEnd(id: string, node: Konva.Node): boolean {
+    const drag = multiDragRef.current
+    const stage = stageRef.current
+    if (!drag || drag.draggedId !== id || !stage) return false
+
+    const draggedKey = config.keys.find((key) => key.id === id)
+    const snap = snapGrid ? SNAP_UNIT : UNIT
+    const finalX = draggedKey?.rotation
+      ? node.x()
+      : Math.round(node.x() / snap) * snap
+    const finalY = draggedKey?.rotation
+      ? node.y()
+      : Math.round(node.y() / snap) * snap
+    const dx = finalX - drag.startX
+    const dy = finalY - drag.startY
+
+    for (const [keyId, start] of drag.positions) {
+      const selectedNode = stage.findOne(`#${keyId}`)
+      const x = start.x + dx
+      const y = start.y + dy
+      selectedNode?.position({ x, y })
+      updateKey(keyId, { x: x / UNIT, y: y / UNIT })
+    }
+
+    multiDragRef.current = null
+    stage.batchDraw()
+    return true
+  }
+
   const fitView = useCallback(() => {
     const stage = stageRef.current
     const allBounds: number[][] = [
@@ -189,6 +264,9 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
               onSelect={handleKeySelect}
               onChange={updateKey}
               onMatrixClick={handleMatrixClick}
+              onDragStart={handleKeyDragStart}
+              onDragMove={handleKeyDragMove}
+              onDragEnd={handleKeyDragEnd}
             />
           )
         })}

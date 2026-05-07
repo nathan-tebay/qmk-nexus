@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { buildsApi, type RecentBuild } from '@/api/builds'
 import { useBuildStore } from '@/store/build'
-import { firmwareExtension } from '@/utils/firmwareExtension'
+import { buildFilename } from '@/utils/buildFilename'
+import BuildStatusIndicator from './BuildStatusIndicator'
 import styles from './RecentBuildsPanel.module.css'
 
 export interface RecentBuildsPanelHandle {
@@ -14,16 +15,6 @@ function formatAge(iso: string): string {
   const hrs = Math.floor(mins / 60)
   if (hrs < 24) return `${hrs}h ago`
   return `${Math.floor(hrs / 24)}d ago`
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cls = [
-    styles.badge,
-    status === 'success' ? styles.badgeSuccess : '',
-    status === 'failed' ? styles.badgeFailed : '',
-    status === 'building' || status === 'queued' ? styles.badgeRunning : '',
-  ].filter(Boolean).join(' ')
-  return <span className={cls}>{status}</span>
 }
 
 export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
@@ -57,10 +48,7 @@ export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
       try {
         const restored = await buildsApi.restore(build.id)
         setActiveBuild(restored)
-        const ext = build.mcu ? firmwareExtension(build.mcu) : 'hex'
-        const name = (build.keyboardName ?? 'keyboard').toLowerCase().replace(/\s+/g, '_')
-        const hash = build.configHash?.slice(0, 8) ?? ''
-        const filename = hash ? `${name}_${hash}.${ext}` : `${name}.${ext}`
+        const filename = buildFilename(build.keyboardName ?? 'keyboard', build.configHash, build.mcu)
         await buildsApi.download(build.id, filename)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Download failed')
@@ -87,7 +75,7 @@ export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
             <li key={build.id} className={styles.item}>
               <div className={styles.itemTop}>
                 <span className={styles.name}>{build.keyboardName ?? 'Unknown'}</span>
-                <StatusBadge status={build.status} />
+                <BuildStatusIndicator status={build.status} variant="badge" />
               </div>
               <div className={styles.itemMeta}>
                 {build.configHash && (

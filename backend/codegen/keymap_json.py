@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from codegen._matrix import keys_by_matrix
 from models import KeyboardConfig
 
 
@@ -48,11 +49,7 @@ def _ordered_keycodes(config: KeyboardConfig, canonical_layout: str) -> list[lis
         # config by matching matrix coordinates.
         upstream_keys = layout_def['layout']
         key_order: list[str | None] = []
-        by_matrix = {
-            (k.row, k.col): k.id
-            for k in config.keys
-            if k.row is not None and k.col is not None
-        }
+        by_matrix = keys_by_matrix(config.keys)
         for entry in upstream_keys:
             if not isinstance(entry, dict):
                 key_order.append(None)

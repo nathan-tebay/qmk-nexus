@@ -16,29 +16,30 @@ from naming import safe_name
 _CANONICAL_MAP = {'keyboard.c': '{kb}.c', 'keyboard.h': '{kb}.h'}
 
 
-def generate_sources(config: KeyboardConfig, *, overrides: dict[str, str] | None = None) -> dict[str, str]:
-    """Return canonical filename → content for all generated firmware files."""
-    if config.source_mode == 'qmk_json':
-        from codegen.keymap_json import generate_keymap_json
-        from codegen.validator import validate_keymap_json
-        import json as _json
-        payload_str = generate_keymap_json(config)
-        errors = validate_keymap_json(_json.loads(payload_str))
-        if errors:
-            raise ValueError(f'Invalid keymap.json: {"; ".join(errors)}')
-        return {'keymap.json': payload_str}
+def _generate_qmk_json(config: KeyboardConfig) -> dict[str, str]:
+    from codegen.keymap_json import generate_keymap_json
+    from codegen.validator import validate_keymap_json
+    import json as _json
+    payload_str = generate_keymap_json(config)
+    errors = validate_keymap_json(_json.loads(payload_str))
+    if errors:
+        raise ValueError(f'Invalid keymap.json: {"; ".join(errors)}')
+    return {'keymap.json': payload_str}
 
-    if config.source_mode == 'qmk_native':
-        return {
-            'qmk_native.json': json.dumps({
-                'keyboard': config.upstream_keyboard,
-                'keymap': 'nexus',
-            }, indent=2),
-            'keymap.c': generate_keymap_c(config),
-        }
 
+def _generate_qmk_native(config: KeyboardConfig) -> dict[str, str]:
+    return {
+        'qmk_native.json': json.dumps({
+            'keyboard': config.upstream_keyboard,
+            'keymap': 'nexus',
+        }, indent=2),
+        'keymap.c': generate_keymap_c(config),
+    }
+
+
+def _generate_full(config: KeyboardConfig) -> dict[str, str]:
     info = generate_info_json(config)
-    files = {
+    return {
         'keyboard.c': generate_keyboard_c(config),
         'keyboard.h': generate_keyboard_h(config),
         'config.h': generate_config_h(config),
@@ -47,6 +48,21 @@ def generate_sources(config: KeyboardConfig, *, overrides: dict[str, str] | None
         'info.json': info,
         'keyboard.json': info,
     }
+
+
+_SOURCE_GENERATORS = {
+    'qmk_json': _generate_qmk_json,
+    'qmk_native': _generate_qmk_native,
+    'generated': _generate_full,
+}
+
+
+def generate_sources(config: KeyboardConfig, *, overrides: dict[str, str] | None = None) -> dict[str, str]:
+    """Return canonical filename → content for all generated firmware files."""
+    generator = _SOURCE_GENERATORS.get(config.source_mode)
+    if generator is None:
+        raise ValueError(f'Unsupported source mode: {config.source_mode}')
+    files = generator(config)
     if overrides:
         for canonical, content in overrides.items():
             if canonical in files:

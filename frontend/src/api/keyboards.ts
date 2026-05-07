@@ -1,5 +1,6 @@
 import { api } from './client'
 import type { KeyboardConfig } from '@/store/keyboard'
+import { triggerBlobDownload } from '@/utils/downloadBlob'
 
 export interface QMKKeyboardSummary {
   path: string
@@ -16,8 +17,8 @@ export const qmkApi = {
   search: (q: string) =>
     api.get<QMKKeyboardSummary[]>(`/qmk/search?q=${encodeURIComponent(q)}`),
 
-  importKeyboard: (path: string) =>
-    api.get<KeyboardConfig>(`/qmk/import/${path}`),
+  importKeyboard: (path: string, options?: { layoutOnly?: boolean }) =>
+    api.get<KeyboardConfig>(`/qmk/import/${path}${options?.layoutOnly ? '?layoutOnly=true' : ''}`),
 }
 
 export const keyboardsApi = {
@@ -33,12 +34,7 @@ export const keyboardsApi = {
 
   downloadSources: async (id: string, filename: string) => {
     const blob = await api.blob(`/keyboards/${id}/sources`)
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(url)
+    triggerBlobDownload(blob, filename)
   },
 
   delete: (id: string) =>

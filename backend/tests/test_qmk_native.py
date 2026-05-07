@@ -4,7 +4,7 @@ import types
 
 from codegen.generator import generate_all, generate_sources
 from codegen.keymap_c import generate_keymap_c
-from models import ColPin, KeyboardConfig, KeyDef, Layer, MatrixPin
+from models import ColPin, KeyboardConfig, KeyDef, Layer, MatrixEdge, MatrixPin
 from validation import validate_build_ready
 
 
@@ -197,6 +197,153 @@ def test_import_resolves_default_keymap_layout_alias():
     assert config.layers[0].keycodes == {
         config.keys[0].id: 'KC_A',
         config.keys[1].id: 'KC_B',
+    }
+
+
+def test_layout_only_import_preserves_qmk_data_but_generates_nexus_source():
+    config = _convert_to_config('vendor/board', {
+        'keyboard_name': 'Vendor Board',
+        'manufacturer': 'Vendor',
+        'processor': 'rp2040',
+        'usb': {'vid': '0x1234', 'pid': '0x5678'},
+        'matrix_pins': {'rows': ['B0'], 'cols': ['B1', 'B2']},
+        'features': {'rgb_matrix': True, 'split_keyboard': True},
+        'encoder': {'rotary': [{'pin_a': 'D1', 'pin_b': 'D2'}]},
+        'layouts': {
+            'LAYOUT_vendor': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [0, 1], 'x': 1, 'y': 0},
+                ],
+            },
+        },
+        '_default_keymap': {
+            'layout': 'LAYOUT_vendor',
+            'layers': [['KC_A', 'KC_B']],
+            'encoders': [[{'ccw': 'KC_VOLD', 'cw': 'KC_VOLU'}]],
+        },
+    }, layout_only=True)
+
+    assert config.source_mode == 'generated'
+    assert config.upstream_keyboard == 'vendor/board'
+    assert config.upstream_files == {}
+    assert 'LAYOUT_vendor' in config.upstream_layouts
+    assert config.layout_macro == 'LAYOUT_vendor'
+    assert config.mcu == 'rp2040'
+    assert config.usb_vid == '0x1234'
+    assert config.usb_pid == '0x5678'
+    assert config.manufacturer == 'Vendor'
+    assert config.row_pins == [MatrixPin(row=0, pin='B0')]
+    assert config.col_pins == [ColPin(col=0, pin='B1'), ColPin(col=1, pin='B2')]
+    assert config.matrix_edges == [
+        MatrixEdge(from_=config.keys[0].id, to=config.keys[1].id, type='row'),
+    ]
+    assert len(config.encoders) == 1
+    assert [(key.row, key.col, key.led_index) for key in config.keys] == [
+        (0, 0, None),
+        (0, 1, None),
+    ]
+    assert config.layers[0].keycodes == {
+        config.keys[0].id: 'KC_A',
+        config.keys[1].id: 'KC_B',
+    }
+    assert config.features['rgb_matrix'] is True
+    assert config.features['split_keyboard'] is True
+    assert config.features['encoder'] is True
+    assert config.feature_configs['encoder']['ENCODER_COUNT'] == '1'
+    assert config.feature_configs['encoder']['ENCODER_PAD_A_0'] == 'D1'
+    assert config.feature_configs['encoder']['ENCODER_PAD_B_0'] == 'D2'
+    assert config.encoder_keycodes == {
+        f'{config.layers[0].id}:{config.encoders[0].id}:ccw': 'KC_VOLD',
+        f'{config.layers[0].id}:{config.encoders[0].id}:cw': 'KC_VOLU',
+    }
+
+
+def test_import_st7565_split_keyboard_as_two_oled_elements():
+    config = _convert_to_config('input_club/ergodox_infinity', {
+        'keyboard_name': 'Infinity Ergodox (QMK)',
+        'processor': 'mk20dx256',
+        'features': {'st7565': True},
+        'split': {'enabled': True},
+        'layouts': {
+            'LAYOUT_ergodox': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 1},
+                    {'matrix': [0, 1], 'x': 1, 'y': 1},
+                    {'matrix': [4, 0], 'x': 8, 'y': 1},
+                    {'matrix': [4, 1], 'x': 9, 'y': 1},
+                ],
+            },
+        },
+    }, layout_only=True)
+
+    assert config.source_mode == 'generated'
+    assert config.features['oled'] is True
+    assert config.features['split_keyboard'] is True
+    assert len(config.oleds) == 2
+    assert config.oleds[0].active_blocks == ['layer_name', 'wpm']
+    assert config.oleds[1].active_blocks == ['master_slave']
+    assert config.feature_configs['oled']['OLED_COUNT'] == '2'
+    assert config.feature_configs['oled']['OLED_DRIVER_0'] == 'ST7567'
+    assert config.feature_configs['oled']['OLED_DRIVER_1'] == 'ST7567'
+    assert config.feature_configs['oled']['OLED_DISPLAY_SIZE_0'] == '128_32'
+    assert config.feature_configs['oled']['OLED_DISPLAY_SIZE_1'] == '128_32'
+
+
+def test_import_pointing_device_as_trackball_element_with_inferred_driver():
+    config = _convert_to_config('dlip/haritev2/dual_cirque', {
+        'keyboard_name': 'haritev2',
+        'processor': 'rp2040',
+        'features': {'pointing_device': True},
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [0, 1], 'x': 1, 'y': 0},
+                    {'matrix': [0, 2], 'x': 8, 'y': 0},
+                    {'matrix': [0, 3], 'x': 9, 'y': 0},
+                ],
+            },
+        },
+    }, layout_only=True)
+
+    assert config.source_mode == 'generated'
+    assert config.features['pointing_device'] is True
+    assert len(config.trackballs) == 2
+    assert all(trackball.driver == 'cirque_pinnacle_spi' for trackball in config.trackballs)
+    assert config.feature_configs['pointing_device']['POINTING_DEVICE_DRIVER'] == 'cirque_pinnacle_spi'
+
+
+def test_import_encoder_elements_from_default_keymap_encoder_count():
+    config = _convert_to_config('handwired/erikpeyronson/erkbd', {
+        'keyboard_name': 'erkbd',
+        'processor': 'atmega32u4',
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [0, 1], 'x': 1, 'y': 0},
+                ],
+            },
+        },
+        '_default_keymap': {
+            'layout': 'LAYOUT',
+            'layers': [['KC_A', 'KC_B']],
+            'encoders': [[
+                {'ccw': 'KC_UP', 'cw': 'KC_DOWN'},
+                {'ccw': 'KC_RIGHT', 'cw': 'KC_LEFT'},
+            ]],
+        },
+    }, layout_only=True)
+
+    assert len(config.encoders) == 2
+    assert config.features['encoder'] is True
+    assert config.feature_configs['encoder']['ENCODER_COUNT'] == '2'
+    assert config.encoder_keycodes == {
+        f'{config.layers[0].id}:{config.encoders[0].id}:ccw': 'KC_UP',
+        f'{config.layers[0].id}:{config.encoders[0].id}:cw': 'KC_DOWN',
+        f'{config.layers[0].id}:{config.encoders[1].id}:ccw': 'KC_RIGHT',
+        f'{config.layers[0].id}:{config.encoders[1].id}:cw': 'KC_LEFT',
     }
 
 

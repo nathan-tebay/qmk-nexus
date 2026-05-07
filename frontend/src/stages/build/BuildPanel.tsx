@@ -2,16 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { buildsApi, type BuildStatus } from '@/api/builds'
 import { useBuildStore } from '@/store/build'
 import { useKeyboardStore } from '@/store/keyboard'
-import { validateMatrices } from '@/utils/validateMatrices'
-import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
-import { firmwareExtension } from '@/utils/firmwareExtension'
 import { mcuById } from './mcus'
+import BuildStatusIndicator, { buildStatusLabel, isBuildRunning } from './BuildStatusIndicator'
+import { useBuildPoller } from './useBuildPoller'
+import type { BuildValidation } from './useBuildValidation'
 import styles from './BuildPanel.module.css'
-
-import {
-  getFeatureValidationErrors,
-  getFeatureConflictErrors,
-} from '@/utils/validateFeatureConfig'
 
 function likelyBuildIssue(status: BuildStatus | null): string | null {
   if (!status || status.status !== 'failed') return null
@@ -26,83 +21,52 @@ function likelyBuildIssue(status: BuildStatus | null): string | null {
   return 'Likely issue: QMK returned a compile error. Check the first ERROR line in the log.'
 }
 
+function isTransparentEncoderCode(code: string | undefined): boolean {
+  const normalized = (code ?? '').trim()
+  return normalized === '' || normalized === 'KC_TRNS' || normalized === '_______'
+}
+
+function encoderMappingWarning(config: ReturnType<typeof useKeyboardStore.getState>['config']): string | null {
+  if (!config.features.encoder || (config.encoders ?? []).length === 0) return null
+
+  let unmappedDirections = 0
+  for (const encoder of config.encoders ?? []) {
+    for (const dir of ['cw', 'ccw'] as const) {
+      const hasMapping = (config.layers ?? []).some((layer) => (
+        !isTransparentEncoderCode(config.encoderKeycodes?.[`${layer.id}:${encoder.id}:${dir}`])
+      ))
+      if (!hasMapping) unmappedDirections += 1
+    }
+  }
+
+  if (unmappedDirections === 0) return null
+  return `${unmappedDirections} encoder direction${unmappedDirections === 1 ? '' : 's'} have no mapped action. Configure encoder CW/CCW actions in the Keymap stage before building if you expect the encoder to do anything.`
+}
+
 interface Props {
   keyboardId: string | null
   onSaveFirst: () => Promise<string | null>
   onBuildSuccess?: () => void
+  validation: BuildValidation
 }
 
-const POLL_MS = 2000
-
-export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
+export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation }: Props) {
   const config = useKeyboardStore((s) => s.config)
   const keyboardName = config.name
   const mcu = config.mcu
   const mcuSupported = mcuById.get(mcu)?.supported ?? true
-  const matrixValidation = validateMatrices(config)
-  const matrixBlocked = !matrixValidation.matrixOk
-  const ledBlocked = !matrixValidation.ledOk
-  const configErrors = validateKeyboardConfig(config)
-  const configBlocked = configErrors.length > 0
-  const featureErrors = getFeatureValidationErrors(config.features, config.featureConfigs)
-  const conflictErrors = getFeatureConflictErrors(config.features)
-  const featureBlocked = featureErrors.length > 0 || conflictErrors.length > 0
-  const buildId = useBuildStore((s) => s.buildId)
-  const status = useBuildStore((s) => s.status)
+  const {
+    matrixValidation, matrixBlocked, ledBlocked,
+    configErrors, configBlocked, featureErrors, conflictErrors, featureBlocked,
+  } = validation
+  const encoderWarning = encoderMappingWarning(config)
   const setActiveBuild = useBuildStore((s) => s.setActiveBuild)
   const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
+  const { status, startPolling, stopPolling } = useBuildPoller(onBuildSuccess)
   const [triggering, setTriggering] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [copiedLog, setCopiedLog] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const pollErrorCount = useRef<number>(0)
-
-  function stopPolling() {
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
-  }
-
-  useEffect(() => () => stopPolling(), [])
-
-  const isPersistedBuildRunning = !!buildId && status?.status !== 'success' && status?.status !== 'failed'
-
-  useEffect(() => {
-    if (!buildId || !isPersistedBuildRunning) return
-    if (pollRef.current) return
-    let stopped = false
-    pollRef.current = setInterval(async () => {
-      try {
-        const updated = await buildsApi.status(buildId)
-        if (stopped) return
-        pollErrorCount.current = 0
-        setActiveBuild(updated)
-        if (updated.status === 'success') { stopPolling(); onBuildSuccess?.() }
-        else if (updated.status === 'failed') stopPolling()
-      } catch (e) {
-        if (stopped) return
-        pollErrorCount.current += 1
-        if (pollErrorCount.current >= 10) {
-          setActiveBuild({
-            ...(status ?? { id: buildId, keyboardId: '', artifactAvailable: false, error: null }),
-            status: 'failed',
-            log: [...(status?.log ?? []), 'Build status unavailable — refresh to retry'],
-          })
-          stopPolling()
-          return
-        }
-        setActiveBuild({
-          ...(status ?? { id: buildId, keyboardId: '', artifactAvailable: false, error: null }),
-          status: 'failed',
-          log: [...(status?.log ?? []), `Poll error: ${e instanceof Error ? e.message : String(e)}`],
-        })
-        stopPolling()
-      }
-    }, POLL_MS)
-    return () => {
-      stopped = true
-      stopPolling()
-    }
-  }, [buildId, isPersistedBuildRunning, setActiveBuild, status])
 
   useEffect(() => {
     if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
@@ -134,46 +98,17 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
           throw e
         }
       }
-      pollErrorCount.current = 0
       setActiveBuild(s)
       if (s.status === 'success') {
         onBuildSuccess?.()
-      } else if (s.status === 'queued' || s.status === 'building') {
-        let currentStatus = s
-        pollRef.current = setInterval(async () => {
-          try {
-            const updated = await buildsApi.status(s.id)
-            pollErrorCount.current = 0
-            currentStatus = updated
-            setActiveBuild(updated)
-            if (updated.status === 'success') { stopPolling(); onBuildSuccess?.() }
-            else if (updated.status === 'failed') stopPolling()
-          } catch (e) {
-            pollErrorCount.current += 1
-            const msg = pollErrorCount.current >= 10
-              ? 'Build status unavailable — refresh to retry'
-              : `Poll error: ${e instanceof Error ? e.message : String(e)}`
-            setActiveBuild({
-              ...currentStatus,
-              status: 'failed',
-              log: [...(currentStatus.log ?? []), msg],
-            })
-            stopPolling()
-          }
-        }, POLL_MS)
+      } else if (isBuildRunning(s.status)) {
+        startPolling(s.id, s)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Build trigger failed')
     } finally {
       setTriggering(false)
     }
-  }
-
-  function downloadArtifact() {
-    if (!buildId) return
-    const nameSlug = keyboardName.toLowerCase().replace(/\s+/g, '_')
-    const ext = firmwareExtension(mcu)
-    buildsApi.download(buildId, `${nameSlug}.${ext}`).catch(() => {})
   }
 
   async function copyBuildLog() {
@@ -183,7 +118,7 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
     window.setTimeout(() => setCopiedLog(false), 1200)
   }
 
-  const isRunning = status?.status === 'queued' || status?.status === 'building'
+  const isRunning = isBuildRunning(status?.status)
   const isSuccess = status?.status === 'success' && status?.artifactAvailable
   const isFailed  = status?.status === 'failed'
   const issueSummary = likelyBuildIssue(status ?? null)
@@ -235,6 +170,9 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
           <div style={{ marginTop: 4, fontWeight: 600 }}>Resolve feature settings above to enable build.</div>
         </div>
       )}
+      {encoderWarning && (
+        <div className={styles.warningNotice}>{encoderWarning}</div>
+      )}
       <button
         onClick={triggerBuild}
         disabled={buildDisabled}
@@ -254,9 +192,9 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
           )}
 
           <div className={styles.statusRow}>
-            <StatusDot status={status.status} />
+            <BuildStatusIndicator status={status.status} variant="dot" />
             <span className={`${styles.statusText} ${isRunning ? styles.running : ''} ${isSuccess ? styles.success : ''} ${isFailed ? styles.failed : ''}`}>
-              {status.status === 'queued' ? 'Queued' : status.status === 'building' ? 'Compiling…' : status.status === 'success' ? 'Build successful' : 'Build failed'}
+              {buildStatusLabel(status.status)}
             </span>
           </div>
 
@@ -288,29 +226,9 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess }: Props) {
               Report Build Issue
             </a>
           </div>
-
-          {isSuccess && (
-            <button
-              onClick={downloadArtifact}
-              className={styles.downloadBtn}
-              title="Download the compiled firmware artifact"
-              aria-label="Download compiled firmware"
-            >
-              ↓ Download Firmware
-            </button>
-          )}
         </>
       )}
 
     </div>
   )
-}
-
-function StatusDot({ status }: { status: string }) {
-  const cls = [
-    styles.dot,
-    status === 'success' ? styles.dotSuccess : '',
-    status === 'failed' ? styles.dotFailed : '',
-  ].filter(Boolean).join(' ')
-  return <div className={cls} />
 }

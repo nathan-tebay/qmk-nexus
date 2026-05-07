@@ -21,21 +21,29 @@ export default function SelectionTransformer({ stageRef }: Props) {
   const isNonRect = selectedKey && selectedKey.shape !== 'rect' && selectedKey.shape != null
 
   useEffect(() => {
-    const tr = trRef.current
-    const stage = stageRef.current
-    if (!tr || !stage) return
+    let raf = 0
 
-    if (selectedKeyIds.length > 0) {
-      const nodes = selectedKeyIds
-        .map((id) => stage.findOne(`#${id}`))
-        .filter(Boolean) as Konva.Node[]
-      tr.nodes(nodes)
-      tr.getLayer()?.batchDraw()
-    } else {
+    function attachNodes() {
+      const tr = trRef.current
+      const stage = stageRef.current
+      if (!tr || !stage) return
+
+      if (selectedKeyIds.length > 0) {
+        const nodes = selectedKeyIds
+          .map((id) => stage.findOne(`#${id}`))
+          .filter(Boolean) as Konva.Node[]
+        tr.nodes(nodes)
+        tr.getLayer()?.batchDraw()
+        return
+      }
+
       tr.nodes([])
       tr.getLayer()?.batchDraw()
     }
-  }, [selectedKeyIds, stageRef])
+
+    raf = requestAnimationFrame(attachNodes)
+    return () => cancelAnimationFrame(raf)
+  }, [config.keys, selectedKeyIds, stageRef])
 
   function handleTransform() {
     const tr = trRef.current
@@ -64,8 +72,9 @@ export default function SelectionTransformer({ stageRef }: Props) {
   function handleTransformEnd() {
     const tr = trRef.current
     if (!tr || !selectedKeyIds.length) return
+    const nodes = tr.nodes()
 
-    for (const node of tr.nodes()) {
+    for (const node of nodes) {
       const id = node.id()
       if (!id) continue
       const scaleX = node.scaleX()

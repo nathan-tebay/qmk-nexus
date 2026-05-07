@@ -44,6 +44,16 @@ _BUILD_TTL = 600  # seconds
 _KEYMAP_PAYLOADS: dict[str, str] = {}
 
 
+def _normalize_build_status(status: str | None) -> str:
+    if status in {'queued', 'building', 'success', 'failed'}:
+        return status
+    if status == 'running':
+        return 'building'
+    if status == 'error':
+        return 'failed'
+    return 'building'
+
+
 def _compute_config_hash(config: KeyboardConfig) -> str:
     raw = config.model_dump_json(exclude={'id': True})
     return hashlib.sha256(raw.encode()).hexdigest()[:12]
@@ -54,6 +64,14 @@ def _record_final_build(status: BuildStatus, user: User) -> None:
         telemetry.record_build_final(status, user.id)
     except Exception:
         logger.exception('Failed to record telemetry for build %s', status.id)
+
+
+def _fail_build(status: BuildStatus, build_dir: Path, user: User, label: str, exc: Exception) -> None:
+    status.status = 'failed'
+    status.error = f'{label}: {exc}'
+    status.log.append(status.error)
+    shutil.rmtree(build_dir, ignore_errors=True)
+    _record_final_build(status, user)
 
 
 # ── Build cookie (stateless, signed JWT) ─────────────────────────────────────
@@ -94,14 +112,14 @@ def _decode_build_cookie(build_token: str | None) -> dict | None:
 async def _build_cookie_is_active(payload: dict) -> bool:
     build_id = payload.get('build_id')
     mode = payload.get('mode', 'direct')
-    active_statuses = {'queued', 'building', 'running'}
+    active_statuses = {'queued', 'building'}
     if not build_id:
         return False
 
     try:
         if mode == 'ecs':
             raw = aws_builds.read_build_status(payload['bucket'], payload['prefix'])
-            return raw.get('status') in active_statuses
+            return _normalize_build_status(raw.get('status')) in active_statuses
 
         async with httpx.AsyncClient() as client:
             if mode == 'proxy':
@@ -112,7 +130,7 @@ async def _build_cookie_is_active(payload: dict) -> bool:
                 r.raise_for_status()
                 raw = r.json()
                 container = raw.get('container') or {}
-                return (container.get('status') or raw.get('status')) in active_statuses
+                return _normalize_build_status(container.get('status') or raw.get('status')) in active_statuses
 
             endpoint = payload.get('endpoint')
             if not endpoint:
@@ -122,7 +140,7 @@ async def _build_cookie_is_active(payload: dict) -> bool:
                 return False
             r.raise_for_status()
             raw = r.json()
-            return raw.get('status') in active_statuses
+            return _normalize_build_status(raw.get('status')) in active_statuses
     except Exception:
         return False
 
@@ -329,11 +347,7 @@ async def trigger_build(
             shutil.rmtree(build_dir, ignore_errors=True)
         except Exception as exc:
             logger.exception('ECS dispatch failed for build %s', build_id)
-            status.status = 'failed'
-            status.error = f'ECS error: {exc}'
-            status.log.append(status.error)
-            shutil.rmtree(build_dir, ignore_errors=True)
-            _record_final_build(status, user)
+            _fail_build(status, build_dir, user, 'ECS error', exc)
     elif (proxy_url := settings.build_proxy_url.rstrip()):
         # ── Proxy mode: delegate to build proxy (server.py) on the host ──────
         try:
@@ -362,11 +376,7 @@ async def trigger_build(
             dynamo.put_build(status.model_copy(update={'mode': 'proxy'}), user.id)
         except Exception as exc:
             logger.exception('Proxy dispatch failed for build %s', build_id)
-            status.status = 'failed'
-            status.error = f'Proxy error: {exc}'
-            status.log.append(status.error)
-            shutil.rmtree(build_dir, ignore_errors=True)
-            _record_final_build(status, user)
+            _fail_build(status, build_dir, user, 'Proxy error', exc)
     else:
         # ── Direct mode: spawn builder container locally ───────────────────
         try:
@@ -377,11 +387,7 @@ async def trigger_build(
             dynamo.put_build(status.model_copy(update={'mode': 'direct'}), user.id)
         except Exception as exc:
             logger.exception('Container spawn failed for build %s', build_id)
-            status.status = 'failed'
-            status.error = f'Spawn error: {exc}'
-            status.log.append(status.error)
-            shutil.rmtree(build_dir, ignore_errors=True)
-            _record_final_build(status, user)
+            _fail_build(status, build_dir, user, 'Spawn error', exc)
 
     return jsonable_out(status)
 
@@ -394,7 +400,7 @@ async def list_recent_builds_route(user: User = Depends(get_current_user)):
             id=r['id'],
             keyboard_id=r.get('keyboard_id', ''),
             keyboard_name=r.get('keyboard_name'),
-            status=r.get('status', 'failed'),
+            status=_normalize_build_status(r.get('status', 'failed')),
             config_hash=r.get('config_hash'),
             created_at=r.get('created_at'),
             mode=r.get('mode'),
@@ -456,7 +462,7 @@ async def get_build_status(
         status = BuildStatus(
             id=build_id,
             keyboard_id=payload.get('keyboard_id', ''),
-            status=raw.get('status', 'building'),
+            status=_normalize_build_status(raw.get('status')),
             log=raw.get('log', []),
             artifact_available=bool(raw.get('artifact_available') or raw.get('artifact_key')),
             error=raw.get('error'),
@@ -475,7 +481,7 @@ async def get_build_status(
         status = BuildStatus(
             id=build_id,
             keyboard_id=payload.get('keyboard_id', ''),
-            status=container.get('status') or raw.get('status', 'building'),
+            status=_normalize_build_status(container.get('status') or raw.get('status')),
             log=container.get('log', []),
             artifact_available=container.get('artifact_available', False),
             error=raw.get('error'),
@@ -493,7 +499,7 @@ async def get_build_status(
         status = BuildStatus(
             id=build_id,
             keyboard_id=payload.get('keyboard_id', ''),
-            status=raw.get('status', 'building'),
+            status=_normalize_build_status(raw.get('status')),
             log=raw.get('log', []),
             artifact_available=raw.get('artifact_available', False),
             error=raw.get('error'),

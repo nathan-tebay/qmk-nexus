@@ -26,3 +26,26 @@ def matrix_rows(config: KeyboardConfig) -> int:
 def matrix_cols(config: KeyboardConfig) -> int:
     cols = [k.col for k in config.keys if k.col is not None]
     return max(cols) + 1 if cols else len(config.col_pins)
+
+
+def keys_by_matrix(keys: list[KeyDef]) -> dict[tuple[int, int], str]:
+    return {
+        (k.row, k.col): k.id
+        for k in keys
+        if k.row is not None and k.col is not None
+    }
+
+
+def resolve_rgb_led_count(config: KeyboardConfig) -> int:
+    rgb = (config.feature_configs or {}).get('rgb_matrix', {})
+    explicit = rgb.get('RGB_MATRIX_LED_COUNT')
+    if explicit:
+        try:
+            return int(explicit)
+        except ValueError:
+            pass
+
+    led_keys = [k for k in config.keys if k.led_index is not None]
+    if led_keys:
+        return len(led_keys)
+    return len([k for k in config.keys if k.row is not None])

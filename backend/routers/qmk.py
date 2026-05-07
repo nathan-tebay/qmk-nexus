@@ -10,7 +10,8 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from models import ColPin, EncoderElement, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin
+from codegen.keycodes import TRIVIAL_KEYCODES
+from models import ColPin, EncoderElement, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin, OledElement, TrackballElement
 from validation import canonical_feature_id, sanitize_keyboard_config
 
 logger = logging.getLogger('qmk-nexus.qmk')
@@ -101,6 +102,9 @@ def _yes_no(value: Any) -> str:
 
 def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = False) -> dict[str, dict[str, str]]:
     feature_configs: dict[str, dict[str, str]] = {}
+    features = info.get('features') or {}
+    ws2812 = info.get('ws2812') or {}
+    native_config_text = _native_config_text(info)
 
     split = info.get('split') or {}
     if split.get('enabled') or split_enabled:
@@ -143,10 +147,9 @@ def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = Fa
             rgb_config['RGB_MATRIX_MAXIMUM_BRIGHTNESS'] = str(rgb_matrix['max_brightness'])
         if 'sleep' in rgb_matrix:
             rgb_config['RGB_MATRIX_SLEEP'] = _yes_no(rgb_matrix['sleep'])
-        ws2812 = info.get('ws2812') or {}
         if ws2812.get('pin'):
             rgb_config['RGB_MATRIX_PIN'] = str(ws2812['pin'])
-        native_defines = _defines_from_native_config(info)
+        native_defines = _defines_from_native_config(info, native_config_text)
         for key in ('RGB_MATRIX_I2C_SDA', 'RGB_MATRIX_I2C_SCL'):
             if key in native_defines:
                 rgb_config[key] = native_defines[key]
@@ -160,7 +163,6 @@ def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = Fa
             rgblight_config['RGBLIGHT_LED_COUNT'] = str(rgblight['led_count'])
         if 'max_brightness' in rgblight:
             rgblight_config['RGBLIGHT_LIMIT_VAL'] = str(rgblight['max_brightness'])
-        ws2812 = info.get('ws2812') or {}
         if ws2812.get('pin'):
             rgblight_config['RGBLIGHT_PIN'] = str(ws2812['pin'])
         if rgblight_config:
@@ -177,19 +179,222 @@ def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = Fa
                 encoder_config[f'ENCODER_PAD_B_{i}'] = str(entry['pin_b'])
         feature_configs['encoder'] = encoder_config
 
+    if features.get('oled') or features.get('st7565') or info.get('oled') or info.get('st7565'):
+        count = 2 if split_enabled else 1
+        display_size = '128_64' if features.get('wide_oled') else '128_32'
+        driver = _oled_driver(info)
+        oled_config: dict[str, str] = {'OLED_COUNT': str(count)}
+        for i in range(count):
+            oled_config[f'OLED_DRIVER_{i}'] = driver
+            oled_config[f'OLED_DISPLAY_SIZE_{i}'] = display_size
+        feature_configs['oled'] = oled_config
+
+    if features.get('pointing_device') or info.get('pointing_device'):
+        feature_configs['pointing_device'] = {
+            'POINTING_DEVICE_DRIVER': _pointing_driver_from_info('', info),
+        }
+
     return feature_configs
 
 
-def _encoders_from_info(info: dict[str, Any], keys: list[KeyDef]) -> list[EncoderElement]:
+def _bounds(keys: list[KeyDef]) -> tuple[float, float, float, float]:
+    if not keys:
+        return 0.0, 0.0, 0.0, 0.0
+    min_x = min(key.x for key in keys)
+    min_y = min(key.y for key in keys)
+    max_x = max(key.x + key.w for key in keys)
+    max_y = max(key.y + key.h for key in keys)
+    return min_x, min_y, max_x, max_y
+
+
+def _oled_display_size(info: dict[str, Any]) -> str:
+    features = info.get('features') or {}
+    return '128_64' if features.get('wide_oled') else '128_32'
+
+
+def _oled_driver(info: dict[str, Any]) -> str:
+    features = info.get('features') or {}
+    return 'ST7567' if features.get('st7565') or info.get('st7565') else 'SSD1306'
+
+
+def _oled_blocks(index: int, *, split_enabled: bool = False) -> list[str]:
+    if split_enabled and index > 0:
+        return ['master_slave']
+    return ['layer_name', 'wpm']
+
+
+def _oleds_from_info(info: dict[str, Any], keys: list[KeyDef], *, split_enabled: bool = False) -> list[OledElement]:
+    features = info.get('features') or {}
+    if not (features.get('oled') or features.get('st7565') or info.get('oled') or info.get('st7565')):
+        return []
+
+    min_x, min_y, max_x, _max_y = _bounds(keys)
+    y = max(0.0, min_y - 1.25)
+    display_size = _oled_display_size(info)
+
+    if split_enabled:
+        center_x = (min_x + max_x) / 2
+        left_keys = [key for key in keys if key.x + key.w / 2 <= center_x]
+        right_keys = [key for key in keys if key.x + key.w / 2 > center_x]
+        left_center = (
+            (min(key.x for key in left_keys) + max(key.x + key.w for key in left_keys)) / 2
+            if left_keys else min_x + 1.5
+        )
+        right_center = (
+            (min(key.x for key in right_keys) + max(key.x + key.w for key in right_keys)) / 2
+            if right_keys else max_x - 1.5
+        )
+        return [
+            OledElement(id=_nanoid(), x=max(0.0, left_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(0, split_enabled=True)),
+            OledElement(id=_nanoid(), x=max(0.0, right_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(1, split_enabled=True)),
+        ]
+
+    return [OledElement(id=_nanoid(), x=max_x + 1.0, y=min_y, display_size=display_size, active_blocks=_oled_blocks(0))]
+
+
+def _pointing_driver_from_info(kb_path: str, info: dict[str, Any]) -> str:
+    text = ' '.join([
+        kb_path,
+        str(info.get('keyboard_name', '')),
+        str(info.get('tags', '')),
+        json.dumps(info.get('pointing_device') or {}),
+    ]).lower()
+    if 'cirque' in text:
+        return 'cirque_pinnacle_spi'
+    if 'pmw3389' in text:
+        return 'pmw3389'
+    if 'adns9800' in text:
+        return 'adns9800'
+    if 'pimoroni' in text:
+        return 'pimoroni_trackball'
+    return 'pmw3360'
+
+
+def _trackballs_from_info(kb_path: str, info: dict[str, Any], keys: list[KeyDef]) -> list[TrackballElement]:
+    features = info.get('features') or {}
+    if not (features.get('pointing_device') or info.get('pointing_device')):
+        return []
+
+    text = f'{kb_path} {info.get("keyboard_name", "")}'.lower()
+    count = 2 if 'dual' in text else 1
+    driver = _pointing_driver_from_info(kb_path, info)
+    min_x, min_y, max_x, max_y = _bounds(keys)
+    y = min_y + max(0.0, (max_y - min_y - 2.0) / 2)
+
+    if count == 2:
+        center_x = (min_x + max_x) / 2
+        return [
+            TrackballElement(id=_nanoid(), x=max(0.0, center_x - 3.0), y=y, driver=driver),
+            TrackballElement(id=_nanoid(), x=center_x + 1.0, y=y, driver=driver),
+        ]
+
+    return [TrackballElement(id=_nanoid(), x=max_x + 1.0, y=y, driver=driver)]
+
+
+def _normalize_imported_encoder_keycode(value: Any) -> str | None:
+    text = str(value or '').strip()
+    if not text or text == '_______' or text in TRIVIAL_KEYCODES:
+        return None
+    return text
+
+
+def _encoder_keycodes_from_default_keymap(
+    raw_keymap: Any,
+    layers: list[Layer],
+    encoders: list[EncoderElement],
+) -> dict[str, str]:
+    if not isinstance(raw_keymap, dict) or not encoders:
+        return {}
+
+    raw_layers = raw_keymap.get('encoders')
+    if not isinstance(raw_layers, list):
+        return {}
+
+    result: dict[str, str] = {}
+    for layer_index, raw_encoders in enumerate(raw_layers):
+        if layer_index >= len(layers) or not isinstance(raw_encoders, list):
+            continue
+        layer = layers[layer_index]
+        for encoder_index, raw_binding in enumerate(raw_encoders):
+            if encoder_index >= len(encoders) or not isinstance(raw_binding, dict):
+                continue
+            encoder = encoders[encoder_index]
+            ccw = _normalize_imported_encoder_keycode(raw_binding.get('ccw'))
+            cw = _normalize_imported_encoder_keycode(raw_binding.get('cw'))
+            if ccw:
+                result[f'{layer.id}:{encoder.id}:ccw'] = ccw
+            if cw:
+                result[f'{layer.id}:{encoder.id}:cw'] = cw
+    return result
+
+
+def _encoder_count_from_default_keymap(raw_keymap: Any) -> int:
+    if not isinstance(raw_keymap, dict):
+        return 0
+    raw_layers = raw_keymap.get('encoders')
+    if not isinstance(raw_layers, list):
+        return 0
+    return max((len(layer) for layer in raw_layers if isinstance(layer, list)), default=0)
+
+
+def _encoders_from_info(info: dict[str, Any], keys: list[KeyDef], *, min_count: int = 0) -> list[EncoderElement]:
     rotary = (info.get('encoder') or {}).get('rotary') or []
-    if not rotary:
+    count = max(len(rotary), min_count)
+    if count <= 0:
         return []
     max_x = max((key.x + key.w for key in keys), default=0)
     min_y = min((key.y for key in keys), default=0)
     return [
         EncoderElement(id=_nanoid(), x=max_x + 1.0, y=min_y + i * 1.25, has_switch=False)
-        for i, _entry in enumerate(rotary)
+        for i in range(count)
     ]
+
+
+def _layers_from_default_keymap(raw_keymap: Any, keys: list[KeyDef]) -> list[Layer]:
+    if not (isinstance(raw_keymap, dict) and raw_keymap.get('layers')):
+        return [Layer(id='layer0', name='Base', keycodes={})]
+
+    layers: list[Layer] = []
+    for i, codes in enumerate(raw_keymap['layers']):
+        keycodes = {
+            keys[j].id: code
+            for j, code in enumerate(codes)
+            if j < len(keys) and code not in TRIVIAL_KEYCODES
+        }
+        layers.append(Layer(
+            id=f'layer{i}',
+            name='Base' if i == 0 else f'Layer {i}',
+            keycodes=keycodes,
+        ))
+    return layers or [Layer(id='layer0', name='Base', keycodes={})]
+
+
+def _merge_peripheral_feature_configs(
+    info: dict[str, Any],
+    features: dict[str, bool],
+    feature_configs: dict[str, dict[str, str]],
+    encoders: list[EncoderElement],
+    oleds: list[OledElement],
+    trackballs: list[TrackballElement],
+) -> None:
+    if encoders:
+        features['encoder'] = True
+        encoder_config = dict(feature_configs.get('encoder') or {})
+        encoder_config['ENCODER_COUNT'] = str(len(encoders))
+        feature_configs['encoder'] = encoder_config
+    if oleds:
+        features['oled'] = True
+        oled_config = dict(feature_configs.get('oled') or {})
+        oled_config['OLED_COUNT'] = str(len(oleds))
+        for i, oled in enumerate(oleds):
+            oled_config[f'OLED_DRIVER_{i}'] = _oled_driver(info)
+            oled_config[f'OLED_DISPLAY_SIZE_{i}'] = oled.display_size
+        feature_configs['oled'] = oled_config
+    if trackballs:
+        features['pointing_device'] = True
+        pointing_config = dict(feature_configs.get('pointing_device') or {})
+        pointing_config['POINTING_DEVICE_DRIVER'] = trackballs[0].driver
+        feature_configs['pointing_device'] = pointing_config
 
 
 def _apply_led_indices(info: dict[str, Any], keys: list[KeyDef]) -> list[KeyDef]:
@@ -217,17 +422,18 @@ def _apply_led_indices(info: dict[str, Any], keys: list[KeyDef]) -> list[KeyDef]
     ]
 
 
-def _define_arrays_from_native_config(info: dict[str, Any]) -> dict[str, list[str]]:
-    config_text = _native_config_text(info)
+def _define_arrays_from_native_config(info: dict[str, Any], config_text: str | None = None) -> dict[str, list[str]]:
+    config_text = _native_config_text(info) if config_text is None else config_text
     arrays: dict[str, list[str]] = {}
     for name, body in _DEFINE_ARRAY_RE.findall(config_text):
         arrays[name] = [token.strip() for token in body.split(',')]
     return arrays
 
 
-def _defines_from_native_config(info: dict[str, Any]) -> dict[str, str]:
+def _defines_from_native_config(info: dict[str, Any], config_text: str | None = None) -> dict[str, str]:
     defines: dict[str, str] = {}
-    for name, value in _DEFINE_VALUE_RE.findall(_native_config_text(info)):
+    config_text = _native_config_text(info) if config_text is None else config_text
+    for name, value in _DEFINE_VALUE_RE.findall(config_text):
         defines[name] = value.strip()
     return defines
 
@@ -256,7 +462,8 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
     if row_pins or col_pins:
         return row_pins, col_pins
 
-    arrays = _define_arrays_from_native_config(info)
+    native_config_text = _native_config_text(info)
+    arrays = _define_arrays_from_native_config(info, native_config_text)
     onboard_rows = arrays.get('MATRIX_ONBOARD_ROW_PINS') or []
     expander_rows = arrays.get('MATRIX_EXPANDER_ROW_PINS') or []
     if onboard_rows:
@@ -480,6 +687,7 @@ def _convert_to_config(
     info: dict[str, Any],
     *,
     preferred_layout: str | None = None,
+    layout_only: bool = False,
 ) -> KeyboardConfig:
     usb = info.get('usb', {})
     processor = info.get('processor', info.get('processor_type', 'atmega32u4'))
@@ -518,6 +726,10 @@ def _convert_to_config(
         if isinstance(value, bool):
             canonical = canonical_feature_id(key)
             features[canonical] = bool(value) or features.get(canonical, False)
+    if features_raw.get('oled') or features_raw.get('st7565') or info.get('oled') or info.get('st7565'):
+        features['oled'] = True
+    if features_raw.get('led_matrix') or info.get('led_matrix'):
+        features['rgb_matrix'] = True
     split_enabled = _infer_split_enabled(kb_path, info, keys, row_pins, col_pins)
     if split_enabled:
         features['split_keyboard'] = True
@@ -526,28 +738,22 @@ def _convert_to_config(
     source_mode, upstream_keyboard, upstream_files = _source_mode_from_info(kb_path, info)
 
     matrix_edges = _matrix_edges_from_keys(keys, split_enabled)
+    encoders = _encoders_from_info(
+        info,
+        keys,
+        min_count=_encoder_count_from_default_keymap(raw_keymap),
+    )
+    oleds = _oleds_from_info(info, keys, split_enabled=split_enabled)
+    trackballs = _trackballs_from_info(kb_path, info, keys)
+    _merge_peripheral_feature_configs(info, features, feature_configs, encoders, oleds, trackballs)
 
-    # Parse embedded default keymap if available (from build_qmk_index.py)
-    if raw_keymap and raw_keymap.get('layers'):
-        _skip = {'KC_TRNS', 'KC_NO', 'XXXXXXX', ''}
-        layers: list[Layer] = []
-        for i, codes in enumerate(raw_keymap['layers']):
-            keycodes = {
-                keys[j].id: code
-                for j, code in enumerate(codes)
-                if j < len(keys) and code not in _skip
-            }
-            layers.append(Layer(
-                id=f'layer{i}',
-                name='Base' if i == 0 else f'Layer {i}',
-                keycodes=keycodes,
-            ))
-        if not layers:
-            layers = [Layer(id='layer0', name='Base', keycodes={})]
-    else:
-        layers = [Layer(id='layer0', name='Base', keycodes={})]
+    layers = _layers_from_default_keymap(raw_keymap, keys)
 
     qmk_commit = _load_meta().get('qmk_commit')
+
+    if layout_only:
+        source_mode = 'generated'
+        upstream_files = {}
 
     config = KeyboardConfig(
         id=None,
@@ -572,24 +778,21 @@ def _convert_to_config(
         keymap_name='nexus',
         qmk_commit=qmk_commit,
         soft_serial_pin='D0',
-        encoders=_encoders_from_info(info, keys),
+        encoders=encoders,
+        oleds=oleds,
+        trackballs=trackballs,
+        encoder_keycodes=_encoder_keycodes_from_default_keymap(raw_keymap, layers, encoders),
     )
     return sanitize_keyboard_config(config)
 
 
 @router.get('/import/{kb_path:path}', response_model=KeyboardConfig)
-def import_keyboard(kb_path: str) -> KeyboardConfig:
-    kb_file = _safe_kb_file(kb_path)
-    if not kb_file.exists():
-        raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
-
-    try:
-        with open(kb_file) as f:
-            info = json.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Failed to read keyboard data: {e}')
-
-    return _convert_to_config(kb_path, info)
+def import_keyboard(
+    kb_path: str,
+    layout_only: bool = Query(default=False, alias='layoutOnly'),
+) -> KeyboardConfig:
+    info = _load_keyboard_info(kb_path)
+    return _convert_to_config(kb_path, info, layout_only=layout_only)
 
 
 class LayoutSwitchRequest(BaseModel):

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { keyboardsApi } from '@/api/keyboards'
 import type { KeyboardConfig, KeyDef, MatrixEdge } from '@/store/keyboard'
+import { triggerTextDownload } from '@/utils/downloadBlob'
+import { matrixExtent } from '@/utils/matrixExtent'
 import styles from './BuildInstructionsPanel.module.css'
 
 interface Props {
@@ -18,16 +20,6 @@ function labelForKey(key: KeyDef, index: number): string {
   return key.label?.trim() || `K${index + 1}`
 }
 
-function downloadText(filename: string, content: string, type = 'text/plain;charset=utf-8') {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
 function htmlEscape(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -39,7 +31,7 @@ function htmlEscape(value: string): string {
 function printHtml(filename: string, html: string) {
   const opened = window.open('', '_blank', 'noopener,noreferrer')
   if (!opened) {
-    downloadText(filename, html, 'text/html;charset=utf-8')
+    triggerTextDownload(filename, html, 'text/html;charset=utf-8')
     return
   }
   opened.document.write(html)
@@ -50,11 +42,6 @@ function printHtml(filename: string, html: string) {
 
 function sortedKeys(keys: KeyDef[]): KeyDef[] {
   return [...keys].sort((a, b) => a.y - b.y || a.x - b.x)
-}
-
-function matrixExtent(keys: KeyDef[], field: 'row' | 'col'): number {
-  const values = keys.map((key) => key[field]).filter((value): value is number => value !== null)
-  return values.length ? Math.max(...values) + 1 : 0
 }
 
 function edgeList(edges: MatrixEdge[], type: MatrixEdge['type'], keysById: Map<string, KeyDef>): string[] {
@@ -210,29 +197,6 @@ function makeMarkdown(config: KeyboardConfig, enabledFeatures: string[]): string
     ''
   )
 
-  return lines.join('\n')
-}
-
-function makeCsv(config: KeyboardConfig): string {
-  const keys = sortedKeys(config.keys)
-  const rows = config.rowPins.reduce<Record<number, string>>((acc, pin) => ({ ...acc, [pin.row]: pin.pin }), {})
-  const cols = config.colPins.reduce<Record<number, string>>((acc, pin) => ({ ...acc, [pin.col]: pin.pin }), {})
-  const lines = ['ref,label,row,row_pin,col,col_pin,x,y,w,h,led_index']
-  keys.forEach((key, index) => {
-    lines.push([
-      `K${index + 1}`,
-      JSON.stringify(labelForKey(key, index)),
-      key.row ?? '',
-      key.row !== null ? rows[key.row] || '' : '',
-      key.col ?? '',
-      key.col !== null ? cols[key.col] || '' : '',
-      key.x,
-      key.y,
-      key.w,
-      key.h,
-      key.ledIndex ?? '',
-    ].join(','))
-  })
   return lines.join('\n')
 }
 
@@ -451,6 +415,79 @@ const MCU_FLASH_INFO: Record<string, FlashInfo> = {
   },
 }
 
+export function FlashFirmwareModal({ config, onClose }: { config: KeyboardConfig; onClose: () => void }) {
+  const flashInfo = MCU_FLASH_INFO[config.mcu] ?? null
+
+  return (
+    <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div className={styles.sourcesModal} role="dialog" aria-modal="true" aria-labelledby="flash-modal-title">
+        <div className={styles.modalHeader}>
+          <h2 id="flash-modal-title">Flash Firmware to Keyboard</h2>
+          <button
+            className={styles.modalClose}
+            onClick={onClose}
+            title="Close flash instructions"
+            aria-label="Close flash instructions"
+          >x</button>
+        </div>
+        <div className={styles.modalBody}>
+          <p>
+            MCU: <strong>{config.mcu}</strong>
+            {flashInfo && <> &mdash; Bootloader: <strong>{flashInfo.bootloader}</strong></>}
+          </p>
+
+          {flashInfo ? (
+            <>
+              <h3 className={styles.flashSubheading}>Windows / macOS — QMK Toolbox</h3>
+              <ol>
+                {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+                  <li>
+                    Use the compiled firmware artifact from the successful build (.hex for AVR, .bin for ARM).
+                  </li>
+                )}
+                {flashInfo.steps.map((step, i) => <li key={i}>{step}</li>)}
+              </ol>
+              {flashInfo.note && (
+                <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.note}</p>
+              )}
+              {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+                <a
+                  className={styles.externalLink}
+                  href="https://github.com/qmk/qmk_toolbox/releases/latest"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Download QMK Toolbox &rarr;
+                </a>
+              )}
+
+              <h3 className={styles.flashSubheading}>Linux — CLI</h3>
+              <ol>
+                {flashInfo.linuxSteps.map((step, i) => (
+                  <li key={i}>
+                    {step.type === 'udev' ? (
+                      <>Add udev rule (once):<pre className={styles.commandBlock}>{UDEV_RULE_CMD}</pre></>
+                    ) : step.type === 'cmd' ? (
+                      <>{step.label}<pre className={styles.commandBlock}>{step.cmd}</pre></>
+                    ) : (
+                      step.label
+                    )}
+                  </li>
+                ))}
+              </ol>
+              {flashInfo.linuxNote && (
+                <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.linuxNote}</p>
+              )}
+            </>
+          ) : (
+            <p>No flashing guidance available for <code>{config.mcu}</code>. Check your controller's datasheet or QMK documentation.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, onSaveFirst }: Props) {
   const base = filenameBase(config.name)
   const keyboardSlug = base || 'my_keyboard'
@@ -460,7 +497,6 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
   const [showFlashModal, setShowFlashModal] = useState(false)
   const [downloadingSources, setDownloadingSources] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const flashInfo = MCU_FLASH_INFO[config.mcu] ?? null
 
   async function downloadQmkSources() {
     setDownloadingSources(true)
@@ -490,7 +526,7 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
       <div className={styles.actions}>
         <button
           className={styles.primary}
-          onClick={() => downloadText(`${base}_build_packet.md`, makeMarkdown(config, enabledFeatures), 'text/markdown;charset=utf-8')}
+          onClick={() => triggerTextDownload(`${base}_build_packet.md`, makeMarkdown(config, enabledFeatures), 'text/markdown;charset=utf-8')}
           title="Download assembly notes, BOM, keymap, wiring layout, and PCB fabrication checklist"
           aria-label="Download build packet"
         >
@@ -503,14 +539,6 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
           aria-label="Print all layer layouts"
         >
           Print Layer Layout
-        </button>
-        <button
-          className={styles.primary}
-          onClick={() => downloadText(`${base}_matrix_netlist.csv`, makeCsv(config), 'text/csv;charset=utf-8')}
-          title="Download a CSV matrix netlist for schematic and PCB layout work"
-          aria-label="Download matrix netlist CSV"
-        >
-          Download Netlist CSV
         </button>
         <button
           className={styles.primary}
@@ -532,72 +560,10 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
       {error && <div className={styles.error}>{error}</div>}
 
       {showFlashModal && (
-        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowFlashModal(false) }}>
-          <div className={styles.sourcesModal} role="dialog" aria-modal="true" aria-labelledby="flash-modal-title">
-            <div className={styles.modalHeader}>
-              <h2 id="flash-modal-title">Flash Firmware to Keyboard</h2>
-              <button
-                className={styles.modalClose}
-                onClick={() => setShowFlashModal(false)}
-                title="Close flash instructions"
-                aria-label="Close flash instructions"
-              >x</button>
-            </div>
-            <div className={styles.modalBody}>
-              <p>
-                MCU: <strong>{config.mcu}</strong>
-                {flashInfo && <> &mdash; Bootloader: <strong>{flashInfo.bootloader}</strong></>}
-              </p>
-
-              {flashInfo ? (
-                <>
-                  <h3 className={styles.flashSubheading}>Windows / macOS — QMK Toolbox</h3>
-                  <ol>
-                    {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
-                      <li>
-                        Download the compiled firmware from the Build panel above (.hex for AVR, .bin for ARM).
-                      </li>
-                    )}
-                    {flashInfo.steps.map((step, i) => <li key={i}>{step}</li>)}
-                  </ol>
-                  {flashInfo.note && (
-                    <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.note}</p>
-                  )}
-                  {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
-                    <a
-                      className={styles.externalLink}
-                      href="https://github.com/qmk/qmk_toolbox/releases/latest"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Download QMK Toolbox &rarr;
-                    </a>
-                  )}
-
-                  <h3 className={styles.flashSubheading}>Linux — CLI</h3>
-                  <ol>
-                    {flashInfo.linuxSteps.map((step, i) => (
-                      <li key={i}>
-                        {step.type === 'udev' ? (
-                          <>Add udev rule (once):<pre className={styles.commandBlock}>{UDEV_RULE_CMD}</pre></>
-                        ) : step.type === 'cmd' ? (
-                          <>{step.label}<pre className={styles.commandBlock}>{step.cmd}</pre></>
-                        ) : (
-                          step.label
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                  {flashInfo.linuxNote && (
-                    <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.linuxNote}</p>
-                  )}
-                </>
-              ) : (
-                <p>No flashing guidance available for <code>{config.mcu}</code>. Check your controller's datasheet or QMK documentation.</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <FlashFirmwareModal
+          config={config}
+          onClose={() => setShowFlashModal(false)}
+        />
       )}
 
       {showSourcesModal && (

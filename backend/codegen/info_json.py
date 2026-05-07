@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 from models import KeyboardConfig
-from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
+from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_led_count
 from codegen._mcu import MCU_BOOTLOADER, MCU_QMK_NAME
 
 
@@ -67,14 +67,18 @@ def generate_info_json(config: KeyboardConfig) -> str:
         }
 
     # Encoder block
-    if config.encoders and features.get('encoder_map'):
-        enc = fc.get('encoder_map', fc.get('encoder', {}))
+    if config.encoders and features.get('encoder'):
+        enc = fc.get('encoder', {})
         count = len(config.encoders)
         rotary = []
+        try:
+            resolution = int(enc.get('ENCODER_RESOLUTION', '4'))
+        except ValueError:
+            resolution = 4
         for i in range(count):
-            entry: dict = {'resolution': 4}
-            pin_a = enc.get(f'ENCODER_PIN_A_{i}', '')
-            pin_b = enc.get(f'ENCODER_PIN_B_{i}', '')
+            entry: dict = {'resolution': resolution}
+            pin_a = enc.get(f'ENCODER_PAD_A_{i}', '')
+            pin_b = enc.get(f'ENCODER_PAD_B_{i}', '')
             if pin_a:
                 entry['pin_a'] = pin_a
             if pin_b:
@@ -88,14 +92,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
         rgb = fc.get('rgb_matrix', {})
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812').lower()
         led_keys = [k for k in config.keys if k.led_index is not None]
-        led_count_explicit = rgb.get('RGB_MATRIX_LED_COUNT')
-        if led_count_explicit:
-            try:
-                led_count = int(led_count_explicit)
-            except ValueError:
-                led_count = len(led_keys) or len([k for k in config.keys if k.row is not None])
-        else:
-            led_count = len(led_keys) or len([k for k in config.keys if k.row is not None])
+        led_count = resolve_rgb_led_count(config)
 
         rgb_block: dict = {}
         if driver:

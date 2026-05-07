@@ -10,6 +10,7 @@ interface Props {
 }
 
 type Tab = 'user' | 'qmk'
+type QMKImportMode = 'nexus' | 'legacy'
 
 const MAX_KEYBOARDS = 20
 
@@ -183,6 +184,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importMode, setImportMode] = useState<QMKImportMode>('nexus')
+  const [pendingConfirm, setPendingConfirm] = useState<{ entry: QMKKeyboardSummary; config: KeyboardConfig } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { setConfig } = useKeyboardStore()
@@ -211,24 +214,53 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function applyImportedConfig(imported: KeyboardConfig) {
+    const existingId = useKeyboardStore.getState().config.id
+    if (existingId) {
+      const merged: KeyboardConfig = { ...imported, id: existingId }
+      await keyboardsApi.update(existingId, merged)
+      setConfig(merged)
+    } else {
+      setConfig(imported)
+    }
+    useBuildStore.getState().clearActiveBuild()
+    onClose()
+  }
+
   async function handleImport(entry: QMKKeyboardSummary) {
     setImporting(entry.path)
     setError(null)
     try {
-      const imported = await qmkApi.importKeyboard(entry.path)
-      const existingId = useKeyboardStore.getState().config.id
-      if (existingId) {
-        const merged: KeyboardConfig = { ...imported, id: existingId }
-        await keyboardsApi.update(existingId, merged)
-        setConfig(merged)
-      } else {
-        setConfig(imported)
+      const imported = await qmkApi.importKeyboard(entry.path, { layoutOnly: importMode === 'nexus' })
+      const hasPositionedPeripherals =
+        (imported.oleds?.length ?? 0) > 0 ||
+        (imported.encoders?.length ?? 0) > 0 ||
+        (imported.trackballs?.length ?? 0) > 0
+
+      if (hasPositionedPeripherals) {
+        setPendingConfirm({ entry, config: imported })
+        setImporting(null)
+        return
       }
-      useBuildStore.getState().clearActiveBuild()
-      onClose()
+
+      await applyImportedConfig(imported)
     } catch {
       setError(`Failed to import ${entry.name}`)
       setImporting(null)
+      setPendingConfirm(null)
+    }
+  }
+
+  async function confirmImport() {
+    if (!pendingConfirm) return
+    setImporting(pendingConfirm.entry.path)
+    setError(null)
+    try {
+      await applyImportedConfig(pendingConfirm.config)
+    } catch {
+      setError(`Failed to import ${pendingConfirm.entry.name}`)
+      setImporting(null)
+      setPendingConfirm(null)
     }
   }
 
@@ -242,6 +274,32 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
+        <div className={styles.importModeGroup} role="radiogroup" aria-label="QMK import mode">
+          <label className={`${styles.importMode} ${importMode === 'nexus' ? styles.importModeActive : ''}`}>
+            <input
+              type="radio"
+              name="qmk-import-mode"
+              checked={importMode === 'nexus'}
+              onChange={() => setImportMode('nexus')}
+            />
+            <span>
+              <strong>Nexus</strong>
+              <small>Default. Import as a generated Nexus keyboard, using QMK metadata, pins, keymap, wiring, features, and peripherals where available.</small>
+            </span>
+          </label>
+          <label className={`${styles.importMode} ${importMode === 'legacy' ? styles.importModeActive : ''}`}>
+            <input
+              type="radio"
+              name="qmk-import-mode"
+              checked={importMode === 'legacy'}
+              onChange={() => setImportMode('legacy')}
+            />
+            <span>
+              <strong>QMK Legacy</strong>
+              <small>Use upstream QMK build behavior. Select this only when Nexus imports run into firmware build or flashing problems.</small>
+            </span>
+          </label>
+        </div>
       </div>
       {error && <div className={styles.error}>{error}</div>}
       <div className={styles.results}>
@@ -271,7 +329,9 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
               className={styles.importBtn}
               onClick={() => handleImport(entry)}
               disabled={importing === entry.path}
-              title={`Import ${entry.name || entry.path} from QMK`}
+              title={importMode === 'nexus'
+                ? `Import ${entry.name || entry.path} as a generated Nexus keyboard`
+                : `Import ${entry.name || entry.path} using QMK Legacy`}
               aria-label={`Import ${entry.name || entry.path}`}
             >
               {importing === entry.path ? '…' : 'Import'}
@@ -279,6 +339,30 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
           </div>
         ))}
       </div>
+      {pendingConfirm && (
+        <div className={styles.advisoryOverlay} onClick={(e) => { if (e.target === e.currentTarget) setPendingConfirm(null) }}>
+          <div className={styles.advisoryModal} role="dialog" aria-modal="true" aria-labelledby="qmk-import-advisory-title">
+            <div className={styles.advisoryHeader}>
+              <h3 id="qmk-import-advisory-title">Import QMK Keyboard</h3>
+              <button className={styles.closeBtn} onClick={() => setPendingConfirm(null)} title="Cancel import" aria-label="Cancel import">×</button>
+            </div>
+            <div className={styles.advisoryBody}>
+              <p>
+                This import includes OLEDs, encoders, or trackballs, check their positions in the Layout stage and reposition them as needed.
+              </p>
+            </div>
+            <div className={styles.advisoryActions}>
+              <button
+                className={styles.importBtn}
+                onClick={confirmImport}
+                disabled={importing === pendingConfirm.entry.path}
+              >
+                {importing === pendingConfirm.entry.path ? 'Importing…' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

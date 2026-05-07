@@ -9,17 +9,16 @@ from fastapi.responses import Response
 
 from auth import get_current_user
 from codegen.generator import generate_sources
-from codegen.keycodes import normalize_layers
+from codegen.keycodes import TRIVIAL_KEYCODES, normalize_layers
 from codegen.validator import ALLOWED_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, validate_upload
 from models import KeyboardConfig, Layer, User
-from routers.qmk import _convert_to_config
+from routers.qmk import _convert_to_config, _load_keyboard_info
 from s3 import S3ConflictError, pull_user_db, push_user_db
 from utils import jsonable_out, safe_name
 from validation import sanitize_keyboard_config, validate_build_ready, validate_keyboard_config
 import db as database
 
 _REMAP_PATH = Path(__file__).parent.parent / 'data' / 'qmk_remap.json'
-_KB_DATA_DIR = Path(__file__).parent.parent / 'data' / 'keyboards'
 
 
 def _load_remap() -> dict[str, str]:
@@ -305,16 +304,7 @@ async def import_configurator_json(
     remap = _load_remap()
     kb_path = _apply_remap(raw_kb_path, remap)
 
-    # Load keyboard data
-    kb_file = _KB_DATA_DIR / (kb_path + '.json')
-    if not kb_file.exists():
-        raise HTTPException(status_code=404, detail=f'Keyboard not found: {kb_path}')
-
-    try:
-        with open(kb_file) as f:
-            info: dict[str, Any] = json.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Failed to read keyboard data: {e}')
+    info = _load_keyboard_info(kb_path)
 
     # Build base config from keyboard info
     config = _convert_to_config(kb_path, info)
@@ -323,13 +313,12 @@ async def import_configurator_json(
     normalized_layers = normalize_layers(raw_layers)
 
     # Build layer objects matched to key order from the config
-    _skip = {'KC_TRNS', 'KC_NO', 'XXXXXXX', ''}
     built_layers: list[Layer] = []
     for i, layer_codes in enumerate(normalized_layers):
         keycodes = {
             config.keys[j].id: layer_codes[j]
             for j in range(min(len(layer_codes), len(config.keys)))
-            if layer_codes[j] not in _skip
+            if layer_codes[j] not in TRIVIAL_KEYCODES
         }
         built_layers.append(Layer(
             id=f'layer{i}',

@@ -13,6 +13,7 @@ from models import BuildStatus, User
 
 _builds_mem: dict[str, dict] = {}
 _refresh_mem: dict[str, dict] = {}  # token_hash → record
+TELEMETRY_PREFIX = 'telemetry#'
 
 REFRESH_TTL = timedelta(days=30)
 BUILD_TTL = timedelta(hours=1)
@@ -30,6 +31,10 @@ def _ts(dt: datetime) -> int:
 def _builds_table():
     import boto3
     return boto3.resource('dynamodb', region_name=settings.aws_region).Table('qmk-nexus-builds')
+
+
+def _is_build_record(item: dict) -> bool:
+    return not str(item.get('id', '')).startswith(TELEMETRY_PREFIX)
 
 
 def _refresh_table():
@@ -65,8 +70,8 @@ def find_cached_build(user_id: str, config_hash: str) -> dict | None:
     cutoff_iso = (_now() - CACHE_TTL).isoformat()
     if not settings.is_prod:
         candidates = [
-            rec for key, rec in _builds_mem.items()
-            if not key.startswith('telemetry#')
+            rec for rec in _builds_mem.values()
+            if _is_build_record(rec)
             and rec.get('user_id') == user_id
             and rec.get('config_hash') == config_hash
             and rec.get('status') == 'success'
@@ -94,7 +99,7 @@ def find_cached_build(user_id: str, config_hash: str) -> dict | None:
     )
     items = [
         item for item in resp.get('Items', [])
-        if item.get('bucket') and item.get('prefix')
+        if _is_build_record(item) and item.get('bucket') and item.get('prefix')
     ]
     if not items:
         return None
@@ -106,8 +111,8 @@ def list_user_builds(user_id: str, limit: int = 10) -> list[dict]:
     # TODO: Replace scan with GSI query on user_id + created_at sort key for production scale
     if not settings.is_prod:
         candidates = [
-            rec for key, rec in _builds_mem.items()
-            if not key.startswith('telemetry#')
+            rec for rec in _builds_mem.values()
+            if _is_build_record(rec)
             and rec.get('user_id') == user_id
         ]
         candidates.sort(key=lambda r: r.get('created_at') or '', reverse=True)
@@ -117,7 +122,7 @@ def list_user_builds(user_id: str, limit: int = 10) -> list[dict]:
     resp = _builds_table().scan(FilterExpression=Attr('user_id').eq(user_id))
     items = [
         item for item in resp.get('Items', [])
-        if not str(item.get('id', '')).startswith('telemetry#')
+        if _is_build_record(item)
     ]
     items.sort(key=lambda r: r.get('created_at') or '', reverse=True)
     return items[:limit]

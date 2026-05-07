@@ -9,10 +9,87 @@ import PinPanel from './PinPanel'
 import LoadKeyboardModal from './LoadKeyboardModal'
 import styles from './LayoutStage.module.css'
 import { useKeyboardStore } from '@/store/keyboard'
+import type { KeyDef, Layer } from '@/store/keyboard'
 import { validateMatrices, type MatrixValidationResult } from '@/utils/validateMatrices'
 import { type ColorScheme, COLOR_SCHEME_LABELS, SCHEME_COLORS } from './MatrixLines'
 
 type RightTab = 'properties' | 'pins'
+
+const KEY_CLIPBOARD_TYPE = 'qmk-nexus/layout-keys'
+const PASTE_OFFSET_U = 0.5
+
+type ClipboardKey = Omit<KeyDef, 'id' | 'row' | 'col' | 'ledIndex'> & {
+  dx: number
+  dy: number
+}
+
+interface KeyClipboardPayload {
+  type: typeof KEY_CLIPBOARD_TYPE
+  keys: ClipboardKey[]
+  keycodesByLayer: Record<string, Record<number, string>>
+}
+
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return !!target.closest('input, textarea, select, button, a, [contenteditable="true"]')
+}
+
+function makeKeyClipboardPayload(keys: KeyDef[], layers: Layer[]): KeyClipboardPayload | null {
+  if (keys.length === 0) return null
+  const minX = Math.min(...keys.map((key) => key.x))
+  const minY = Math.min(...keys.map((key) => key.y))
+  const keysById = new Map(keys.map((key, index) => [key.id, index]))
+
+  return {
+    type: KEY_CLIPBOARD_TYPE,
+    keys: keys.map((key) => ({
+      x: key.x,
+      y: key.y,
+      dx: key.x - minX,
+      dy: key.y - minY,
+      w: key.w,
+      h: key.h,
+      rotation: key.rotation,
+      label: key.label,
+      shape: key.shape,
+    })),
+    keycodesByLayer: Object.fromEntries(
+      layers.map((layer) => [
+        layer.id,
+        Object.fromEntries(
+          Object.entries(layer.keycodes)
+            .map(([keyId, keycode]) => [keysById.get(keyId), keycode] as const)
+            .filter((entry): entry is [number, string] => entry[0] !== undefined)
+        ),
+      ])
+    ),
+  }
+}
+
+function parseKeyClipboardPayload(text: string): KeyClipboardPayload | null {
+  try {
+    const parsed = JSON.parse(text) as Partial<KeyClipboardPayload>
+    if (parsed.type !== KEY_CLIPBOARD_TYPE || !Array.isArray(parsed.keys)) return null
+    const keys = parsed.keys.filter((key): key is ClipboardKey => (
+      typeof key === 'object' &&
+      key !== null &&
+      typeof key.x === 'number' &&
+      typeof key.y === 'number' &&
+      typeof key.dx === 'number' &&
+      typeof key.dy === 'number' &&
+      typeof key.w === 'number' &&
+      typeof key.h === 'number' &&
+      typeof key.rotation === 'number'
+    ))
+    return {
+      type: KEY_CLIPBOARD_TYPE,
+      keys,
+      keycodesByLayer: parsed.keycodesByLayer ?? {},
+    }
+  } catch {
+    return null
+  }
+}
 
 export default function LayoutStage() {
   const location = useLocation()
@@ -29,8 +106,10 @@ export default function LayoutStage() {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<KeyCanvasHandle>(null)
   const handledImportRef = useRef(false)
+  const keyClipboardRef = useRef<KeyClipboardPayload | null>(null)
   const {
-    selectedKeyIds, removeKey, setSelectedKeys, addKey,
+    selectedKeyIds, removeKey, setSelectedKeys, addKey, setConfig,
+    activeLayerId, setActiveLayer,
     selectedPeripheralId, selectedPeripheralType,
     removeEncoder, removeOled, removeTrackball, setSelectedPeripheral,
   } = useKeyboardStore()
@@ -52,8 +131,80 @@ export default function LayoutStage() {
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
+      if (isEditableTarget(e.target)) return
+
+      const key = e.key.toLowerCase()
+      const mod = e.metaKey || e.ctrlKey
+
+      if (mod && key === 'c') {
+        const selectedKeys = selectedKeyIds
+          .map((id) => config.keys.find((keyDef) => keyDef.id === id))
+          .filter((keyDef): keyDef is KeyDef => !!keyDef)
+        const payload = makeKeyClipboardPayload(selectedKeys, config.layers)
+        if (!payload) return
+        e.preventDefault()
+        keyClipboardRef.current = payload
+        navigator.clipboard?.writeText(JSON.stringify(payload)).catch(() => {})
+        return
+      }
+
+      if (mod && key === 'v') {
+        e.preventDefault()
+        const paste = (payload: KeyClipboardPayload | null) => {
+          if (!payload || payload.keys.length === 0) return
+          const newIds = payload.keys.map(() => nanoid())
+          const minX = Math.min(...payload.keys.map((keyDef) => keyDef.x))
+          const minY = Math.min(...payload.keys.map((keyDef) => keyDef.y))
+          const baseX = minX + PASTE_OFFSET_U
+          const baseY = minY + PASTE_OFFSET_U
+          const pastedKeys: KeyDef[] = payload.keys.map((keyDef, index) => ({
+            id: newIds[index],
+            x: baseX + keyDef.dx,
+            y: baseY + keyDef.dy,
+            w: keyDef.w,
+            h: keyDef.h,
+            rotation: keyDef.rotation,
+            label: keyDef.label,
+            row: null,
+            col: null,
+            ledIndex: null,
+            shape: keyDef.shape,
+          }))
+          const layers = config.layers.map((layer) => {
+            const copiedKeycodes = payload.keycodesByLayer[layer.id] ?? {}
+            const keycodes = { ...layer.keycodes }
+            for (const [indexText, keycode] of Object.entries(copiedKeycodes)) {
+              const index = Number(indexText)
+              const id = newIds[index]
+              if (id) keycodes[id] = keycode
+            }
+            return { ...layer, keycodes }
+          })
+          setConfig({ keys: [...config.keys, ...pastedKeys], layers })
+          setActiveLayer(activeLayerId)
+          setSelectedKeys(newIds)
+          keyClipboardRef.current = {
+            ...payload,
+            keys: payload.keys.map((keyDef) => ({
+              ...keyDef,
+              x: keyDef.x + PASTE_OFFSET_U,
+              y: keyDef.y + PASTE_OFFSET_U,
+            })),
+          }
+        }
+
+        if (keyClipboardRef.current) {
+          paste(keyClipboardRef.current)
+          return
+        }
+
+        navigator.clipboard?.readText()
+          .then((text) => paste(parseKeyClipboardPayload(text)))
+          .catch(() => {})
+        return
+      }
+
       if (e.key !== 'Delete' && e.key !== 'Backspace') return
-      if (document.activeElement !== document.body) return
       if (selectedPeripheralId && selectedPeripheralType) {
         if (selectedPeripheralType === 'encoder') removeEncoder(selectedPeripheralId)
         else if (selectedPeripheralType === 'oled') removeOled(selectedPeripheralId)
@@ -67,7 +218,7 @@ export default function LayoutStage() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [selectedKeyIds, removeKey, setSelectedKeys, selectedPeripheralId, selectedPeripheralType, removeEncoder, removeOled, removeTrackball, setSelectedPeripheral])
+  }, [activeLayerId, config.keys, config.layers, selectedKeyIds, removeKey, setActiveLayer, setConfig, setSelectedKeys, selectedPeripheralId, selectedPeripheralType, removeEncoder, removeOled, removeTrackball, setSelectedPeripheral])
 
   useEffect(() => {
     if ((location.state as { openImport?: boolean } | null)?.openImport && !handledImportRef.current) {
@@ -157,45 +308,56 @@ export default function LayoutStage() {
             </div>
           </div>
         )}
-        {showMatrix && (
-          <div className={styles.matrixInfo}>
-            <strong>Matrix Mode</strong>
-            <span>Click → Row <span style={{ color: SCHEME_COLORS[colorScheme].row }}>●</span></span>
-            <span>Ctrl+click → Col <span style={{ color: SCHEME_COLORS[colorScheme].col }}>●</span></span>
-            <span>Alt+click → LED <span style={{ color: SCHEME_COLORS[colorScheme].led }}>●</span></span>
-            <span>Click two keys to connect / disconnect</span>
-            <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
-              <button
-                onClick={handleValidate}
-                style={{ padding: '3px 8px', fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', cursor: 'pointer' }}
-                title="Check matrix and LED wiring for missing or inconsistent assignments"
-                aria-label="Validate matrix wiring"
-              >
-                Validate
-              </button>
-              <select
-                value={colorScheme}
-                onChange={(e) => setColorScheme(e.target.value as ColorScheme)}
-                style={{ fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', padding: '2px 4px', cursor: 'pointer' }}
-              >
-                {(Object.keys(COLOR_SCHEME_LABELS) as ColorScheme[]).map((s) => (
-                  <option key={s} value={s}>{COLOR_SCHEME_LABELS[s]}</option>
-                ))}
-              </select>
+        <div className={styles.canvasHelpStack}>
+          {!showMatrix && (
+            <div className={styles.keybindInfo}>
+              <strong>Keybinds</strong>
+              <span><kbd>Shift</kbd> click selects multiple keys</span>
+              <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> <kbd>C</kbd> copies selected keys</span>
+              <span><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> <kbd>V</kbd> pastes copied keys</span>
+              <span><kbd>Delete</kbd> removes selected keys</span>
             </div>
-            {validation && (
-              <div style={{ marginTop: 4, fontSize: 13.75 }}>
-                {validation.errors.length === 0 ? (
-                  <span style={{ color: SCHEME_COLORS[colorScheme].col }}>✓ Matrix valid</span>
-                ) : (
-                  validation.errors.map((e, i) => (
-                    <div key={i} style={{ color: SCHEME_COLORS[colorScheme].row }}>✗ {e}</div>
-                  ))
-                )}
+          )}
+          {showMatrix && (
+            <div className={styles.matrixInfo}>
+              <strong>Matrix Mode</strong>
+              <span>Click -&gt; Row <span style={{ color: SCHEME_COLORS[colorScheme].row }}>●</span></span>
+              <span>Ctrl+click -&gt; Col <span style={{ color: SCHEME_COLORS[colorScheme].col }}>●</span></span>
+              <span>Alt+click -&gt; LED <span style={{ color: SCHEME_COLORS[colorScheme].led }}>●</span></span>
+              <span>Click two keys to connect / disconnect</span>
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>
+                <button
+                  onClick={handleValidate}
+                  style={{ padding: '3px 8px', fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', cursor: 'pointer' }}
+                  title="Check matrix and LED wiring for missing or inconsistent assignments"
+                  aria-label="Validate matrix wiring"
+                >
+                  Validate
+                </button>
+                <select
+                  value={colorScheme}
+                  onChange={(e) => setColorScheme(e.target.value as ColorScheme)}
+                  style={{ fontSize: 13.75, borderRadius: 4, border: '1px solid #555', background: '#2a2a2a', color: '#ccc', padding: '2px 4px', cursor: 'pointer' }}
+                >
+                  {(Object.keys(COLOR_SCHEME_LABELS) as ColorScheme[]).map((s) => (
+                    <option key={s} value={s}>{COLOR_SCHEME_LABELS[s]}</option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
-        )}
+              {validation && (
+                <div style={{ marginTop: 4, fontSize: 13.75 }}>
+                  {validation.errors.length === 0 ? (
+                    <span style={{ color: SCHEME_COLORS[colorScheme].col }}>✓ Matrix valid</span>
+                  ) : (
+                    validation.errors.map((e, i) => (
+                      <div key={i} style={{ color: SCHEME_COLORS[colorScheme].row }}>✗ {e}</div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <aside className={styles.right}>
