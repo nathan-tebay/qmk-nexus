@@ -277,6 +277,10 @@ def test_info_json_rgb_matrix_block_emitted_when_enabled(split_rgb_kb):
         assert 'matrix' in entry
         assert 'x' in entry
         assert 'y' in entry
+        assert isinstance(entry['x'], int), 'rgb_matrix.layout x must be integer (QMK schema)'
+        assert isinstance(entry['y'], int), 'rgb_matrix.layout y must be integer (QMK schema)'
+        assert 0 <= entry['x'] <= 224
+        assert 0 <= entry['y'] <= 64
         assert entry['flags'] == 4
 
 

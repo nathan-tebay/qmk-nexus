@@ -101,12 +101,16 @@ def generate_info_json(config: KeyboardConfig) -> str:
             rgb_block['led_count'] = led_count
 
         if led_keys:
+            # QMK schema requires integers (0-224 for x, 0-64 for y).
+            # Normalize from key-unit floats to the QMK range.
+            max_x = max((k.x for k in led_keys), default=1.0) or 1.0
+            max_y = max((k.y for k in led_keys), default=1.0) or 1.0
             rgb_block['layout'] = [
                 {
                     'matrix': [k.row if k.row is not None else 0,
                                 k.col if k.col is not None else 0],
-                    'x': round(k.x, 4),
-                    'y': round(k.y, 4),
+                    'x': round(k.x / max_x * 224),
+                    'y': round(k.y / max_y * 64),
                     'flags': 4,
                 }
                 for k in sorted(led_keys, key=lambda k: k.led_index)  # type: ignore[arg-type]
