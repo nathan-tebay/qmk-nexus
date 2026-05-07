@@ -45,10 +45,19 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
     lines.append('')
 
     # Per-feature config variables (go in rules.mk not config.h)
+    ws2812_driver_emitted = False
+
     if features.get('rgb_matrix'):
         rgb = fc.get('rgb_matrix', {})
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
         lines.append(f'RGB_MATRIX_DRIVER = {driver.lower()}')
+        if driver.upper() == 'WS2812' and mcu == 'rp2040':
+            lines.append('WS2812_DRIVER = vendor')
+            ws2812_driver_emitted = True
+        lines.append('')
+
+    if features.get('rgblight') and mcu == 'rp2040' and not ws2812_driver_emitted:
+        lines.append('WS2812_DRIVER = vendor')
         lines.append('')
 
     if features.get('backlight'):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from models import KeyboardConfig, OledElement
-from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
+from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_led_count
 
 
 def _c_string(text: str) -> str:
@@ -122,31 +122,63 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
     lines.append('')
 
     if rgb_enabled:
-        led_keys = [k for k in keys if k.led_index is not None] or [
-            k for k in keys if k.row is not None and k.col is not None
-        ]
+        # led_count is the authoritative size for the flags/points arrays and
+        # must match RGB_MATRIX_LED_COUNT emitted by config_h (which may be
+        # an explicit value imported from the upstream keyboard's LED layout).
+        led_count = resolve_rgb_led_count(config)
+        explicit_led_keys = sorted(
+            [k for k in keys if k.led_index is not None],
+            key=lambda k: k.led_index,  # type: ignore[arg-type]
+        )
 
         matrix_led: list[list[str]] = [['NO_LED'] * cols for _ in range(rows)]
-        for k in led_keys:
-            if k.row is None or k.col is None:
-                continue
-            idx = k.led_index if k.led_index is not None else led_keys.index(k)
-            matrix_led[k.row][k.col] = str(idx)
+        if explicit_led_keys:
+            for k in explicit_led_keys:
+                if k.row is not None and k.col is not None:
+                    matrix_led[k.row][k.col] = str(k.led_index)
+        else:
+            # No explicit indices: assign sequentially to the first led_count keys.
+            for i, k in enumerate(keys[:led_count]):
+                if k.row is not None and k.col is not None:
+                    matrix_led[k.row][k.col] = str(i)
 
         lines.append('led_config_t g_led_config = { {')
         for row in matrix_led:
             lines.append('    { ' + ', '.join(row) + ' },')
         lines.append('}, {')
 
-        max_x = max((k.x for k in led_keys), default=1.0) or 1.0
-        max_y = max((k.y for k in led_keys), default=1.0) or 1.0
-        for k in led_keys:
-            px = int((k.x / max_x) * 224)
-            py = int((k.y / max_y) * 64)
-            lines.append(f'    {{ {px}, {py} }},')
+        # Points: exactly led_count entries.
+        if explicit_led_keys:
+            max_x = max((k.x for k in explicit_led_keys), default=1.0) or 1.0
+            max_y = max((k.y for k in explicit_led_keys), default=1.0) or 1.0
+            idx_to_key = {k.led_index: k for k in explicit_led_keys}
+            for i in range(led_count):
+                k = idx_to_key.get(i)
+                if k:
+                    px = int((k.x / max_x) * 224)
+                    py = int((k.y / max_y) * 64)
+                else:
+                    px = int((i / max(led_count - 1, 1)) * 224)
+                    py = 32
+                lines.append(f'    {{ {px}, {py} }},')
+        else:
+            position_keys = keys[:led_count]
+            if position_keys:
+                max_x = max((k.x for k in position_keys), default=1.0) or 1.0
+                max_y = max((k.y for k in position_keys), default=1.0) or 1.0
+                for k in position_keys:
+                    px = int((k.x / max_x) * 224)
+                    py = int((k.y / max_y) * 64)
+                    lines.append(f'    {{ {px}, {py} }},')
+                for i in range(len(position_keys), led_count):
+                    lines.append(f'    {{ {int((i / max(led_count - 1, 1)) * 224)}, 32 }},')
+            else:
+                for i in range(led_count):
+                    lines.append(f'    {{ {int((i / max(led_count - 1, 1)) * 224)}, 32 }},')
         lines.append('}, {')
 
-        for _ in led_keys:
+        # Flags: exactly led_count entries.
+        for _ in range(led_count):
             lines.append('    4,')  # LED_FLAG_KEYLIGHT
         lines.append('} };')
         lines.append('')

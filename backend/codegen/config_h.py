@@ -52,7 +52,7 @@ def generate_config_h(config: KeyboardConfig) -> str:
         led_count = resolve_rgb_led_count(config)
         driver = rgb.get('RGB_MATRIX_DRIVER', 'WS2812')
         max_bright = rgb.get('RGB_MATRIX_MAXIMUM_BRIGHTNESS', '200')
-        default_mode = rgb.get('RGB_MATRIX_DEFAULT_MODE', 'RGB_MATRIX_BREATHING')
+        default_mode = rgb.get('RGB_MATRIX_DEFAULT_MODE', 'RGB_MATRIX_SOLID_COLOR')
         sleep = rgb.get('RGB_MATRIX_SLEEP', 'yes')
         lines += [
             f'#define RGB_MATRIX_LED_COUNT {led_count}',
