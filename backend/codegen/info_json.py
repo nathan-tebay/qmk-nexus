@@ -7,6 +7,16 @@ from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_l
 from codegen._mcu import MCU_BOOTLOADER, MCU_QMK_NAME
 
 
+# Features safe to emit in the QMK keyboard.json features block.
+# Driver-level and unsupported features (led_matrix, st7565, sleep_led, etc.)
+# cause QMK's data validation to crash when present here.
+_SAFE_INFO_FEATURES = frozenset({
+    'audio', 'backlight', 'bootmagic', 'combo', 'console', 'encoder',
+    'extrakeys', 'mousekeys', 'nkro', 'oled', 'pointing_device',
+    'rgb_matrix', 'rgblight', 'split_keyboard', 'tap_dance',
+})
+
+
 def generate_info_json(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
@@ -15,7 +25,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
     features = config.features or {}
     fc = config.feature_configs or {}
 
-    enabled_features = [k for k, v in features.items() if v]
+    enabled_features = [k for k, v in features.items() if v and k in _SAFE_INFO_FEATURES]
 
     info: dict = {
         'keyboard_name': config.name or 'Custom Keyboard',

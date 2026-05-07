@@ -41,7 +41,9 @@ export function validateMatrices(config: KeyboardConfig): MatrixValidationResult
   const rowCount = rowValues.length > 0 ? Math.max(...rowValues) + 1 : 0
   const colCount = colValues.length > 0 ? Math.max(...colValues) + 1 : 0
   const splitEnabled = !!config.features['split_keyboard']
-  const expectedRowCount = splitEnabled && rowCount % 2 === 0 && config.rowPins.length < rowCount
+  // rowPins may include empty-pin entries for every row; only count assigned ones.
+  const assignedRowPinCount = config.rowPins.filter((p) => p.pin.trim()).length
+  const expectedRowCount = splitEnabled && rowCount % 2 === 0 && assignedRowPinCount <= rowCount / 2
     ? rowCount / 2
     : rowCount
   const expectedColCount = splitEnabled && colCount % 2 === 0 && config.colPins.length < colCount

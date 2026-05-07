@@ -11,7 +11,7 @@
 #define MATRIX_ROWS 2
 #define MATRIX_COLS 2
 
-#define MATRIX_ROW_PINS { B0, B1 }
+#define MATRIX_ROW_PINS { B0 }
 #define MATRIX_COL_PINS { D0, D1 }
 
 #define DIODE_DIRECTION COL2ROW

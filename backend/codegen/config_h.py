@@ -32,8 +32,15 @@ def generate_config_h(config: KeyboardConfig) -> str:
     ]
 
     if config.row_pins:
-        pin_list = ', '.join(p.pin for p in sorted(config.row_pins, key=lambda p: p.row))
-        lines.append(f'#define MATRIX_ROW_PINS {{ {pin_list} }}')
+        sorted_row_pins = sorted(
+            (p for p in config.row_pins if p.pin.strip()),
+            key=lambda p: p.row,
+        )
+        if features.get('split_keyboard') and len(sorted_row_pins) > rows // 2:
+            sorted_row_pins = sorted_row_pins[:rows // 2]
+        if sorted_row_pins:
+            pin_list = ', '.join(p.pin for p in sorted_row_pins)
+            lines.append(f'#define MATRIX_ROW_PINS {{ {pin_list} }}')
     else:
         lines.append('/* #define MATRIX_ROW_PINS { } */')
 
