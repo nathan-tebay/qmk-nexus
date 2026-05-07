@@ -45,6 +45,8 @@ def generate_config_h(config: KeyboardConfig) -> str:
 
     lines += ['', '#define DIODE_DIRECTION COL2ROW', '', '#define DEBOUNCE 5', '']
 
+    ws2812_pin_defined = False
+
     if features.get('rgb_matrix'):
         rgb = fc.get('rgb_matrix', {})
         led_count = resolve_rgb_led_count(config)
@@ -72,22 +74,26 @@ def generate_config_h(config: KeyboardConfig) -> str:
             lines += [f'#define RGB_MATRIX_I2C_SDA {sda}', f'#define RGB_MATRIX_I2C_SCL {scl}']
         elif driver == 'WS2812':
             pin = rgb.get('RGB_MATRIX_PIN', 'D3')
-            lines.append(f'#define RGB_MATRIX_PIN {pin}')
+            lines.append(f'#define WS2812_DI_PIN {pin}')
+            ws2812_pin_defined = True
         lines.append('')
 
     if features.get('rgblight'):
         rgl = fc.get('rgblight', {})
-        pin = rgl.get('RGBLIGHT_PIN', 'D3')
+        pin = rgl.get('RGBLIGHT_DI_PIN', rgl.get('RGBLIGHT_PIN', 'D3'))
         count = rgl.get('RGBLIGHT_LED_COUNT', '12')
         limit = rgl.get('RGBLIGHT_LIMIT_VAL', '200')
         mode = rgl.get('RGBLIGHT_DEFAULT_MODE', 'RGBLIGHT_MODE_BREATHING')
-        lines += [
-            f'#define RGBLIGHT_PIN {pin}',
+        rgl_lines = [
+            f'#define RGBLIGHT_DI_PIN {pin}',
             f'#define RGBLIGHT_LED_COUNT {count}',
             f'#define RGBLIGHT_LIMIT_VAL {limit}',
             f'#define RGBLIGHT_DEFAULT_MODE {mode}',
-            '',
         ]
+        if not ws2812_pin_defined:
+            rgl_lines.insert(1, f'#define WS2812_DI_PIN {pin}')
+            ws2812_pin_defined = True
+        lines += rgl_lines + ['']
 
     if features.get('backlight'):
         bl = fc.get('backlight', {})

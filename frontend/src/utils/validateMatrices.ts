@@ -19,7 +19,6 @@ export function validateMatrices(config: KeyboardConfig): MatrixValidationResult
 
   const inRowEdge = new Set(edges.filter((e) => e.type === 'row').flatMap((e) => [e.from, e.to]))
   const inColEdge = new Set(edges.filter((e) => e.type === 'col').flatMap((e) => [e.from, e.to]))
-  const inLedEdge = new Set(edges.filter((e) => e.type === 'led').flatMap((e) => [e.from, e.to]))
 
   const missingRow = config.keys.filter((k) => k.row === null && !inRowEdge.has(k.id))
   const missingCol = config.keys.filter((k) => k.col === null && !inColEdge.has(k.id))
@@ -68,9 +67,19 @@ export function validateMatrices(config: KeyboardConfig): MatrixValidationResult
   let ledOk = true
 
   if (ledEnabled) {
-    const missingLed = config.keys.filter((k) => k.ledIndex === null && !inLedEdge.has(k.id))
-    if (missingLed.length > 0) {
-      errors.push(`${missingLed.length} key${missingLed.length === 1 ? '' : 's'} missing LED index`)
+    // Missing LED indices are fine — keys without one are simply excluded from
+    // the rgb_matrix layout array. Only duplicate indices are a real error.
+    const assignedIndices = config.keys
+      .map((k) => k.ledIndex)
+      .filter((i): i is number => i !== null)
+    const seen = new Set<number>()
+    const dupes = new Set<number>()
+    for (const idx of assignedIndices) {
+      if (seen.has(idx)) dupes.add(idx)
+      else seen.add(idx)
+    }
+    if (dupes.size > 0) {
+      errors.push(`Duplicate LED indices: ${[...dupes].sort((a, b) => a - b).join(', ')}`)
       ledOk = false
     }
   }
