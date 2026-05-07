@@ -10,8 +10,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from codegen.keycodes import TRIVIAL_KEYCODES
+from codegen.keycodes import TRIVIAL_KEYCODES, normalize_keycode
+from codegen._mcu import MCU_ARCH
 from models import ColPin, EncoderElement, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin, OledElement, TrackballElement
+from utils import jsonable_out
 from validation import canonical_feature_id, sanitize_keyboard_config
 
 logger = logging.getLogger('qmk-nexus.qmk')
@@ -46,8 +48,13 @@ _PIN_READ_COL_RE = re.compile(
     r'\(\s*1\s*<<\s*\(?\s*(\d+)(?:\s*\+\s*(\d+))?\s*\)?\s*\)',
     re.DOTALL,
 )
+_GPIO_READ_PIN_RE = re.compile(r'gpio_read_pin\(\s*([A-Z]\d+)\s*\)')
 _MCP_GPIO_READ_RE = re.compile(r'\w+_read\(\s*([A-Z0-9_]*GPIO([AB]))\s*,')
 _MCP_IODIR_WRITE_RE = re.compile(r'\w+_write\(\s*([A-Z0-9_]*IODIR([AB]))\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*\)')
+_MCP23018_READ_PINS_RE = re.compile(
+    r'mcp23018_read_pins\s*\([^;]*?\bmcp23018_PORT([AB])\b[^;]*?&\s*([A-Za-z_][A-Za-z0-9_]*)[^;]*?\)',
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 @lru_cache(maxsize=1)
@@ -112,6 +119,9 @@ def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = Fa
         serial_pin = (split.get('serial') or {}).get('pin')
         if serial_pin:
             split_config['SOFT_SERIAL_PIN'] = str(serial_pin)
+        serial_driver = (split.get('serial') or {}).get('driver')
+        if serial_driver:
+            split_config['SERIAL_DRIVER'] = str(serial_driver)
         transport = (split.get('transport') or {}).get('protocol')
         if transport:
             split_config['SPLIT_TRANSPORT'] = str(transport)
@@ -194,6 +204,16 @@ def _feature_configs_from_info(info: dict[str, Any], *, split_enabled: bool = Fa
             'POINTING_DEVICE_DRIVER': _pointing_driver_from_info('', info),
         }
 
+    audio = info.get('audio') or {}
+    if features.get('audio') or audio:
+        audio_config: dict[str, str] = {}
+        if audio.get('driver'):
+            audio_config['AUDIO_DRIVER'] = str(audio['driver'])
+        if audio.get('pin'):
+            audio_config['AUDIO_PIN'] = str(audio['pin'])
+        if audio_config:
+            feature_configs['audio'] = audio_config
+
     return feature_configs
 
 
@@ -217,10 +237,10 @@ def _oled_driver(info: dict[str, Any]) -> str:
     return 'ST7567' if features.get('st7565') or info.get('st7565') else 'SSD1306'
 
 
-def _oled_blocks(index: int, *, split_enabled: bool = False) -> list[str]:
+def _oled_blocks(index: int, *, split_enabled: bool = False, include_wpm: bool = True) -> list[str]:
     if split_enabled and index > 0:
         return ['master_slave']
-    return ['layer_name', 'wpm']
+    return ['layer_name', 'wpm'] if include_wpm else ['layer_name']
 
 
 def _oleds_from_info(info: dict[str, Any], keys: list[KeyDef], *, split_enabled: bool = False) -> list[OledElement]:
@@ -228,6 +248,8 @@ def _oleds_from_info(info: dict[str, Any], keys: list[KeyDef], *, split_enabled:
     if not (features.get('oled') or features.get('st7565') or info.get('oled') or info.get('st7565')):
         return []
 
+    processor = str(info.get('processor', info.get('processor_type', ''))).lower()
+    include_wpm = not (processor.startswith('atmega') and features.get('audio'))
     min_x, min_y, max_x, _max_y = _bounds(keys)
     y = max(0.0, min_y - 1.25)
     display_size = _oled_display_size(info)
@@ -245,11 +267,11 @@ def _oleds_from_info(info: dict[str, Any], keys: list[KeyDef], *, split_enabled:
             if right_keys else max_x - 1.5
         )
         return [
-            OledElement(id=_nanoid(), x=max(0.0, left_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(0, split_enabled=True)),
-            OledElement(id=_nanoid(), x=max(0.0, right_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(1, split_enabled=True)),
+            OledElement(id=_nanoid(), x=max(0.0, left_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(0, split_enabled=True, include_wpm=include_wpm)),
+            OledElement(id=_nanoid(), x=max(0.0, right_center - 1.0), y=y, display_size=display_size, active_blocks=_oled_blocks(1, split_enabled=True, include_wpm=include_wpm)),
         ]
 
-    return [OledElement(id=_nanoid(), x=max_x + 1.0, y=min_y, display_size=display_size, active_blocks=_oled_blocks(0))]
+    return [OledElement(id=_nanoid(), x=max_x + 1.0, y=min_y, display_size=display_size, active_blocks=_oled_blocks(0, include_wpm=include_wpm))]
 
 
 def _pointing_driver_from_info(kb_path: str, info: dict[str, Any]) -> str:
@@ -291,8 +313,53 @@ def _trackballs_from_info(kb_path: str, info: dict[str, Any], keys: list[KeyDef]
     return [TrackballElement(id=_nanoid(), x=max_x + 1.0, y=y, driver=driver)]
 
 
+_LABEL_TO_KEYCODE: dict[str, str] = {
+    'Esc': 'KC_ESC', 'Escape': 'KC_ESC',
+    '1': 'KC_1', '2': 'KC_2', '3': 'KC_3', '4': 'KC_4', '5': 'KC_5',
+    '6': 'KC_6', '7': 'KC_7', '8': 'KC_8', '9': 'KC_9', '0': 'KC_0',
+    '-': 'KC_MINS', '=': 'KC_EQL',
+    'Backspace': 'KC_BSPC', 'Delete': 'KC_DEL',
+    'Tab': 'KC_TAB',
+    '[': 'KC_LBRC', ']': 'KC_RBRC', '\\': 'KC_BSLS',
+    'Caps Lock': 'KC_CAPS', 'Caps': 'KC_CAPS',
+    ';': 'KC_SCLN', "'": 'KC_QUOT', 'Enter': 'KC_ENT',
+    'Shift': 'KC_LSFT', 'Left Shift': 'KC_LSFT', 'Right Shift': 'KC_RSFT',
+    ',': 'KC_COMM', '.': 'KC_DOT', '/': 'KC_SLSH', '`': 'KC_GRV',
+    'Ctrl': 'KC_LCTL', 'Left Ctrl': 'KC_LCTL', 'Right Ctrl': 'KC_RCTL',
+    'Alt': 'KC_LALT', 'Left Alt': 'KC_LALT', 'Right Alt': 'KC_RALT',
+    'Win': 'KC_LGUI', 'GUI': 'KC_LGUI', 'Left GUI': 'KC_LGUI', 'Right GUI': 'KC_RGUI',
+    'Space': 'KC_SPC',
+    'F1': 'KC_F1', 'F2': 'KC_F2', 'F3': 'KC_F3', 'F4': 'KC_F4',
+    'F5': 'KC_F5', 'F6': 'KC_F6', 'F7': 'KC_F7', 'F8': 'KC_F8',
+    'F9': 'KC_F9', 'F10': 'KC_F10', 'F11': 'KC_F11', 'F12': 'KC_F12',
+    'Print Screen': 'KC_PSCR', 'PrtSc': 'KC_PSCR',
+    'Scroll Lock': 'KC_SCRL', 'ScrLk': 'KC_SCRL',
+    'Pause': 'KC_PAUS', 'Break': 'KC_PAUS',
+    'Insert': 'KC_INS', 'Home': 'KC_HOME',
+    'Page Up': 'KC_PGUP', 'PgUp': 'KC_PGUP',
+    'Page Down': 'KC_PGDN', 'PgDn': 'KC_PGDN',
+    'End': 'KC_END',
+    'Up': 'KC_UP', 'Down': 'KC_DOWN', 'Left': 'KC_LEFT', 'Right': 'KC_RGHT',
+    'Num Lock': 'KC_NUM', 'NumLk': 'KC_NUM',
+}
+
+
+def _keycode_from_label(label: str) -> str:
+    if not label:
+        return ''
+    kc = _LABEL_TO_KEYCODE.get(label)
+    if kc is not None:
+        return kc
+    up = label.upper()
+    if len(label) == 1 and label.isalpha():
+        return f'KC_{up}'
+    if len(label) == 1 and label.isdigit():
+        return f'KC_{label}'
+    return ''
+
+
 def _normalize_imported_encoder_keycode(value: Any) -> str | None:
-    text = str(value or '').strip()
+    text = normalize_keycode(str(value or '').strip())
     if not text or text == '_______' or text in TRIVIAL_KEYCODES:
         return None
     return text
@@ -337,6 +404,11 @@ def _encoder_count_from_default_keymap(raw_keymap: Any) -> int:
     return max((len(layer) for layer in raw_layers if isinstance(layer, list)), default=0)
 
 
+def _supports_generated_audio(processor: Any) -> bool:
+    mcu = str(processor or 'atmega32u4').lower()
+    return MCU_ARCH.get(mcu, ('avr', '16000000'))[0] == 'avr'
+
+
 def _encoders_from_info(info: dict[str, Any], keys: list[KeyDef], *, min_count: int = 0) -> list[EncoderElement]:
     rotary = (info.get('encoder') or {}).get('rotary') or []
     count = max(len(rotary), min_count)
@@ -352,13 +424,20 @@ def _encoders_from_info(info: dict[str, Any], keys: list[KeyDef], *, min_count: 
 
 def _layers_from_default_keymap(raw_keymap: Any, keys: list[KeyDef]) -> list[Layer]:
     if not (isinstance(raw_keymap, dict) and raw_keymap.get('layers')):
-        return [Layer(id='layer0', name='Base', keycodes={})]
+        # Fall back to layout labels when no default keymap is available.
+        keycodes = {
+            key.id: kc
+            for key in keys
+            if (kc := _keycode_from_label(key.label)) and kc not in TRIVIAL_KEYCODES
+        }
+        return [Layer(id='layer0', name='Base', keycodes=keycodes)]
 
     layers: list[Layer] = []
     for i, codes in enumerate(raw_keymap['layers']):
+        normalized_codes = [normalize_keycode(str(code)) for code in codes]
         keycodes = {
             keys[j].id: code
-            for j, code in enumerate(codes)
+            for j, code in enumerate(normalized_codes)
             if j < len(keys) and code not in TRIVIAL_KEYCODES
         }
         layers.append(Layer(
@@ -449,6 +528,10 @@ def _native_config_text(info: dict[str, Any]) -> str:
 
 def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[ColPin]]:
     matrix_pins: dict[str, Any] = info.get('matrix_pins', {})
+    direct_pins = matrix_pins.get('direct')
+    if direct_pins:
+        return _matrix_pins_from_direct(direct_pins)
+
     row_pins: list[MatrixPin] = [
         MatrixPin(row=i, pin=str(pin))
         for i, pin in enumerate(matrix_pins.get('rows', []))
@@ -464,7 +547,7 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
 
     native_config_text = _native_config_text(info)
     arrays = _define_arrays_from_native_config(info, native_config_text)
-    onboard_rows = arrays.get('MATRIX_ONBOARD_ROW_PINS') or []
+    onboard_rows = arrays.get('MATRIX_ONBOARD_ROW_PINS') or arrays.get('MATRIX_ROW_PINS') or []
     expander_rows = arrays.get('MATRIX_EXPANDER_ROW_PINS') or []
     if onboard_rows:
         for i, pin in enumerate(onboard_rows):
@@ -473,7 +556,7 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
             elif i < len(expander_rows):
                 row_pins.append(MatrixPin(row=i, pin=f'MCP_A{expander_rows[i]}'))
 
-    onboard_cols = arrays.get('MATRIX_ONBOARD_COL_PINS') or []
+    onboard_cols = arrays.get('MATRIX_ONBOARD_COL_PINS') or arrays.get('MATRIX_COL_PINS') or []
     expander_cols = arrays.get('MATRIX_EXPANDER_COL_PINS') or []
     if onboard_cols:
         col_pins = [ColPin(col=i, pin=pin) for i, pin in enumerate(onboard_cols) if pin and pin != '0']
@@ -484,6 +567,44 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
         row_pins, col_pins = _matrix_pins_from_custom_sources(info)
 
     return row_pins, col_pins
+
+
+def _matrix_pins_from_direct(direct_pins: Any) -> tuple[list[MatrixPin], list[ColPin]]:
+    if not isinstance(direct_pins, list):
+        return [], []
+
+    row_pins: list[MatrixPin] = []
+    col_pins: list[ColPin] = []
+    for row_index, row in enumerate(direct_pins):
+        if not isinstance(row, list):
+            continue
+        for col_index, pin in enumerate(row):
+            if pin is None:
+                continue
+            pin_name = str(pin)
+            if not pin_name.strip():
+                continue
+            if col_index == 0:
+                row_pins.append(MatrixPin(row=row_index, pin=pin_name))
+            else:
+                col_pins.append(ColPin(col=col_index, pin=pin_name))
+    return row_pins, col_pins
+
+
+def _direct_pins_from_info(info: dict[str, Any]) -> list[list[str | None]]:
+    direct_pins = (info.get('matrix_pins') or {}).get('direct')
+    if not isinstance(direct_pins, list):
+        return []
+
+    result: list[list[str | None]] = []
+    for row in direct_pins:
+        if not isinstance(row, list):
+            continue
+        result.append([
+            str(pin) if pin is not None and str(pin).strip() else None
+            for pin in row
+        ])
+    return result
 
 
 def _matrix_pins_from_custom_sources(info: dict[str, Any]) -> tuple[list[MatrixPin], list[ColPin]]:
@@ -513,9 +634,67 @@ def _matrix_pins_from_custom_sources(info: dict[str, Any]) -> tuple[list[MatrixP
             if mask & (1 << bit):
                 col_by_index.setdefault(bit, f'MCP_{bank}{bit}')
 
+    col_entries = [(col, pin) for col, pin in sorted(col_by_index.items())]
+    if not col_entries:
+        col_entries.extend(_gpio_read_col_entries(source_text))
+    col_entries.extend(_mcp23018_wrapper_col_entries(source_text))
+
     row_pins = [MatrixPin(row=row, pin=pin) for row, pin in sorted(row_by_index.items())]
-    col_pins = [ColPin(col=col, pin=pin) for col, pin in sorted(col_by_index.items())]
+    col_pins = [ColPin(col=col, pin=pin) for col, pin in col_entries]
     return row_pins, col_pins
+
+
+def _gpio_read_col_entries(source_text: str) -> list[tuple[int, str]]:
+    entries: list[tuple[int, str]] = []
+    seen: set[str] = set()
+    for body in _column_read_bodies(source_text):
+        for pin in _GPIO_READ_PIN_RE.findall(body):
+            if pin in seen:
+                continue
+            seen.add(pin)
+            entries.append((len(entries), pin))
+    return entries
+
+
+def _mcp23018_wrapper_col_entries(source_text: str) -> list[tuple[int, str]]:
+    entries: list[tuple[int, str]] = []
+    seen: set[tuple[int, str]] = set()
+    for bank, variable in _MCP23018_READ_PINS_RE.findall(source_text):
+        mask = _variable_input_mask(source_text, variable)
+        if not mask:
+            continue
+        bank = bank.upper()
+        for bit in range(8):
+            if not (mask & (1 << bit)):
+                continue
+            entry = (bit, f'MCP_{bank}{bit}')
+            if entry not in seen:
+                seen.add(entry)
+                entries.append(entry)
+    return entries
+
+
+def _column_read_bodies(source_text: str) -> list[str]:
+    bodies: list[str] = []
+    pattern = re.compile(r'\b\w*read\w*col\w*\s*\([^)]*\)\s*\{', re.IGNORECASE)
+    for match in pattern.finditer(source_text):
+        start = match.end()
+        depth = 1
+        i = start
+        while i < len(source_text) and depth:
+            if source_text[i] == '{':
+                depth += 1
+            elif source_text[i] == '}':
+                depth -= 1
+            i += 1
+        if depth == 0:
+            bodies.append(source_text[start:i - 1])
+    return bodies or [source_text]
+
+
+def _variable_input_mask(source_text: str, variable: str) -> int:
+    match = re.search(rf'\b{re.escape(variable)}\b\s*&\s*(0b[01]+|0x[0-9A-Fa-f]+|\d+)', source_text)
+    return int(match.group(1), 0) if match else 0
 
 
 def _mcp_input_mask(source_text: str, iodir_register: str) -> int:
@@ -729,7 +908,7 @@ def _convert_to_config(
             w=float(qk.get('w', 1)),
             h=float(qk.get('h', 1)),
             rotation=float(qk.get('r', 0)),
-            label='',
+            label=str(qk.get('label', '')),
             row=matrix[0] if len(matrix) > 0 else None,
             col=matrix[1] if len(matrix) > 1 else None,
             led_index=None,
@@ -749,6 +928,8 @@ def _convert_to_config(
         features['oled'] = True
     if features_raw.get('led_matrix') or info.get('led_matrix'):
         features['rgb_matrix'] = True
+    if features.get('audio') and not _supports_generated_audio(processor):
+        features['audio'] = False
     split_enabled = _infer_split_enabled(kb_path, info, keys, row_pins, col_pins)
     if split_enabled:
         features['split_keyboard'] = True
@@ -784,6 +965,7 @@ def _convert_to_config(
         keys=keys,
         row_pins=row_pins,
         col_pins=col_pins,
+        direct_pins=_direct_pins_from_info(info),
         matrix_edges=matrix_edges,
         layers=layers,
         features=features,
@@ -811,7 +993,7 @@ def import_keyboard(
     layout_only: bool = Query(default=False, alias='layoutOnly'),
 ) -> KeyboardConfig:
     info = _load_keyboard_info(kb_path)
-    return _convert_to_config(kb_path, info, layout_only=layout_only)
+    return jsonable_out(_convert_to_config(kb_path, info, layout_only=layout_only))
 
 
 class LayoutSwitchRequest(BaseModel):
@@ -863,4 +1045,4 @@ def switch_layout(
     # and is exercised directly in the test suite.
     _ = keyboard_id  # reserved for future use
 
-    return new_config
+    return jsonable_out(new_config)

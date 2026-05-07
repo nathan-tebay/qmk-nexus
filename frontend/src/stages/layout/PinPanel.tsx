@@ -14,6 +14,9 @@ export default function PinPanel() {
   const pinRowCount = singleKeyDirect ? 1 : (splitRows ? rowCount / 2 : rowCount)
   const pinColCount = singleKeyDirect ? 1 : colCount
 
+  const isQmkNative = config.sourceMode === 'qmk_native'
+  const customMatrixCols = isQmkNative && colCount > 0 && config.colPins.length === 0
+
   function setRowPin(row: number, pin: string) {
     const pins = [...config.rowPins]
     const idx = pins.findIndex((p) => p.row === row)
@@ -73,7 +76,15 @@ export default function PinPanel() {
         </section>
       )}
 
-      {pinColCount > 0 && (
+      {customMatrixCols ? (
+        <section>
+          <h4 className={styles.sectionTitle}>Col Pins</h4>
+          <p className={styles.customMatrixNote}>
+            This keyboard uses a custom matrix (e.g. shift register) for column scanning.
+            Col pins are managed by the keyboard's firmware — no GPIO pin assignments needed here.
+          </p>
+        </section>
+      ) : pinColCount > 0 && (
         <section>
           <h4 className={styles.sectionTitle}>{singleKeyDirect ? 'Return Pin' : 'Col Pins'}</h4>
           {Array.from({ length: pinColCount }, (_, i) => (

@@ -201,6 +201,21 @@ def test_single_key_without_matrix_edges_generates_one_key_layout():
     assert 'KC_A' in c
 
 
+def test_direct_matrix_generates_direct_pins_not_row_col_defines(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={
+        'direct_pins': [['C6', 'D6'], ['C7', None]],
+        'row_pins': [MatrixPin(row=0, pin='C6'), MatrixPin(row=1, pin='C7')],
+        'col_pins': [ColPin(col=0, pin='D6')],
+    })
+
+    info = json.loads(generate_info_json(kb))
+    config = generate_config_h(kb)
+
+    assert info['matrix_pins'] == {'direct': [['C6', 'D6'], ['C7', None]]}
+    assert '#define MATRIX_ROW_PINS' not in config
+    assert '#define MATRIX_COL_PINS' not in config
+
+
 def test_mk20dx256_generates_arm_rules_and_kiibohd_bootloader(minimal_avr_kb):
     kb = minimal_avr_kb.model_copy(update={'mcu': 'mk20dx256'})
 
@@ -211,6 +226,42 @@ def test_mk20dx256_generates_arm_rules_and_kiibohd_bootloader(minimal_avr_kb):
     assert 'TARGET_ARCH = ARM' in rules
     assert 'F_CPU' not in rules
     assert '#define BOOTLOADER kiibohd' in config
+
+
+def test_stm32f411_generates_arm_rules_and_stm32_dfu_metadata(minimal_avr_kb):
+    kb = minimal_avr_kb.model_copy(update={'mcu': 'stm32f411'})
+
+    rules = generate_rules_mk(kb)
+    config = generate_config_h(kb)
+    info = json.loads(generate_info_json(kb))
+
+    assert 'MCU = STM32F411' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'F_CPU' not in rules
+    assert '#define BOOTLOADER stm32-dfu' in config
+    assert info['processor'] == 'STM32F411'
+    assert info['bootloader'] == 'stm32-dfu'
+
+
+@pytest.mark.parametrize('mcu,qmk_name,f_cpu,bootloader', [
+    ('atmega32u2', 'atmega32u2', '16000000', 'atmel-dfu'),
+    ('atmega32a', 'atmega32a', '12000000', 'bootloadhid'),
+    ('at90usb1286', 'at90usb1286', '16000000', 'atmel-dfu'),
+    ('atmega328p', 'atmega328p', '16000000', 'usbasploader'),
+])
+def test_requested_avr_mcus_generate_supported_rules_and_metadata(minimal_avr_kb, mcu, qmk_name, f_cpu, bootloader):
+    kb = minimal_avr_kb.model_copy(update={'mcu': mcu})
+
+    rules = generate_rules_mk(kb)
+    config = generate_config_h(kb)
+    info = json.loads(generate_info_json(kb))
+
+    assert f'MCU = {qmk_name}' in rules
+    assert f'F_CPU = {f_cpu}' in rules
+    assert 'TARGET_ARCH = ARM' not in rules
+    assert f'#define BOOTLOADER {bootloader}' in config
+    assert info['processor'] == qmk_name
+    assert info['bootloader'] == bootloader
 
 
 def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
@@ -368,6 +419,74 @@ def test_mk20dx256_split_emits_usart_serial_driver(minimal_avr_kb):
     assert 'SERIAL_DRIVER = usart' in rules
 
 
+def test_rp2040_split_uses_gpio_pin_fallback_and_imported_serial_driver(rp2040_oled_kb):
+    kb = rp2040_oled_kb.model_copy(update={
+        'features': {**rp2040_oled_kb.features, 'split_keyboard': True},
+        'soft_serial_pin': 'D0',
+        'feature_configs': {
+            'split_keyboard': {
+                'SPLIT_TRANSPORT': 'serial',
+                'SERIAL_DRIVER': 'vendor',
+            },
+        },
+    })
+
+    config = generate_config_h(kb)
+    rules = generate_rules_mk(kb)
+
+    assert '#define SOFT_SERIAL_PIN GP0' in config
+    assert 'SERIAL_DRIVER = vendor' in rules
+
+
+def test_split_sync_flags_are_not_runtime_assignments(split_rgb_kb):
+    kb = split_rgb_kb.model_copy(update={
+        'feature_configs': {
+            'split_keyboard': {
+                'SPLIT_TRANSPORT_MIRROR': 'yes',
+                'SPLIT_LAYER_STATE_ENABLE': 'yes',
+            },
+        },
+    })
+
+    keyboard_c = generate_keyboard_c(kb)
+    config = generate_config_h(kb)
+
+    assert 'split_transport_mirror' not in keyboard_c
+    assert 'split_layer_state_enable' not in keyboard_c
+    assert '#define SPLIT_TRANSPORT_MIRROR' in config
+    assert '#define SPLIT_LAYER_STATE_ENABLE' in config
+
+
+def test_pmw_pointing_device_emits_driver_cs_define(rp2040_oled_kb):
+    kb = rp2040_oled_kb.model_copy(update={
+        'features': {**rp2040_oled_kb.features, 'pointing_device': True},
+        'feature_configs': {
+            'pointing_device': {
+                'POINTING_DEVICE_DRIVER': 'pmw3360',
+                'POINTING_DEVICE_CS_PIN': 'GP7',
+            },
+        },
+    })
+
+    config = generate_config_h(kb)
+
+    assert '#define POINTING_DEVICE_CS_PIN GP7' in config
+    assert '#define PMW33XX_CS_PIN GP7' in config
+
+
+def test_imported_rp2040_audio_can_emit_pwm_driver(rp2040_oled_kb):
+    kb = rp2040_oled_kb.model_copy(update={
+        'features': {**rp2040_oled_kb.features, 'audio': True},
+        'feature_configs': {'audio': {'AUDIO_DRIVER': 'pwm_hardware'}},
+    })
+
+    rules = generate_rules_mk(kb)
+    config = generate_config_h(kb)
+
+    assert 'AUDIO_DRIVER = pwm_hardware' in rules
+    assert '#define AUDIO_PIN GP0' in config
+
+
 def test_is31fl3731_on_chibios_suppresses_unused_var_warning(minimal_avr_kb):
     kb = minimal_avr_kb.model_copy(update={
         'mcu': 'stm32f303',
@@ -409,6 +528,201 @@ def test_rgblight_solid_effect_alias_uses_static_light_mode(minimal_avr_kb):
     config = generate_config_h(kb)
 
     assert '#define RGBLIGHT_DEFAULT_MODE RGBLIGHT_MODE_STATIC_LIGHT' in config
+
+
+# ── Real-world board tests ─────────────────────────────────────────────────────
+
+def test_unicorne_rp2040_split_pointing_rgb_encoder(unicorne_kb):
+    """boardsource/unicorne: RP2040 + split + PMW3360 + RGB matrix + encoder + audio."""
+    rules = generate_rules_mk(unicorne_kb)
+    config = generate_config_h(unicorne_kb)
+    keymap = generate_keymap_c(unicorne_kb)
+    info = json.loads(generate_info_json(unicorne_kb))
+
+    assert 'MCU = RP2040' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'SPLIT_KEYBOARD = yes' in rules
+    assert 'SPLIT_TRANSPORT = serial' in rules
+    assert 'SERIAL_DRIVER = vendor' in rules
+    assert 'POINTING_DEVICE_ENABLE = yes' in rules
+    assert 'POINTING_DEVICE_DRIVER = pmw3360' in rules
+    assert 'RGB_MATRIX_ENABLE = yes' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'AUDIO_ENABLE = yes' in rules
+
+    assert '#define SOFT_SERIAL_PIN GP1' in config
+    assert '#define POINTING_DEVICE_CS_PIN GP17' in config
+    assert '#define PMW33XX_CS_PIN GP17' in config
+    assert 'GP29' in config and 'GP28' in config  # row pins
+    assert 'GP6' in config and 'GP11' in config   # col pins
+
+    assert info['split']['enabled'] is True
+    assert 'soft_serial_pin' in info['split']
+    rgb_layout = info['rgb_matrix']['layout']
+    assert len(rgb_layout) == 24  # 4 rows × 6 cols, all have led_index
+
+    assert 'encoder_map' in keymap
+    assert 'KC_VOLU' in keymap
+    assert 'KC_VOLD' in keymap
+
+
+def test_evo70_r2_stm32f411_backlight_rgblight_audio_encoder(evo70_r2_kb):
+    """custommk/evo70_r2: STM32F411 + encoder + backlight + rgblight + audio."""
+    rules = generate_rules_mk(evo70_r2_kb)
+    config = generate_config_h(evo70_r2_kb)
+    keymap = generate_keymap_c(evo70_r2_kb)
+    info = json.loads(generate_info_json(evo70_r2_kb))
+
+    assert 'MCU = STM32F411' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'BACKLIGHT_ENABLE = yes' in rules
+    assert 'RGBLIGHT_ENABLE = yes' in rules
+    assert 'AUDIO_ENABLE = yes' in rules
+    assert 'BACKLIGHT_LEVELS = 5' in rules
+
+    assert '#define AUDIO_PIN C13' in config
+    assert '#define BACKLIGHT_PIN B6' in config
+    assert '#define RGBLIGHT_DI_PIN B15' in config
+    assert '#define RGBLIGHT_LED_COUNT 14' in config
+    assert 'A4' in config and 'C12' in config  # row pins
+    assert 'A3' in config and 'B11' in config  # col pins
+
+    assert info['processor'] == 'STM32F411'
+    assert info['bootloader'] == 'stm32-dfu'
+    assert 'split' not in info
+
+    assert 'encoder_map' in keymap
+
+
+def test_macropad_rp2040_rgb_matrix_audio_pwm_encoder(macropad_rp2040_kb):
+    """adafruit/macropad: RP2040 + encoder + RGB matrix + OLED + audio (pwm_hardware)."""
+    rules = generate_rules_mk(macropad_rp2040_kb)
+    config = generate_config_h(macropad_rp2040_kb)
+    keymap = generate_keymap_c(macropad_rp2040_kb)
+    info = json.loads(generate_info_json(macropad_rp2040_kb))
+
+    assert 'MCU = RP2040' in rules
+    assert 'RGB_MATRIX_ENABLE = yes' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'AUDIO_ENABLE = yes' in rules
+    assert 'AUDIO_DRIVER = pwm_hardware' in rules
+
+    assert '#define AUDIO_PIN GP0' in config  # default RP2040 audio pin
+
+    assert info['processor'] == 'RP2040'
+    assert info['bootloader'] == 'rp2040'
+    assert 'split' not in info
+    rgb_layout = info['rgb_matrix']['layout']
+    assert len(rgb_layout) == 12  # 4 rows × 3 cols
+
+    assert 'encoder_map' in keymap
+
+
+def test_sofle_pico_rp2040_split_rgb_encoder(sofle_pico_kb):
+    """sofle_pico: RP2040 + split + encoder + RGB matrix + OLED."""
+    rules = generate_rules_mk(sofle_pico_kb)
+    config = generate_config_h(sofle_pico_kb)
+    keymap = generate_keymap_c(sofle_pico_kb)
+    info = json.loads(generate_info_json(sofle_pico_kb))
+
+    assert 'MCU = RP2040' in rules
+    assert 'SPLIT_KEYBOARD = yes' in rules
+    assert 'SPLIT_TRANSPORT = serial' in rules
+    assert 'SERIAL_DRIVER = vendor' in rules
+    assert 'RGB_MATRIX_ENABLE = yes' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+
+    assert '#define SOFT_SERIAL_PIN GP0' in config
+    assert 'GP4' in config   # row pin
+    assert 'GP21' in config  # col pin
+
+    assert info['split']['enabled'] is True
+    rgb_layout = info['rgb_matrix']['layout']
+    assert len(rgb_layout) == 30  # 5 rows × 6 cols
+
+    assert 'encoder_map' in keymap
+
+
+def test_preonic_rev3_stm32f303_audio_console_rgblight_encoder(preonic_rev3_kb):
+    """preonic/rev3: STM32F303 + encoder + audio + console + rgblight."""
+    rules = generate_rules_mk(preonic_rev3_kb)
+    config = generate_config_h(preonic_rev3_kb)
+    keymap = generate_keymap_c(preonic_rev3_kb)
+    info = json.loads(generate_info_json(preonic_rev3_kb))
+
+    assert 'MCU = STM32F303' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'AUDIO_ENABLE = yes' in rules
+    assert 'CONSOLE_ENABLE = yes' in rules
+    assert 'RGBLIGHT_ENABLE = yes' in rules
+
+    assert '#define AUDIO_PIN C6' in config
+    assert '#define RGBLIGHT_DI_PIN A1' in config
+    assert '#define RGBLIGHT_LED_COUNT 2' in config
+    assert 'A10' in config and 'C6' in config  # row pins
+    assert 'A7' in config and 'B5' in config   # col pins
+
+    assert info['processor'] == 'STM32F303'
+    assert info['bootloader'] == 'stm32-dfu'
+    assert 'split' not in info
+
+    assert 'encoder_map' in keymap
+
+
+def test_rocketboard16_stm32f103_rgblight_console_encoder(rocketboard16_kb):
+    """rocketboard_16: STM32F103 + encoder + OLED + rgblight + console."""
+    rules = generate_rules_mk(rocketboard16_kb)
+    config = generate_config_h(rocketboard16_kb)
+    keymap = generate_keymap_c(rocketboard16_kb)
+    info = json.loads(generate_info_json(rocketboard16_kb))
+
+    assert 'MCU = STM32F103' in rules
+    assert 'TARGET_ARCH = ARM' in rules
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'RGBLIGHT_ENABLE = yes' in rules
+    assert 'CONSOLE_ENABLE = yes' in rules
+    assert 'OLED_ENABLE = yes' in rules
+
+    assert '#define RGBLIGHT_DI_PIN B8' in config
+    assert '#define RGBLIGHT_LED_COUNT 8' in config
+    assert 'A1' in config and 'B12' in config  # row pins
+    assert 'A2' in config and 'A7' in config   # col pins
+
+    assert info['processor'] == 'STM32F103'
+    assert info['bootloader'] == 'stm32duino'
+    assert 'split' not in info
+
+    assert 'encoder_map' in keymap
+
+
+def test_zima_avr_audio_rgblight_encoder(zima_kb):
+    """splitkb/zima: atmega32u4 + encoder + OLED + audio + rgblight."""
+    rules = generate_rules_mk(zima_kb)
+    config = generate_config_h(zima_kb)
+    keymap = generate_keymap_c(zima_kb)
+    info = json.loads(generate_info_json(zima_kb))
+
+    assert 'MCU = atmega32u4' in rules
+    assert 'F_CPU = 16000000' in rules
+    assert 'TARGET_ARCH = ARM' not in rules  # AVR
+    assert 'ENCODER_MAP_ENABLE = yes' in rules
+    assert 'AUDIO_ENABLE = yes' in rules
+    assert 'RGBLIGHT_ENABLE = yes' in rules
+    assert 'OLED_ENABLE = yes' in rules
+
+    assert '#define AUDIO_PIN C5' in config
+    assert '#define RGBLIGHT_DI_PIN B3' in config
+    assert '#define RGBLIGHT_LED_COUNT 6' in config
+    assert '#define MATRIX_ROW_PINS { D4, C6 }' in config
+    assert '#define MATRIX_COL_PINS { D7, E6, B4, B5, B6, D6 }' in config
+
+    assert info['processor'] == 'atmega32u4'
+    assert info['bootloader'] == 'atmel-dfu'
+    assert 'split' not in info
+
+    assert 'encoder_map' in keymap
 
 
 def test_mcp_expander_pins_emit_custom_matrix(minimal_avr_kb):

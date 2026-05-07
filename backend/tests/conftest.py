@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from models import ColPin, KeyboardConfig, KeyDef, Layer, MatrixPin
+from models import ColPin, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
 
 
 def pytest_addoption(parser):
@@ -104,4 +104,204 @@ def undefined_key_kb() -> KeyboardConfig:
             _key('undef', None, None, 2, 0),
         ],
         layers=[Layer(id='layer0', name='Base', keycodes={})],
+    )
+
+
+# ── Real-world board fixtures ────────────────────────────────────────────────
+
+def _enc(id: str) -> EncoderElement:
+    return EncoderElement(id=id, x=0.0, y=0.0)
+
+
+def _oled(id: str) -> OledElement:
+    return OledElement(id=id, x=0.0, y=0.0)
+
+
+@pytest.fixture
+def unicorne_kb() -> KeyboardConfig:
+    """boardsource/unicorne — RP2040, split, pointing device, encoder, RGB matrix, OLED, audio."""
+    keys = [
+        _key(f'k{r}{c}', r, c, float(c), float(r), led_index=r * 6 + c)
+        for r in range(4) for c in range(6)
+    ]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(4) for c in range(6)}
+    return KeyboardConfig(
+        id='unicorne',
+        name='Unicorne',
+        mcu='rp2040',
+        usb_vid='0xFEED', usb_pid='0x1300', manufacturer='Boardsource',
+        soft_serial_pin='GP1',
+        row_pins=[MatrixPin(row=i, pin=f'GP{29 - i}') for i in range(4)],
+        col_pins=[ColPin(col=i, pin=f'GP{6 + i}') for i in range(6)],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={
+            'split_keyboard': True, 'rgb_matrix': True, 'oled': True,
+            'audio': True, 'encoder': True, 'pointing_device': True, 'nkro': True,
+        },
+        feature_configs={
+            'split_keyboard': {'SPLIT_TRANSPORT': 'serial', 'SERIAL_DRIVER': 'vendor'},
+            'pointing_device': {'POINTING_DEVICE_DRIVER': 'pmw3360', 'POINTING_DEVICE_CS_PIN': 'GP17'},
+        },
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def evo70_r2_kb() -> KeyboardConfig:
+    """custommk/evo70_r2 — STM32F411, encoder, OLED, audio, backlight, rgblight."""
+    keys = [_key(f'k{r}{c}', r, c, float(c), float(r)) for r in range(5) for c in range(5)]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(5) for c in range(5)}
+    return KeyboardConfig(
+        id='evo70-r2',
+        name='EVO70 R2',
+        mcu='stm32f411',
+        usb_vid='0xFEED', usb_pid='0x1301', manufacturer='custommk',
+        row_pins=[MatrixPin(row=i, pin=p) for i, p in enumerate(['A4', 'A5', 'B3', 'C11', 'C12'])],
+        col_pins=[ColPin(col=i, pin=p) for i, p in enumerate(['A3', 'A2', 'A1', 'A0', 'B11'])],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={
+            'encoder': True, 'oled': True, 'audio': True,
+            'backlight': True, 'rgblight': True, 'nkro': True,
+        },
+        feature_configs={
+            'audio': {'AUDIO_PIN': 'C13'},
+            'backlight': {'BACKLIGHT_PIN': 'B6', 'BACKLIGHT_LEVELS': '5'},
+            'rgblight': {'RGBLIGHT_DI_PIN': 'B15', 'RGBLIGHT_LED_COUNT': '14'},
+        },
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def macropad_rp2040_kb() -> KeyboardConfig:
+    """adafruit/macropad — RP2040, encoder, RGB matrix, OLED, audio (pwm_hardware)."""
+    keys = [
+        _key(f'k{r}{c}', r, c, float(c), float(r), led_index=r * 3 + c)
+        for r in range(4) for c in range(3)
+    ]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(4) for c in range(3)}
+    return KeyboardConfig(
+        id='macropad-rp2040',
+        name='Macropad RP2040',
+        mcu='rp2040',
+        usb_vid='0x239A', usb_pid='0x8106', manufacturer='Adafruit',
+        row_pins=[MatrixPin(row=i, pin=f'GP{4 + i}') for i in range(4)],
+        col_pins=[ColPin(col=i, pin=f'GP{8 + i}') for i in range(3)],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={'encoder': True, 'rgb_matrix': True, 'oled': True, 'audio': True, 'nkro': True},
+        feature_configs={'audio': {'AUDIO_DRIVER': 'pwm_hardware'}},
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def sofle_pico_kb() -> KeyboardConfig:
+    """sofle_pico — RP2040, split, encoder, RGB matrix, OLED."""
+    keys = [
+        _key(f'k{r}{c}', r, c, float(c), float(r), led_index=r * 6 + c)
+        for r in range(5) for c in range(6)
+    ]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(5) for c in range(6)}
+    return KeyboardConfig(
+        id='sofle-pico',
+        name='Sofle Pico',
+        mcu='rp2040',
+        usb_vid='0xFEED', usb_pid='0x1302', manufacturer='josefadamcik',
+        soft_serial_pin='GP0',
+        row_pins=[MatrixPin(row=i, pin=f'GP{4 + i}') for i in range(5)],
+        col_pins=[ColPin(col=i, pin=p) for i, p in enumerate(['GP21', 'GP23', 'GP20', 'GP22', 'GP26', 'GP29'])],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={'split_keyboard': True, 'rgb_matrix': True, 'oled': True, 'encoder': True, 'nkro': True},
+        feature_configs={
+            'split_keyboard': {'SPLIT_TRANSPORT': 'serial', 'SERIAL_DRIVER': 'vendor'},
+        },
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def preonic_rev3_kb() -> KeyboardConfig:
+    """preonic/rev3 — STM32F303, encoder, audio, console, rgblight."""
+    keys = [_key(f'k{r}{c}', r, c, float(c), float(r)) for r in range(5) for c in range(5)]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(5) for c in range(5)}
+    return KeyboardConfig(
+        id='preonic-rev3',
+        name='Preonic Rev3',
+        mcu='stm32f303',
+        usb_vid='0x4B42', usb_pid='0x6061', manufacturer='OLKB',
+        row_pins=[MatrixPin(row=i, pin=p) for i, p in enumerate(['A10', 'B0', 'B7', 'B6', 'C6'])],
+        col_pins=[ColPin(col=i, pin=p) for i, p in enumerate(['A7', 'B1', 'B3', 'B4', 'B5'])],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={
+            'encoder': True, 'audio': True, 'console': True,
+            'rgblight': True, 'nkro': True, 'bootmagic': True,
+        },
+        feature_configs={
+            'audio': {'AUDIO_PIN': 'C6'},
+            'rgblight': {'RGBLIGHT_DI_PIN': 'A1', 'RGBLIGHT_LED_COUNT': '2'},
+        },
+        encoders=[_enc('enc0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def rocketboard16_kb() -> KeyboardConfig:
+    """rocketboard_16 — STM32F103, encoder, OLED, rgblight, console."""
+    keys = [_key(f'k{r}{c}', r, c, float(c), float(r)) for r in range(3) for c in range(6)]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(3) for c in range(6)}
+    return KeyboardConfig(
+        id='rocketboard-16',
+        name='Rocketboard-16',
+        mcu='stm32f103',
+        usb_vid='0xFEED', usb_pid='0x1303', manufacturer='Rocketboard',
+        row_pins=[MatrixPin(row=i, pin=p) for i, p in enumerate(['A1', 'A0', 'B12'])],
+        col_pins=[ColPin(col=i, pin=p) for i, p in enumerate(['A2', 'A3', 'A4', 'A5', 'A6', 'A7'])],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={'encoder': True, 'oled': True, 'rgblight': True, 'console': True, 'nkro': True},
+        feature_configs={
+            'rgblight': {'RGBLIGHT_DI_PIN': 'B8', 'RGBLIGHT_LED_COUNT': '8'},
+        },
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def zima_kb() -> KeyboardConfig:
+    """splitkb/zima — atmega32u4, encoder, OLED, audio, rgblight."""
+    keys = [_key(f'k{r}{c}', r, c, float(c), float(r)) for r in range(2) for c in range(6)]
+    keycodes = {f'k{r}{c}': 'KC_TRNS' for r in range(2) for c in range(6)}
+    return KeyboardConfig(
+        id='zima',
+        name='Zima',
+        mcu='atmega32u4',
+        usb_vid='0x6564', usb_pid='0x0001', manufacturer='splitkb',
+        row_pins=[MatrixPin(row=0, pin='D4'), MatrixPin(row=1, pin='C6')],
+        col_pins=[ColPin(col=i, pin=p) for i, p in enumerate(['D7', 'E6', 'B4', 'B5', 'B6', 'D6'])],
+        keys=keys,
+        layers=[Layer(id='layer0', name='Base', keycodes=keycodes)],
+        features={'encoder': True, 'oled': True, 'audio': True, 'rgblight': True, 'nkro': True},
+        feature_configs={
+            'audio': {'AUDIO_PIN': 'C5'},
+            'rgblight': {'RGBLIGHT_DI_PIN': 'B3', 'RGBLIGHT_LED_COUNT': '6'},
+        },
+        encoders=[_enc('enc0')],
+        oleds=[_oled('oled0')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
     )

@@ -48,3 +48,14 @@
   line-height: 1.45;
   margin-bottom: 8px;
 }
+
+.customMatrixNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  padding: 8px 10px;
+  background: var(--bg-secondary, rgba(255,255,255,0.04));
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-muted, #555);
+  margin: 0;
+}
