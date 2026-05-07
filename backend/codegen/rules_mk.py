@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from models import KeyboardConfig
-from codegen._mcu import MCU_ARCH, MCU_QMK_NAME
+from codegen._mcu import MCU_ARCH, MCU_QMK_NAME, MCU_QMK_BOARD
 
 
 def generate_rules_mk(config: KeyboardConfig) -> str:
@@ -17,6 +17,9 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         lines.append(f'F_CPU = {arch_info[1]}')
     elif arch == 'chibios':
         lines.append('TARGET_ARCH = ARM')
+        board = MCU_QMK_BOARD.get(mcu)
+        if board:
+            lines.append(f'BOARD = {board}')
     lines.append('')
 
     # Features — one ENABLE = yes per enabled feature

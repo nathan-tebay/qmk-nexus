@@ -41,3 +41,10 @@
   flex: 1;
   font-size: 15px;
 }
+
+.splitHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-bottom: 8px;
+}

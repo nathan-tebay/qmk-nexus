@@ -39,6 +39,13 @@ MCU_QMK_NAME: dict[str, str] = {
     'rp2040': 'RP2040',
 }
 
+# ChibiOS BOARD value for MCUs that need it explicitly.
+# Without this, QMK falls back to the common board config which cannot
+# resolve mcuconf.h, causing compile failure on all ChibiOS targets.
+MCU_QMK_BOARD: dict[str, str] = {
+    'mk20dx256': 'TEENSY_3_X',
+}
+
 MCU_RGB_DRIVER: dict[str, str] = {
     'atmega32u4': 'ws2812',
     'atmega32u2': 'ws2812',

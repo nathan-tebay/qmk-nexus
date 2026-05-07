@@ -9,7 +9,9 @@ export default function PinPanel() {
   const colCount = config.keys.reduce((max, k) =>
     k.col !== null ? Math.max(max, k.col + 1) : max, 0)
   const singleKeyDirect = config.keys.length === 1 && rowCount === 0 && colCount === 0
-  const pinRowCount = singleKeyDirect ? 1 : rowCount
+  const splitEnabled = !!config.features['split_keyboard']
+  const splitRows = splitEnabled && rowCount % 2 === 0 && rowCount > 0
+  const pinRowCount = singleKeyDirect ? 1 : (splitRows ? rowCount / 2 : rowCount)
   const pinColCount = singleKeyDirect ? 1 : colCount
 
   function setRowPin(row: number, pin: string) {
@@ -51,6 +53,12 @@ export default function PinPanel() {
       {pinRowCount > 0 && (
         <section>
           <h4 className={styles.sectionTitle}>{singleKeyDirect ? 'Switch Pins' : 'Row Pins'}</h4>
+          {splitRows && (
+            <p className={styles.splitHint}>
+              Split keyboard — assign pins for one half only (rows 0–{pinRowCount - 1}).
+              Both halves use the same row pins.
+            </p>
+          )}
           {Array.from({ length: pinRowCount }, (_, i) => (
             <div key={i} className={styles.pinRow}>
               <span className={styles.pinLabel}>{singleKeyDirect ? 'Pin A' : `Row ${i}`}</span>
