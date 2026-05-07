@@ -1,10 +1,26 @@
 from __future__ import annotations
 
 import json
+import re
 
 from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols, resolve_rgb_led_count
 from codegen._mcu import MCU_BOOTLOADER, MCU_QMK_NAME
+
+# QMK's matrix_pins JSON schema only accepts standard MCU pin names.
+# GPIO expander aliases (e.g. MCP_A0) are C macros and must live in
+# config.h only — including them in keyboard.json causes a fatal schema
+# rejection that prevents the entire file from being loaded.
+_JSON_SAFE_PIN = re.compile(
+    r'^[A-Z][0-9]+$'           # AVR style: B6, C5
+    r'|^GPIO[A-Z0-9_]+$'       # ChibiOS: GPIOB_PIN6
+    r'|^GP[0-9]+$'             # RP2040: GP25
+    r'|^PAL_LINE\(.+\)$'       # ChibiOS PAL_LINE macro
+)
+
+
+def _pins_json_safe(pins: list[str]) -> bool:
+    return all(_JSON_SAFE_PIN.match(p) for p in pins if p.strip())
 
 
 # Features safe to emit in the QMK keyboard.json features block.
@@ -41,10 +57,18 @@ def generate_info_json(config: KeyboardConfig) -> str:
         'bootloader': MCU_BOOTLOADER.get(mcu, 'atmel-dfu'),
         'debounce': 5,
         'features': {feat: True for feat in enabled_features},
-        'matrix_pins': {
-            'rows': [p.pin for p in sorted(config.row_pins, key=lambda p: p.row)],
-            'cols': [p.pin for p in sorted(config.col_pins, key=lambda p: p.col)],
-        },
+        # matrix_pins omitted here if any pin is a C-macro alias (e.g. MCP_A0);
+        # config.h is the authoritative source in that case.
+        **(
+            {
+                'matrix_pins': {
+                    'rows': [p.pin for p in sorted(config.row_pins, key=lambda p: p.row) if p.pin.strip()],
+                    'cols': [p.pin for p in sorted(config.col_pins, key=lambda p: p.col) if p.pin.strip()],
+                }
+            }
+            if _pins_json_safe([p.pin for p in config.row_pins + config.col_pins])
+            else {}
+        ),
         'diode_direction': 'COL2ROW',
         'layouts': {
             (config.layout_macro or 'LAYOUT'): {
