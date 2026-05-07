@@ -952,8 +952,16 @@ def _convert_to_config(
     qmk_commit = _load_meta().get('qmk_commit')
 
     if layout_only:
-        source_mode = 'generated'
-        upstream_files = {}
+        matrix_pins = info.get('matrix_pins') or {}
+        has_custom_col_matrix = bool(matrix_pins.get('custom') or matrix_pins.get('custom_lite'))
+        if has_custom_col_matrix:
+            # Custom-matrix boards (shift register, expander) can't be expressed as
+            # GPIO pin lists. Keep the native source mode and upstream files so the
+            # build uses the keyboard's own matrix driver instead of Nexus codegen.
+            pass
+        else:
+            source_mode = 'generated'
+            upstream_files = {}
 
     config = KeyboardConfig(
         id=None,
