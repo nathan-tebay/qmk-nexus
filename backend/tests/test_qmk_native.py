@@ -314,6 +314,60 @@ def test_import_pointing_device_as_trackball_element_with_inferred_driver():
     assert config.feature_configs['pointing_device']['POINTING_DEVICE_DRIVER'] == 'cirque_pinnacle_spi'
 
 
+def test_import_normalizes_legacy_default_keymap_aliases():
+    config = _convert_to_config('rocketboard_16', {
+        'keyboard_name': 'rocketboard_16',
+        'processor': 'stm32f103',
+        'features': {'encoder': True},
+        'encoder': {
+            'rotary': [
+                {'pin_a': 'A0', 'pin_b': 'A1'},
+                {'pin_a': 'A2', 'pin_b': 'A3'},
+            ],
+        },
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [0, 1], 'x': 1, 'y': 0},
+                ],
+            },
+        },
+        '_default_keymap': {
+            'layout': 'LAYOUT',
+            'layers': [
+                ['KC_A', 'KC_B'],
+                ['KC_EXAM', '_______'],
+            ],
+        },
+    }, layout_only=True)
+
+    assert config.layers[1].keycodes == {config.keys[0].id: 'KC_EXLM'}
+    keymap_c = generate_keymap_c(config)
+    assert 'KC_EXAM' not in keymap_c
+    assert 'KC_EXLM' in keymap_c
+    assert '_______' not in keymap_c
+
+
+def test_import_does_not_auto_enable_arm_audio_in_generated_mode():
+    config = _convert_to_config('boardsource/unicorne', {
+        'keyboard_name': 'unicorne',
+        'processor': 'rp2040',
+        'features': {'audio': True},
+        'audio': {'driver': 'pwm_hardware'},
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                ],
+            },
+        },
+    }, layout_only=True)
+
+    assert config.features['audio'] is False
+    assert 'AUDIO_ENABLE' not in generate_sources(config)['rules.mk']
+
+
 def test_import_encoder_elements_from_default_keymap_encoder_count():
     config = _convert_to_config('handwired/erikpeyronson/erkbd', {
         'keyboard_name': 'erkbd',
@@ -342,7 +396,7 @@ def test_import_encoder_elements_from_default_keymap_encoder_count():
     assert config.encoder_keycodes == {
         f'{config.layers[0].id}:{config.encoders[0].id}:ccw': 'KC_UP',
         f'{config.layers[0].id}:{config.encoders[0].id}:cw': 'KC_DOWN',
-        f'{config.layers[0].id}:{config.encoders[1].id}:ccw': 'KC_RIGHT',
+        f'{config.layers[0].id}:{config.encoders[1].id}:ccw': 'KC_RGHT',
         f'{config.layers[0].id}:{config.encoders[1].id}:cw': 'KC_LEFT',
     }
 
@@ -491,3 +545,95 @@ void expander_config(void) {
 
     assert [pin.pin for pin in config.row_pins] == ['F7', 'F6', 'F5']
     assert [pin.pin for pin in config.col_pins] == ['MCP_A0', 'MCP_A1', 'MCP_A2', 'C6', 'D3', 'B0']
+
+
+def test_import_extracts_moonlander_style_custom_matrix_columns():
+    matrix_c = '''
+static matrix_row_t read_cols_on_row(uint8_t row) {
+    matrix_row_t cols = 0;
+    cols |= gpio_read_pin(A0) ? 0 : (1 << 0);
+    cols |= gpio_read_pin(A1) ? 0 : (1 << 1);
+    cols |= gpio_read_pin(A2) ? 0 : (1 << 2);
+    cols |= gpio_read_pin(A3) ? 0 : (1 << 3);
+    cols |= gpio_read_pin(A6) ? 0 : (1 << 4);
+    cols |= gpio_read_pin(A7) ? 0 : (1 << 5);
+    cols |= gpio_read_pin(B0) ? 0 : (1 << 6);
+    return cols;
+}
+
+static matrix_row_t read_cols_on_row_right(uint8_t row) {
+    uint8_t rx = 0;
+    mcp23018_read_pins(0x20, mcp23018_PORTB, &rx);
+    return ~(rx & 0b00111111);
+}
+
+static void select_row(uint8_t row) {
+  switch (row) {
+  case 0: gpio_set_pin_output(B10); break;
+  case 1: gpio_set_pin_output(B11); break;
+  case 2: gpio_set_pin_output(B12); break;
+  case 3: gpio_set_pin_output(B13); break;
+  case 4: gpio_set_pin_output(B14); break;
+  case 5: gpio_set_pin_output(B15); break;
+  }
+}
+'''
+    config = _convert_to_config('zsa/moonlander', {
+        'keyboard_name': 'Moonlander',
+        'processor': 'STM32F303',
+        'matrix_pins': {'custom_lite': True},
+        'layouts': {
+            'LAYOUT_moonlander': {
+                'layout': [
+                    {'matrix': [row, col], 'x': col, 'y': row}
+                    for row in range(6)
+                    for col in range(7)
+                ],
+            },
+        },
+        '_nexus': {
+            'source_mode': 'qmk_native',
+            'upstream_keyboard': 'zsa/moonlander',
+            'upstream_files': {'keyboards/zsa/moonlander/matrix.c': matrix_c},
+        },
+    })
+
+    assert [pin.pin for pin in config.row_pins] == ['B10', 'B11', 'B12', 'B13', 'B14', 'B15']
+    assert [pin.pin for pin in config.col_pins] == [
+        'A0', 'A1', 'A2', 'A3', 'A6', 'A7', 'B0',
+        'MCP_B0', 'MCP_B1', 'MCP_B2', 'MCP_B3', 'MCP_B4', 'MCP_B5',
+    ]
+
+
+def test_import_extracts_direct_matrix_pins():
+    config = _convert_to_config('splitkb/zima', {
+        'keyboard_name': 'Zima',
+        'processor': 'atmega32u4',
+        'matrix_pins': {
+            'direct': [
+                ['C6', 'D6', 'D5'],
+                ['C7', 'F7', 'D4'],
+                ['E6', 'F5', 'F6'],
+                ['F0', 'F1', 'F4'],
+            ],
+        },
+        'layouts': {
+            'LAYOUT_ortho_4x3': {
+                'layout': [
+                    {'matrix': [row, col], 'x': col, 'y': row}
+                    for row in range(4)
+                    for col in range(3)
+                ],
+            },
+        },
+    })
+
+    # Direct-pin matrices don't split into row/col pins — all data lives in direct_pins.
+    assert config.row_pins == []
+    assert config.col_pins == []
+    assert config.direct_pins == [
+        ['C6', 'D6', 'D5'],
+        ['C7', 'F7', 'D4'],
+        ['E6', 'F5', 'F6'],
+        ['F0', 'F1', 'F4'],
+    ]

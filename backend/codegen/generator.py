@@ -115,23 +115,24 @@ def generate_all(config: KeyboardConfig, output_dir: Path) -> None:
         actual_name = template.format(kb=kb_name) if template else canonical_name
         (src / actual_name).write_text(content, encoding='utf-8')
 
-    if config.source_mode == 'qmk_native':
-        overlay = output_dir / 'upstream_overlay'
-        overlay.mkdir(parents=True, exist_ok=True)
-        overlay_resolved = overlay.resolve()
-        for rel_path, content in (config.upstream_files or {}).items():
-            if (
-                not isinstance(rel_path, str)
-                or not rel_path
-                or rel_path.startswith('/')
-                or '\x00' in rel_path
-                or '..' in Path(rel_path).parts
-            ):
-                raise ValueError(f'upstream_files key escapes overlay dir: {rel_path!r}')
-            target = (overlay / rel_path).resolve()
-            try:
-                target.relative_to(overlay_resolved)
-            except ValueError:
-                raise ValueError(f'upstream_files key escapes overlay dir: {rel_path!r}')
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(content, encoding='utf-8')
+    if config.source_mode != 'qmk_native':
+        return
+    overlay = output_dir / 'upstream_overlay'
+    overlay.mkdir(parents=True, exist_ok=True)
+    overlay_resolved = overlay.resolve()
+    for rel_path, content in (config.upstream_files or {}).items():
+        if (
+            not isinstance(rel_path, str)
+            or not rel_path
+            or rel_path.startswith('/')
+            or '\x00' in rel_path
+            or '..' in Path(rel_path).parts
+        ):
+            raise ValueError(f'upstream_files key escapes overlay dir: {rel_path!r}')
+        target = (overlay / rel_path).resolve()
+        try:
+            target.relative_to(overlay_resolved)
+        except ValueError:
+            raise ValueError(f'upstream_files key escapes overlay dir: {rel_path!r}')
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding='utf-8')

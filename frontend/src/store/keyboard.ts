@@ -171,6 +171,7 @@ export interface KeyboardConfig {
   keys: KeyDef[]
   rowPins: MatrixPin[]
   colPins: ColPin[]
+  directPins: (string | null)[][]
   matrixEdges: MatrixEdge[]
   layers: Layer[]
   features: Record<string, boolean>
@@ -357,6 +358,7 @@ const defaultConfig: KeyboardConfig = {
   keys: [],
   rowPins: [],
   colPins: [],
+  directPins: [],
   matrixEdges: [],
   layers: [{ id: 'layer0', name: 'Base', keycodes: {} }],
   features: {

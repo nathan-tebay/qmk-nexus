@@ -65,6 +65,8 @@ _IDENTIFIER_VALUE_KEYS = frozenset({
     'RGB_MATRIX_DEFAULT_MODE',
     'RGBLIGHT_DEFAULT_MODE',
     'POINTING_DEVICE_DRIVER',
+    'AUDIO_DRIVER',
+    'SERIAL_DRIVER',
 })
 
 _DISPLAY_SIZES = frozenset({'64_32', '64_48', '128_32', '128_64'})
@@ -361,6 +363,9 @@ def validate_build_ready(config: KeyboardConfig) -> list[str]:
     )
 
     if is_single_key_direct:
+        return errors
+
+    if config.direct_pins:
         return errors
 
     split_enabled = bool(config.features.get('split_keyboard'))

@@ -69,7 +69,7 @@ export function useBuildPoller(onBuildSuccess?: () => void) {
       startPolling(buildId, status)
     }
     return stopPolling
-  }, [buildId, startPolling, status?.status, stopPolling])
+  }, [buildId, startPolling, status, stopPolling])
 
   return { buildId, status, startPolling, stopPolling }
 }

@@ -32,6 +32,18 @@ def _rgblight_default_mode(value: str) -> str:
     return value
 
 
+def _default_pin_for_mcu(config: KeyboardConfig, avr_pin: str, rp2040_pin: str) -> str:
+    mcu = (config.mcu or '').lower()
+    return rp2040_pin if mcu == 'rp2040' else avr_pin
+
+
+def _default_or_mcu_pin(config: KeyboardConfig, value: str | None, avr_pin: str, rp2040_pin: str) -> str:
+    mcu = (config.mcu or '').lower()
+    if not value or (mcu == 'rp2040' and not value.startswith('GP')):
+        return _default_pin_for_mcu(config, avr_pin, rp2040_pin)
+    return value
+
+
 def generate_config_h(config: KeyboardConfig) -> str:
     rows = matrix_rows(config)
     cols = matrix_cols(config)
@@ -57,7 +69,9 @@ def generate_config_h(config: KeyboardConfig) -> str:
     all_pins = [p.pin for p in config.row_pins + config.col_pins]
     _gpio_pins = pins_json_safe(all_pins)
 
-    if config.row_pins and _gpio_pins:
+    if config.direct_pins:
+        lines.append('/* MATRIX_ROW_PINS omitted: keyboard.json uses matrix_pins.direct */')
+    elif config.row_pins and _gpio_pins:
         sorted_row_pins = sorted(
             (p for p in config.row_pins if p.pin.strip()),
             key=lambda p: p.row,
@@ -70,7 +84,9 @@ def generate_config_h(config: KeyboardConfig) -> str:
     else:
         lines.append('/* #define MATRIX_ROW_PINS { } */')
 
-    if config.col_pins and _gpio_pins:
+    if config.direct_pins:
+        lines.append('/* MATRIX_COL_PINS omitted: keyboard.json uses matrix_pins.direct */')
+    elif config.col_pins and _gpio_pins:
         pin_list = ', '.join(p.pin for p in sorted(config.col_pins, key=lambda p: p.col))
         lines.append(f'#define MATRIX_COL_PINS {{ {pin_list} }}')
     else:
@@ -137,8 +153,11 @@ def generate_config_h(config: KeyboardConfig) -> str:
         count = rgl.get('RGBLIGHT_LED_COUNT', '12')
         limit = rgl.get('RGBLIGHT_LIMIT_VAL', '200')
         mode = _rgblight_default_mode(rgl.get('RGBLIGHT_DEFAULT_MODE', 'RGBLIGHT_MODE_BREATHING'))
+        effect_defines = _RGBLIGHT_EFFECT_DEFINES
+        if (config.mcu or '').lower().startswith('atmega') and features.get('audio') and features.get('oled'):
+            effect_defines = ('#define RGBLIGHT_EFFECT_BREATHING',)
         rgl_lines = [
-            *_RGBLIGHT_EFFECT_DEFINES,
+            *effect_defines,
             f'#define RGBLIGHT_DI_PIN {pin}',
             f'#define RGBLIGHT_LED_COUNT {count}',
             f'#define RGBLIGHT_LIMIT_VAL {limit}',
@@ -157,7 +176,7 @@ def generate_config_h(config: KeyboardConfig) -> str:
     if features.get('split_keyboard'):
         sp = fc.get('split_keyboard', {})
         transport = sp.get('SPLIT_TRANSPORT', 'serial')
-        serial_pin = sp.get('SOFT_SERIAL_PIN', config.soft_serial_pin or 'D2')
+        serial_pin = _default_or_mcu_pin(config, sp.get('SOFT_SERIAL_PIN') or config.soft_serial_pin, 'D2', 'GP0')
         lines += [f'#define SOFT_SERIAL_PIN {serial_pin}']
         if transport == 'i2c':
             sda = sp.get('SPLIT_I2C_SDA', 'D2')
@@ -196,7 +215,7 @@ def generate_config_h(config: KeyboardConfig) -> str:
 
     if features.get('audio'):
         aud = fc.get('audio', {})
-        pin = aud.get('AUDIO_PIN', 'C6')
+        pin = aud.get('AUDIO_PIN', _default_pin_for_mcu(config, 'C6', 'GP0'))
         lines += [f'#define AUDIO_PIN {pin}', '']
 
     if features.get('pointing_device'):
@@ -207,8 +226,16 @@ def generate_config_h(config: KeyboardConfig) -> str:
         rot90 = pd.get('POINTING_DEVICE_ROTATION_90', 'no')
         inv_x = pd.get('POINTING_DEVICE_INVERT_X', 'no')
         inv_y = pd.get('POINTING_DEVICE_INVERT_Y', 'no')
+        if driver in ('pmw3360', 'pmw3389') and not cs:
+            cs = _default_pin_for_mcu(config, 'B0', 'GP1')
         if cs:
             lines.append(f'#define POINTING_DEVICE_CS_PIN {cs}')
+            if driver in ('pmw3360', 'pmw3389'):
+                lines.append(f'#define PMW33XX_CS_PIN {cs}')
+            elif driver == 'adns9800':
+                lines.append(f'#define ADNS9800_CS_PIN {cs}')
+            elif driver == 'cirque_pinnacle_spi':
+                lines.append(f'#define CIRQUE_PINNACLE_SPI_CS_PIN {cs}')
         if motion:
             lines.append(f'#define POINTING_DEVICE_MOTION_PIN {motion}')
         if rot90 == 'yes':

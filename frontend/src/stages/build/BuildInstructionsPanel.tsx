@@ -309,6 +309,21 @@ const MCU_FLASH_INFO: Record<string, FlashInfo> = {
       { type: 'cmd', label: 'Flash:', cmd: 'dfu-programmer atmega32u2 erase\ndfu-programmer atmega32u2 flash --force keyboard.hex\ndfu-programmer atmega32u2 reset' },
     ],
   },
+  atmega32a: {
+    bootloader: 'HIDBootFlash / bootloadHID',
+    steps: [
+      'Reset the controller into the bootloadHID bootloader.',
+      'Use a HIDBootFlash-compatible flasher for the compiled .hex file.',
+      'After flashing, reset or reconnect the keyboard.',
+    ],
+    note: 'QMK Toolbox does not support bootloadHID. Use bootloadHID or a compatible command-line flasher.',
+    linuxSteps: [
+      { type: 'udev' },
+      { type: 'text', label: 'Reset the controller into the bootloadHID bootloader.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'bootloadHID -r keyboard.hex' },
+    ],
+    linuxNote: 'Install bootloadHID from your distro packages or build it from the QMK/Objective Development HIDBootFlash sources.',
+  },
   at90usb1286: {
     bootloader: 'Atmel DFU',
     steps: [
@@ -361,6 +376,21 @@ const MCU_FLASH_INFO: Record<string, FlashInfo> = {
       'QMK Toolbox will show "STM32 DFU device connected".',
       'Open your .bin file in QMK Toolbox and click Flash.',
     ],
+    linuxSteps: [
+      { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
+      { type: 'udev' },
+      { type: 'text', label: 'Short BOOT0 to VCC, tap RESET.' },
+      { type: 'cmd', label: 'Flash:', cmd: 'dfu-util -a 0 -D keyboard.bin' },
+    ],
+  },
+  stm32f411: {
+    bootloader: 'STM32 DFU',
+    steps: [
+      'Short the BOOT0 pin to VCC, then tap RESET.',
+      'QMK Toolbox will show "STM32 DFU device connected".',
+      'Open your .bin file in QMK Toolbox and click Flash.',
+    ],
+    note: 'Some STM32F411 boards use TinyUF2 or a custom bootloader instead of ROM DFU. Match the flashing method to the bootloader installed on your board.',
     linuxSteps: [
       { type: 'cmd', label: 'Install tools:', cmd: 'sudo apt install dfu-util' },
       { type: 'udev' },
@@ -440,7 +470,7 @@ export function FlashFirmwareModal({ config, onClose }: { config: KeyboardConfig
             <>
               <h3 className={styles.flashSubheading}>Windows / macOS — QMK Toolbox</h3>
               <ol>
-                {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+                {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && config.mcu !== 'atmega32a' && (
                   <li>
                     Use the compiled firmware artifact from the successful build (.hex for AVR, .bin for ARM).
                   </li>
@@ -450,7 +480,7 @@ export function FlashFirmwareModal({ config, onClose }: { config: KeyboardConfig
               {flashInfo.note && (
                 <p className={styles.flashNote}><strong>Note:</strong> {flashInfo.note}</p>
               )}
-              {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && (
+              {config.mcu !== 'rp2040' && config.mcu !== 'atmega328p' && config.mcu !== 'atmega32a' && (
                 <a
                   className={styles.externalLink}
                   href="https://github.com/qmk/qmk_toolbox/releases/latest"

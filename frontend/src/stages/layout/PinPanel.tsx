@@ -14,6 +14,8 @@ export default function PinPanel() {
   const pinRowCount = singleKeyDirect ? 1 : (splitRows ? rowCount / 2 : rowCount)
   const pinColCount = singleKeyDirect ? 1 : colCount
 
+  const hasDirectPins = (config.directPins?.length ?? 0) > 0
+
   const isQmkNative = config.sourceMode === 'qmk_native'
   const customMatrixCols = isQmkNative && colCount > 0 && config.colPins.length === 0
 
@@ -39,6 +41,16 @@ export default function PinPanel() {
 
   function getColPin(col: number) {
     return config.colPins.find((p) => p.col === col)?.pin ?? ''
+  }
+
+  if (hasDirectPins) {
+    return (
+      <div className={styles.empty}>
+        This keyboard uses a direct-pin matrix — each key connects directly to a GPIO pin.
+        <br />
+        Pin assignments are embedded in the upstream firmware and managed automatically.
+      </div>
+    )
   }
 
   if (pinRowCount === 0 && pinColCount === 0) {

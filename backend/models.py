@@ -116,6 +116,7 @@ class KeyboardConfig(BaseModel):
     keys: list[KeyDef] = Field(default_factory=list)
     row_pins: list[MatrixPin] = Field(default_factory=list)
     col_pins: list[ColPin] = Field(default_factory=list)
+    direct_pins: list[list[str | None]] = Field(default_factory=list)
     matrix_edges: list[MatrixEdge] = Field(default_factory=list)
     layers: list[Layer] = Field(default_factory=list)
     features: dict[str, bool] = Field(default_factory=dict)

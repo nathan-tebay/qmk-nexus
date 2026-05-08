@@ -158,8 +158,8 @@ def create_refresh_token(user: User) -> str:
     }
     if not settings.is_prod:
         _refresh_mem[token_hash] = record
-    else:
-        _refresh_table().put_item(Item={'token_hash': token_hash, **record})
+        return token
+    _refresh_table().put_item(Item={'token_hash': token_hash, **record})
     return token
 
 

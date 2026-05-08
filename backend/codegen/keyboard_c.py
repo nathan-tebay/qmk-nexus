@@ -219,11 +219,8 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
                     px = int((k.x / max_x) * 224)
                     py = int((k.y / max_y) * 64)
                     lines.append(f'    {{ {px}, {py} }},')
-                for i in range(len(position_keys), led_count):
-                    lines.append(f'    {{ {int((i / max(led_count - 1, 1)) * 224)}, 32 }},')
-            else:
-                for i in range(led_count):
-                    lines.append(f'    {{ {int((i / max(led_count - 1, 1)) * 224)}, 32 }},')
+            for i in range(len(position_keys), led_count):
+                lines.append(f'    {{ {int((i / max(led_count - 1, 1)) * 224)}, 32 }},')
         lines.append('}, {')
 
         # Flags: exactly led_count entries.
@@ -233,13 +230,8 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         lines.append('')
 
     if split_enabled:
-        sp = fc.get('split_keyboard', {})
         lines.append('void keyboard_post_init_kb(void) {')
         lines.append('    split_post_init();')
-        if sp.get('SPLIT_TRANSPORT_MIRROR', 'no') == 'yes':
-            lines.append('    split_transport_mirror = true;')
-        if sp.get('SPLIT_LAYER_STATE_ENABLE', 'no') == 'yes':
-            lines.append('    split_layer_state_enable = true;')
         lines.append('    keyboard_post_init_user();')
         lines.append('}')
         lines.append('')

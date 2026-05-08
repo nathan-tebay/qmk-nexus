@@ -109,10 +109,12 @@ export function serializeInfoJson(config: KeyboardConfig): string {
       pid: config.usbPid || '0x0000',
     },
     features: Object.fromEntries(enabledFeatures.map((id) => [id, true])),
-    matrix_pins: {
-      rows: config.rowPins.map((r) => r.pin),
-      cols: config.colPins.map((c) => c.pin),
-    },
+    matrix_pins: config.directPins?.length
+      ? { direct: config.directPins }
+      : {
+          rows: config.rowPins.map((r) => r.pin),
+          cols: config.colPins.map((c) => c.pin),
+        },
     layouts: {
       LAYOUT: {
         layout: config.keys.map((k) => ({

@@ -85,7 +85,10 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         sp = fc.get('split_keyboard', {})
         transport = sp.get('SPLIT_TRANSPORT', 'serial')
         lines.append(f'SPLIT_TRANSPORT = {transport}')
-        if mcu == 'mk20dx256':
+        serial_driver = sp.get('SERIAL_DRIVER')
+        if serial_driver:
+            lines.append(f'SERIAL_DRIVER = {serial_driver}')
+        elif mcu == 'mk20dx256':
             lines.append('SERIAL_DRIVER = usart')
         for key in ('SPLIT_USB_DETECT', 'SPLIT_TRANSPORT_MIRROR',
                     'SPLIT_LAYER_STATE_ENABLE', 'SPLIT_RGB_MATRIX_ENABLE'):
@@ -116,6 +119,9 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
 
     if features.get('audio'):
         aud = fc.get('audio', {})
+        driver = aud.get('AUDIO_DRIVER')
+        if driver:
+            lines.append(f'AUDIO_DRIVER = {driver}')
         clicky = aud.get('AUDIO_CLICKY', 'no')
         lines.append(f'AUDIO_CLICKY = {clicky}')
         lines.append('')

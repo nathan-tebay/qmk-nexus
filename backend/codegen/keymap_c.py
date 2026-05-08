@@ -6,7 +6,7 @@ from models import KeyboardConfig
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
-_LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|OSL|LT|LM)\s*\(\s*([A-Z_][A-Z0-9_]*)')
+_LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|PDF|OSL|LT|LM)\s*\(\s*([A-Z_][A-Z0-9_]*)')
 _BARE_KEYCODE_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
 _KNOWN_KEYCODE_PREFIXES = (
     'KC_',
@@ -46,7 +46,18 @@ def _all_keycodes(config: KeyboardConfig) -> list[str]:
     ]
 
 
-def _generated_layer_symbols(keycodes: list[str]) -> list[tuple[str, int]]:
+_ORTHO_LAYER_ORDER = {
+    '_QWERTY': 0,
+    '_COLEMAK': 1,
+    '_DVORAK': 2,
+    '_LOWER': 3,
+    '_RAISE': 4,
+    '_PLOVER': 5,
+    '_ADJUST': 6,
+}
+
+
+def _generated_layer_symbols(keycodes: list[str], layer_count: int) -> list[tuple[str, int]]:
     symbols: list[str] = []
     for keycode in keycodes:
         for match in _LAYER_MACRO_RE.finditer(keycode):
@@ -55,7 +66,21 @@ def _generated_layer_symbols(keycodes: list[str]) -> list[tuple[str, int]]:
                 continue
             symbols.append(symbol)
 
-    return [(symbol, idx) for idx, symbol in enumerate(symbols, start=1)]
+    used_indices: set[int] = set()
+    result: list[tuple[str, int]] = []
+    use_ortho_order = layer_count >= 6 and any(symbol in ('_QWERTY', '_COLEMAK', '_DVORAK') for symbol in symbols)
+
+    for symbol in symbols:
+        if use_ortho_order and symbol in _ORTHO_LAYER_ORDER and _ORTHO_LAYER_ORDER[symbol] < layer_count:
+            idx = _ORTHO_LAYER_ORDER[symbol]
+        else:
+            idx = 1
+            while idx in used_indices:
+                idx += 1
+        used_indices.add(idx)
+        result.append((symbol, idx))
+
+    return result
 
 
 def _is_known_keycode(identifier: str) -> bool:
@@ -79,7 +104,7 @@ def _generated_custom_keycode_defines(
 
 def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     keycodes = _all_keycodes(config)
-    layer_symbols = _generated_layer_symbols(keycodes)
+    layer_symbols = _generated_layer_symbols(keycodes, len(config.layers))
     custom_keycodes = _generated_custom_keycode_defines(keycodes, layer_symbols)
     lines: list[str] = []
 

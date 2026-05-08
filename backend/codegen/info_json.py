@@ -41,18 +41,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
         'bootloader': MCU_BOOTLOADER.get(mcu, 'atmel-dfu'),
         'debounce': 5,
         'features': {feat: True for feat in enabled_features},
-        # If any pin is a C-macro alias (e.g. MCP_A0), standard GPIO matrix is
-        # not possible; signal custom matrix so QMK skips GPIO pin validation.
-        **(
-            {
-                'matrix_pins': {
-                    'rows': [p.pin for p in sorted(config.row_pins, key=lambda p: p.row) if p.pin.strip()],
-                    'cols': [p.pin for p in sorted(config.col_pins, key=lambda p: p.col) if p.pin.strip()],
-                }
-            }
-            if pins_json_safe([p.pin for p in config.row_pins + config.col_pins])
-            else {'matrix_pins': {'custom': True}}
-        ),
+        'matrix_pins': _matrix_pins_json(config),
         'diode_direction': 'COL2ROW',
         'layouts': {
             (config.layout_macro or 'LAYOUT'): {
@@ -138,3 +127,24 @@ def generate_info_json(config: KeyboardConfig) -> str:
             info['rgb_matrix'] = rgb_block
 
     return json.dumps(info, indent=2)
+
+
+def _matrix_pins_json(config: KeyboardConfig) -> dict:
+    direct_pins = config.direct_pins or []
+    if direct_pins:
+        return {
+            'direct': [
+                [pin if pin and str(pin).strip() else None for pin in row]
+                for row in direct_pins
+            ],
+        }
+
+    # If any pin is a C-macro alias (e.g. MCP_A0), standard GPIO matrix is not
+    # possible; signal custom matrix so QMK skips GPIO pin validation.
+    if not pins_json_safe([p.pin for p in config.row_pins + config.col_pins]):
+        return {'custom': True}
+
+    return {
+        'rows': [p.pin for p in sorted(config.row_pins, key=lambda p: p.row) if p.pin.strip()],
+        'cols': [p.pin for p in sorted(config.col_pins, key=lambda p: p.col) if p.pin.strip()],
+    }

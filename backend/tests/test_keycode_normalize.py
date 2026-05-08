@@ -71,6 +71,9 @@ class TestNormalizeKeycode:
     def test_space_alias(self):
         assert normalize_keycode('KC_SPACE') == 'KC_SPC'
 
+    def test_legacy_exam_typo_alias(self):
+        assert normalize_keycode('KC_EXAM') == 'KC_EXLM'
+
     def test_kp_enter_alias(self):
         assert normalize_keycode('KC_KP_ENTER') == 'KC_PENT'
 

@@ -48,6 +48,8 @@ _ALIASES: dict[str, str] = {
     'KC_SLASH': 'KC_SLSH',
     'KC_SPACE': 'KC_SPC',
     'KC_TAB': 'KC_TAB',
+    # Upstream typo observed in some legacy default keymaps.
+    'KC_EXAM': 'KC_EXLM',
     # Numpad
     'KC_KP_SLASH': 'KC_PSLS',
     'KC_KP_ASTERISK': 'KC_PAST',

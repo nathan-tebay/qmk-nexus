@@ -38,6 +38,12 @@ def _safe_kb_file(kb_path: str) -> Path:
     return candidate
 _DEFINE_ARRAY_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+\{([^}]+)\}')
 _DEFINE_VALUE_RE = re.compile(r'#\s*define\s+([A-Z0-9_]+)\s+([^\s/]+)')
+# Full-line define: captures multi-token values like `(ROW1 | ROW2 | ROW3)`.
+# Strips trailing line comments before capturing.
+_DEFINE_FULL_RE = re.compile(
+    r'#\s*define\s+([A-Z0-9_]+)\s+(.*?)(?:\s*//[^\n]*)?\s*$',
+    re.MULTILINE,
+)
 _ROW_CASE_PIN_RE = re.compile(
     r'case\s+(\d+)\s*:(?P<body>.*?break\s*;)',
     re.DOTALL,
@@ -51,10 +57,20 @@ _PIN_READ_COL_RE = re.compile(
 _GPIO_READ_PIN_RE = re.compile(r'gpio_read_pin\(\s*([A-Z]\d+)\s*\)')
 _MCP_GPIO_READ_RE = re.compile(r'\w+_read\(\s*([A-Z0-9_]*GPIO([AB]))\s*,')
 _MCP_IODIR_WRITE_RE = re.compile(r'\w+_write\(\s*([A-Z0-9_]*IODIR([AB]))\s*,\s*(0x[0-9A-Fa-f]+|\d+)\s*\)')
+_PAL_OUTPUT_PIN_RE = re.compile(
+    r'palSetPadMode\s*\(\s*GPIO([A-Z])\s*,\s*(\d+)\s*,\s*PAL_MODE_OUTPUT_PUSHPULL\s*\)'
+)
+_PAL_INPUT_PIN_RE = re.compile(
+    r'palSetPadMode\s*\(\s*GPIO([A-Z])\s*,\s*(\d+)\s*,\s*PAL_MODE_INPUT_PULLUP\s*\)'
+)
 _MCP23018_READ_PINS_RE = re.compile(
     r'mcp23018_read_pins\s*\([^;]*?\bmcp23018_PORT([AB])\b[^;]*?&\s*([A-Za-z_][A-Za-z0-9_]*)[^;]*?\)',
     re.DOTALL | re.IGNORECASE,
 )
+# AVR-style: DDRx |= MASK inside a select_row/select_col case body
+_AVR_DDR_MASK_RE = re.compile(r'DDR([A-F])\s*\|=\s*(\w+)')
+# AVR-style: PINx & MASK in a read_cols body (constant mask, not inline shift)
+_AVR_PINX_MASK_RE = re.compile(r'PIN([A-F])\s*&\s*~?(\w+)')
 
 
 @lru_cache(maxsize=1)
@@ -569,26 +585,11 @@ def _matrix_pins_from_info(info: dict[str, Any]) -> tuple[list[MatrixPin], list[
     return row_pins, col_pins
 
 
-def _matrix_pins_from_direct(direct_pins: Any) -> tuple[list[MatrixPin], list[ColPin]]:
-    if not isinstance(direct_pins, list):
-        return [], []
-
-    row_pins: list[MatrixPin] = []
-    col_pins: list[ColPin] = []
-    for row_index, row in enumerate(direct_pins):
-        if not isinstance(row, list):
-            continue
-        for col_index, pin in enumerate(row):
-            if pin is None:
-                continue
-            pin_name = str(pin)
-            if not pin_name.strip():
-                continue
-            if col_index == 0:
-                row_pins.append(MatrixPin(row=row_index, pin=pin_name))
-            else:
-                col_pins.append(ColPin(col=col_index, pin=pin_name))
-    return row_pins, col_pins
+def _matrix_pins_from_direct(_direct_pins: Any) -> tuple[list[MatrixPin], list[ColPin]]:
+    # Direct-pin matrices carry their full pin layout in config.direct_pins.
+    # Row/col pin fields are not used; leave them empty so PinPanel shows the
+    # direct-pin informational note instead of partial/incorrect pin inputs.
+    return [], []
 
 
 def _direct_pins_from_info(info: dict[str, Any]) -> list[list[str | None]]:
@@ -641,6 +642,21 @@ def _matrix_pins_from_custom_sources(info: dict[str, Any]) -> tuple[list[MatrixP
 
     row_pins = [MatrixPin(row=row, pin=pin) for row, pin in sorted(row_by_index.items())]
     col_pins = [ColPin(col=col, pin=pin) for col, pin in col_entries]
+
+    # ChibiOS / PAL fallback: palSetPadMode in init_rows / init_cols.
+    # Scoped to named init functions to avoid picking up LED-init or other output pins.
+    if not row_pins:
+        row_pins = [MatrixPin(row=i, pin=p) for i, p in _pal_row_entries(source_text)]
+    if not col_pins:
+        col_pins = [ColPin(col=i, pin=p) for i, p in _pal_col_entries(source_text)]
+
+    # AVR register-manipulation fallback: DDRx |= MASK in select_row cases,
+    # PINx & MASK in read_cols. Renumbers to 0-based for split-half alignment.
+    if not row_pins:
+        row_pins = [MatrixPin(row=i, pin=p) for i, p in _avr_row_entries(source_text)]
+    if not col_pins:
+        col_pins = [ColPin(col=i, pin=p) for i, p in _avr_col_entries(source_text)]
+
     return row_pins, col_pins
 
 
@@ -690,6 +706,156 @@ def _column_read_bodies(source_text: str) -> list[str]:
         if depth == 0:
             bodies.append(source_text[start:i - 1])
     return bodies or [source_text]
+
+
+def _pal_init_bodies(source_text: str, name_fragment: str) -> list[str]:
+    """Return bodies of ChibiOS init functions whose names contain ``name_fragment``."""
+    pattern = re.compile(
+        rf'\b\w*{re.escape(name_fragment)}\w*\s*\([^)]*\)\s*\{{',
+        re.IGNORECASE,
+    )
+    bodies: list[str] = []
+    for match in pattern.finditer(source_text):
+        start = match.end()
+        depth = 1
+        i = start
+        while i < len(source_text) and depth:
+            if source_text[i] == '{':
+                depth += 1
+            elif source_text[i] == '}':
+                depth -= 1
+            i += 1
+        if depth == 0:
+            bodies.append(source_text[start:i - 1])
+    return bodies
+
+
+def _avr_bit_from_mask(mask_name: str, defines: dict[str, str]) -> int | None:
+    """Resolve a named bitmask constant like ``(1<<5)`` to a bit index."""
+    value = defines.get(mask_name, '')
+    m = re.match(r'\(?\s*1\s*<<\s*(\d+)\s*\)?', value.strip())
+    return int(m.group(1)) if m else None
+
+
+def _expand_avr_mask(expr: str, defines: dict[str, str], _depth: int = 0) -> list[int]:
+    """Recursively expand a mask expression to a sorted list of bit indices.
+
+    Handles single constants (``(1<<N)``), named defines, and compound
+    OR expressions (``ROW1 | ROW2 | ROW3``).
+    """
+    if _depth > 8:
+        return []
+    expr = expr.strip().strip('()')
+    # Direct shift: 1<<N
+    m = re.match(r'1\s*<<\s*(\d+)$', expr)
+    if m:
+        return [int(m.group(1))]
+    # Named constant
+    if re.match(r'^[A-Z][A-Z0-9_]*$', expr) and expr in defines:
+        return _expand_avr_mask(defines[expr], defines, _depth + 1)
+    # Compound OR: split on | respecting parens
+    parts: list[str] = []
+    current = ''
+    depth = 0
+    for ch in expr:
+        if ch == '(':
+            depth += 1
+            current += ch
+        elif ch == ')':
+            depth -= 1
+            current += ch
+        elif ch == '|' and depth == 0:
+            if current.strip():
+                parts.append(current.strip())
+            current = ''
+        else:
+            current += ch
+    if current.strip():
+        parts.append(current.strip())
+    if len(parts) > 1:
+        bits: list[int] = []
+        for part in parts:
+            bits.extend(_expand_avr_mask(part, defines, _depth + 1))
+        return sorted(set(bits))
+    return []
+
+
+_AVR_DDR_CLEAR_RE = re.compile(r'DDR([A-F])\s*&=\s*~\s*(\w+)')
+
+
+def _avr_row_entries(source_text: str) -> list[tuple[int, str]]:
+    """Extract row pins from AVR ``DDRx |= MASK`` in select_row switch-case bodies.
+
+    Renumbers found cases 0-based so they align with the split-half pin range.
+    """
+    defines: dict[str, str] = {n: v.strip() for n, v in _DEFINE_FULL_RE.findall(source_text)}
+    raw: list[tuple[int, str]] = []
+    for match in _ROW_CASE_PIN_RE.finditer(source_text):
+        case_num = int(match.group(1))
+        body = match.group('body')
+        ddr = _AVR_DDR_MASK_RE.search(body)
+        if not ddr:
+            continue
+        port, mask_name = ddr.group(1), ddr.group(2)
+        bit = _avr_bit_from_mask(mask_name, defines)
+        if bit is None:
+            continue
+        raw.append((case_num, f'{port}{bit}'))
+    raw.sort()
+    return [(i, pin) for i, (_, pin) in enumerate(raw)]
+
+
+def _avr_col_entries(source_text: str) -> list[tuple[int, str]]:
+    """Extract col pins from AVR register patterns.
+
+    Prefers ``DDRx &= ~MASK`` in ``init_cols`` (supports compound OR masks like
+    FMASK = ROW1|ROW2|ROW3|ROW4).  Falls back to ``PINx & MASK`` in ``read_cols``
+    for boards that set pins inline without a dedicated init function.
+    """
+    defines: dict[str, str] = {n: v.strip() for n, v in _DEFINE_FULL_RE.findall(source_text)}
+    entries: list[tuple[int, str]] = []
+    seen: set[str] = set()
+
+    # Primary: init_cols bodies — DDRx &= ~MASK (input-with-pullup pattern)
+    for body in _pal_init_bodies(source_text, 'init_col'):
+        for port, mask_name in _AVR_DDR_CLEAR_RE.findall(body):
+            for bit in _expand_avr_mask(mask_name, defines):
+                pin = f'{port}{bit}'
+                if pin not in seen:
+                    seen.add(pin)
+                    entries.append((len(entries), pin))
+
+    # Fallback: PINx & MASK in read_cols (single-constant form only)
+    if not entries:
+        for body in _column_read_bodies(source_text):
+            for port, mask_name in _AVR_PINX_MASK_RE.findall(body):
+                bit = _avr_bit_from_mask(mask_name, defines)
+                if bit is None:
+                    continue
+                pin = f'{port}{bit}'
+                if pin not in seen:
+                    seen.add(pin)
+                    entries.append((len(entries), pin))
+
+    return entries
+
+
+def _pal_row_entries(source_text: str) -> list[tuple[int, str]]:
+    """Extract row pins from ChibiOS PAL ``init_rows``-style functions."""
+    entries: list[tuple[int, str]] = []
+    for body in _pal_init_bodies(source_text, 'init_row'):
+        for port, num in _PAL_OUTPUT_PIN_RE.findall(body):
+            entries.append((len(entries), f'{port}{num}'))
+    return entries
+
+
+def _pal_col_entries(source_text: str) -> list[tuple[int, str]]:
+    """Extract col pins from ChibiOS PAL ``init_cols``-style functions."""
+    entries: list[tuple[int, str]] = []
+    for body in _pal_init_bodies(source_text, 'init_col'):
+        for port, num in _PAL_INPUT_PIN_RE.findall(body):
+            entries.append((len(entries), f'{port}{num}'))
+    return entries
 
 
 def _variable_input_mask(source_text: str, variable: str) -> int:
@@ -954,12 +1120,7 @@ def _convert_to_config(
     if layout_only:
         matrix_pins = info.get('matrix_pins') or {}
         has_custom_col_matrix = bool(matrix_pins.get('custom') or matrix_pins.get('custom_lite'))
-        if has_custom_col_matrix:
-            # Custom-matrix boards (shift register, expander) can't be expressed as
-            # GPIO pin lists. Keep the native source mode and upstream files so the
-            # build uses the keyboard's own matrix driver instead of Nexus codegen.
-            pass
-        else:
+        if not has_custom_col_matrix:
             source_mode = 'generated'
             upstream_files = {}
 
