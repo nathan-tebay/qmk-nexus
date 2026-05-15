@@ -61,8 +61,21 @@ _MK20DX256_MCUCONF = """\
 #endif /* _MCUCONF_H_ */
 """
 
+_MK20DX256_HALCONF = """\
+#pragma once
+
+/* Enable PAL wait/callback support required by the bitbang split serial driver. */
+#define PAL_USE_WAIT        TRUE
+#define PAL_USE_CALLBACKS   TRUE
+
+#include_next <halconf.h>
+"""
+
 _MCU_EXTRA_HEADERS: dict[str, dict[str, str]] = {
-    'mk20dx256': {'mcuconf.h': _MK20DX256_MCUCONF},
+    'mk20dx256': {
+        'mcuconf.h': _MK20DX256_MCUCONF,
+        'halconf.h': _MK20DX256_HALCONF,
+    },
 }
 
 

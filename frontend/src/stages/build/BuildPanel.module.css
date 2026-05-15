@@ -285,3 +285,45 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.3; }
 }
+
+.downloadArea {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 22px 16px;
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+  border-radius: 8px;
+}
+
+.downloadStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--success);
+}
+
+.downloadBtnLarge {
+  padding: 13px 40px;
+  background: var(--success);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 19px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s;
+}
+
+.downloadBtnLarge:hover:not(:disabled) {
+  opacity: 0.88;
+}
+
+.downloadBtnLarge:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

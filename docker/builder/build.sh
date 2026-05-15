@@ -126,7 +126,7 @@ KM_DIR="${KB_DIR}/keymaps/default"
 mkdir -p "$KB_DIR" "$KM_DIR"
 
 # Core keyboard files
-for f in "${KB_NAME}.c" "${KB_NAME}.h" config.h rules.mk mcuconf.h; do
+for f in "${KB_NAME}.c" "${KB_NAME}.h" config.h rules.mk mcuconf.h halconf.h; do
     [ -f "${SRC_DIR}/${f}" ] && cp "${SRC_DIR}/${f}" "${KB_DIR}/${f}"
 done
 

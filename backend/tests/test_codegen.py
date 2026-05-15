@@ -103,6 +103,46 @@ def test_keymap_c_does_not_pad_layout_macro_arguments():
     assert 'KC_D, KC_TRNS' not in c
 
 
+def test_keymap_c_native_uses_upstream_layout_argument_order():
+    kb = KeyboardConfig(
+        id='native-order',
+        name='Native Order',
+        mcu='atmega32u4',
+        keys=[
+            KeyDef(id='k00', x=0, y=0, row=0, col=0),
+            KeyDef(id='k10', x=1, y=0, row=1, col=0),
+            KeyDef(id='k01', x=0, y=1, row=0, col=1),
+            KeyDef(id='k11', x=1, y=1, row=1, col=1),
+        ],
+        layers=[Layer(id='layer0', name='Base', keycodes={
+            'k00': 'KC_Q',
+            'k10': 'KC_W',
+            'k01': 'KC_A',
+            'k11': 'KC_S',
+        })],
+        layout_macro='LAYOUT_native',
+        source_mode='qmk_native',
+        upstream_keyboard='vendor/native',
+        upstream_layouts={
+            'LAYOUT_native': {
+                'layout': [
+                    {'matrix': [0, 0], 'x': 0, 'y': 0},
+                    {'matrix': [1, 0], 'x': 1, 'y': 0},
+                    {'matrix': [0, 1], 'x': 0, 'y': 1},
+                    {'matrix': [1, 1], 'x': 1, 'y': 1},
+                ],
+            },
+        },
+    )
+
+    c = generate_keymap_c(kb)
+
+    assert 'LAYOUT_native(' in c
+    assert 'KC_Q, KC_W,' in c
+    assert 'KC_A, KC_S' in c
+    assert 'KC_Q, KC_A,' not in c
+
+
 def test_keymap_c_declares_imported_layer_and_custom_symbols():
     kb = KeyboardConfig(
         id='imported',
@@ -408,7 +448,7 @@ def test_is31fl3731_on_non_kinetis_no_pal_mode_overrides(minimal_avr_kb):
     assert 'I2C1_SDA_PAL_MODE' not in config
 
 
-def test_mk20dx256_split_emits_usart_serial_driver(minimal_avr_kb):
+def test_mk20dx256_split_emits_bitbang_serial_driver(minimal_avr_kb):
     kb = minimal_avr_kb.model_copy(update={
         'mcu': 'mk20dx256',
         'features': {**minimal_avr_kb.features, 'split_keyboard': True},
@@ -416,7 +456,7 @@ def test_mk20dx256_split_emits_usart_serial_driver(minimal_avr_kb):
     })
     rules = generate_rules_mk(kb)
     assert 'SPLIT_TRANSPORT = serial' in rules
-    assert 'SERIAL_DRIVER = usart' in rules
+    assert 'SERIAL_DRIVER = bitbang' in rules
 
 
 def test_rp2040_split_uses_gpio_pin_fallback_and_imported_serial_driver(rp2040_oled_kb):

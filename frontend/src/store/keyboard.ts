@@ -149,6 +149,7 @@ export interface OledElement {
   customCodeTemplate: string
   logoImage: string
   logoBytes: number[]
+  displayRotation: 0 | 90 | 180 | 270
 }
 
 export interface TrackballElement {
@@ -628,7 +629,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addOled: () =>
     set((s) => {
-      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', customCodeTemplate: '', logoImage: '', logoBytes: [] }
+      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', customCodeTemplate: '', logoImage: '', logoBytes: [], displayRotation: 0 }
       const oleds = [...(s.config.oleds ?? []), oled]
       const synced = syncPeripheralFeatures({ ...s.config, oleds })
       return {
@@ -757,6 +758,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
           customCodeTemplate: '',
           logoImage: '',
           logoBytes: [] as number[],
+          displayRotation: 0 as const,
           ...rest,
         } as OledElement
       })

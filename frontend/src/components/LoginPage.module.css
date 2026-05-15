@@ -47,7 +47,15 @@
   text-align: center;
 }
 
-.googleBtn {
+.ssoButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(400px, calc(100vw - 32px));
+  margin-top: 8px;
+}
+
+.ssoBtn {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -60,11 +68,10 @@
   color: var(--text);
   transition: border-color 0.15s, background 0.15s;
   justify-content: center;
-  margin-top: 8px;
-  width: min(400px, calc(100vw - 32px));
+  cursor: pointer;
 }
 
-.googleBtn:hover {
+.ssoBtn:hover {
   border-color: var(--accent);
   background: var(--bg-elevated);
 }

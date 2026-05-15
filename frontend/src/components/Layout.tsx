@@ -63,6 +63,7 @@ export default function Layout() {
   const { save, saving, error, warning } = useKeyboardSync()
   const [editingName, setEditingName] = useState(false)
   const [showInstructions, setShowInstructions] = useState(false)
+  const [showDonate, setShowDonate] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme())
   const [nameValue, setNameValue] = useState('')
   const nameInputRef = useRef<HTMLInputElement>(null)
@@ -186,15 +187,13 @@ export default function Layout() {
               Admin
             </button>
           )}
-          <a
-            href="https://venmo.com/NathanTebay"
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
             className={styles.donateBtn}
-            title="Support QMK Nexus on Venmo"
+            onClick={() => setShowDonate(true)}
+            title="Support QMK Nexus"
           >
             Donate
-          </a>
+          </button>
           <button onClick={handleLogout} className={styles.logout} title="Sign out of QMK Nexus" aria-label="Logout">
             Logout
           </button>
@@ -203,6 +202,47 @@ export default function Layout() {
       <main className={styles.main}>
         <Outlet />
       </main>
+      {showDonate && (
+        <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowDonate(false) }}>
+          <div className={styles.donateModal} role="dialog" aria-modal="true" aria-labelledby="donate-title">
+            <div className={styles.modalHeader}>
+              <h2 id="donate-title">Support QMK Nexus</h2>
+              <button className={styles.modalClose} onClick={() => setShowDonate(false)} aria-label="Close">×</button>
+            </div>
+            <div className={styles.donateBody}>
+              <p className={styles.donateIntro}>
+                QMK Nexus is free and open to everyone. If it's been useful to you, here are a few reasons to consider contributing:
+              </p>
+              <ul className={styles.donateWhy}>
+                <li>
+                  <strong>Cover hosting costs</strong> QMK Nexus runs on real infrastructure (AWS Lambda, S3, CloudFront). Every build and save has a cost, and contributions help keep the lights on.
+                </li>
+                <li>
+                  <strong>You appreciate the tool</strong> If QMK Nexus saved you hours of wiring diagrams, manual config edits, or compiler headaches, a small contribution is a great way to say thanks.
+                </li>
+                <li>
+                  <strong>Ensure future development</strong> Your support directly funds new features, bug fixes, and long-term maintenance. The more sustainable this project is, the better it gets.
+                </li>
+              </ul>
+              <div className={styles.donateActions}>
+                <a
+                  href="https://venmo.com/NathanTebay"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.venmoCta}
+                  onClick={() => setShowDonate(false)}
+                >
+                  Continue to Venmo
+                </a>
+                <button className={styles.donateLater} onClick={() => setShowDonate(false)}>
+                  Maybe Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showInstructions && (
         <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowInstructions(false) }}>
           <div className={styles.instructionsModal} role="dialog" aria-modal="true" aria-labelledby="instructions-title">

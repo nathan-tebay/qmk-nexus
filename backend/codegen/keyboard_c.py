@@ -246,6 +246,23 @@ def generate_keyboard_c(config: KeyboardConfig) -> str:
         if any(o.logo_bytes for o in config.oleds):
             lines.append('')
 
+        _ROT = {90: 'OLED_ROTATION_90', 180: 'OLED_ROTATION_180', 270: 'OLED_ROTATION_270'}
+        rot0 = _ROT.get(getattr(config.oleds[0], 'display_rotation', 0) if config.oleds else 0)
+        rot1 = _ROT.get(getattr(config.oleds[1], 'display_rotation', 0) if len(config.oleds) > 1 else 0)
+        need_init = rot0 or (split_enabled and rot1)
+        if need_init:
+            lines.append('oled_rotation_t oled_init_user(oled_rotation_t rotation) {')
+            if split_enabled and len(config.oleds) >= 2:
+                if rot0:
+                    lines.append(f'    if (is_keyboard_master()) return {rot0};')
+                if rot1:
+                    lines.append(f'    if (!is_keyboard_master()) return {rot1};')
+            elif rot0:
+                lines.append(f'    return {rot0};')
+            lines.append('    return rotation;')
+            lines.append('}')
+            lines.append('')
+
         lines.append('bool oled_task_user(void) {')
         if len(config.oleds) == 1:
             lines.extend(_emit_oled_body(config.oleds[0], '    ', config, 0))

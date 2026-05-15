@@ -203,7 +203,8 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
   const idleTimeout    = oled?.idleTimeout    ?? 10000
   const customCode     = oled?.customCode     ?? ''
   const customCodeTemplate = oled?.customCodeTemplate ?? ''
-  const displaySize    = oled?.displaySize    ?? '128_32'
+  const displaySize       = oled?.displaySize       ?? '128_32'
+  const displayRotation   = (oled?.displayRotation  ?? 0) as 0 | 90 | 180 | 270
   const logoImage      = oled?.logoImage      ?? ''
   const pixelSize      = useMemo(() => OLED_PIXEL_SIZES[displaySize] ?? OLED_PIXEL_SIZES['128_32'], [displaySize])
 
@@ -341,6 +342,19 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
           >
             Custom C Code
           </button>
+        </div>
+
+        <div className={styles.rotationRow}>
+          <span className={styles.rotationLabel}>Rotation</span>
+          {([0, 90, 180, 270] as const).map((deg) => (
+            <button
+              key={deg}
+              className={`${styles.resBtn} ${displayRotation === deg ? styles.resBtnActive : ''}`}
+              onClick={() => updateOled(oledId, { displayRotation: deg })}
+            >
+              {deg}°
+            </button>
+          ))}
         </div>
 
         <div className={styles.body}>

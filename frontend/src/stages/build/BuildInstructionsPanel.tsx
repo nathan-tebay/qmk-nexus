@@ -276,9 +276,7 @@ interface FlashInfo {
   linuxNote?: string
 }
 
-const UDEV_RULE_CMD = `curl -fsSL https://raw.githubusercontent.com/qmk/qmk_firmware/master/util/udev/50-qmk.rules \\
-  | sudo tee /etc/udev/rules.d/50-qmk.rules > /dev/null
-sudo udevadm control --reload-rules && sudo udevadm trigger`
+const UDEV_RULE_CMD = `curl -fsSL https://raw.githubusercontent.com/qmk/qmk_firmware/master/util/install_udev.sh | sudo sh`
 
 const MCU_FLASH_INFO: Record<string, FlashInfo> = {
   atmega32u4: {

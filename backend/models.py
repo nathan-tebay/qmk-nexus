@@ -81,6 +81,7 @@ class OledElement(BaseModel):
     custom_code_template: str = ''
     logo_image: str = ''
     logo_bytes: list[int] = Field(default_factory=list)
+    display_rotation: int = 0
 
 
 class TrackballElement(BaseModel):

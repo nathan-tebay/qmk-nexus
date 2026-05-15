@@ -8,6 +8,7 @@ export interface Keycode {
   label: string
   category: string
   description?: string
+  shifted?: { code: string; label: string }
 }
 
 export const CATEGORIES: readonly KeycodeCategory[] = [
@@ -32,30 +33,30 @@ export const KEYCODES: readonly Keycode[] = [
   })),
 
   // Basic — numbers row
-  { code: 'KC_1', label: '1', category: 'basic' },
-  { code: 'KC_2', label: '2', category: 'basic' },
-  { code: 'KC_3', label: '3', category: 'basic' },
-  { code: 'KC_4', label: '4', category: 'basic' },
-  { code: 'KC_5', label: '5', category: 'basic' },
-  { code: 'KC_6', label: '6', category: 'basic' },
-  { code: 'KC_7', label: '7', category: 'basic' },
-  { code: 'KC_8', label: '8', category: 'basic' },
-  { code: 'KC_9', label: '9', category: 'basic' },
-  { code: 'KC_0', label: '0', category: 'basic' },
+  { code: 'KC_1', label: '1', category: 'basic', shifted: { code: 'KC_EXLM', label: '!' } },
+  { code: 'KC_2', label: '2', category: 'basic', shifted: { code: 'KC_AT',   label: '@' } },
+  { code: 'KC_3', label: '3', category: 'basic', shifted: { code: 'KC_HASH', label: '#' } },
+  { code: 'KC_4', label: '4', category: 'basic', shifted: { code: 'KC_DLR',  label: '$' } },
+  { code: 'KC_5', label: '5', category: 'basic', shifted: { code: 'KC_PERC', label: '%' } },
+  { code: 'KC_6', label: '6', category: 'basic', shifted: { code: 'KC_CIRC', label: '^' } },
+  { code: 'KC_7', label: '7', category: 'basic', shifted: { code: 'KC_AMPR', label: '&' } },
+  { code: 'KC_8', label: '8', category: 'basic', shifted: { code: 'KC_ASTR', label: '*' } },
+  { code: 'KC_9', label: '9', category: 'basic', shifted: { code: 'KC_LPRN', label: '(' } },
+  { code: 'KC_0', label: '0', category: 'basic', shifted: { code: 'KC_RPRN', label: ')' } },
 
   // Basic — punctuation
-  { code: 'KC_SPACE', label: 'Spc',  category: 'basic' },
-  { code: 'KC_MINUS', label: '-',    category: 'basic' },
-  { code: 'KC_EQUAL', label: '=',    category: 'basic' },
-  { code: 'KC_LBRC',  label: '[',    category: 'basic' },
-  { code: 'KC_RBRC',  label: ']',    category: 'basic' },
-  { code: 'KC_BSLS',  label: '\\',   category: 'basic' },
-  { code: 'KC_SCLN',  label: ';',    category: 'basic' },
-  { code: 'KC_QUOT',  label: "'",    category: 'basic' },
-  { code: 'KC_GRV',   label: '`',    category: 'basic' },
-  { code: 'KC_COMM',  label: ',',    category: 'basic' },
-  { code: 'KC_DOT',   label: '.',    category: 'basic' },
-  { code: 'KC_SLSH',  label: '/',    category: 'basic' },
+  { code: 'KC_SPACE', label: 'Spc', category: 'basic' },
+  { code: 'KC_MINUS', label: '-',  category: 'basic', shifted: { code: 'KC_UNDS', label: '_' } },
+  { code: 'KC_EQUAL', label: '=',  category: 'basic', shifted: { code: 'KC_PLUS', label: '+' } },
+  { code: 'KC_LBRC',  label: '[',  category: 'basic', shifted: { code: 'KC_LCBR', label: '{' } },
+  { code: 'KC_RBRC',  label: ']',  category: 'basic', shifted: { code: 'KC_RCBR', label: '}' } },
+  { code: 'KC_BSLS',  label: '\\', category: 'basic', shifted: { code: 'KC_PIPE', label: '|' } },
+  { code: 'KC_SCLN',  label: ';',  category: 'basic', shifted: { code: 'KC_COLN', label: ':' } },
+  { code: 'KC_QUOT',  label: "'",  category: 'basic', shifted: { code: 'KC_DQUO', label: '"' } },
+  { code: 'KC_GRV',   label: '`',  category: 'basic', shifted: { code: 'KC_TILD', label: '~' } },
+  { code: 'KC_COMM',  label: ',',  category: 'basic', shifted: { code: 'KC_LT',   label: '<' } },
+  { code: 'KC_DOT',   label: '.',  category: 'basic', shifted: { code: 'KC_GT',   label: '>' } },
+  { code: 'KC_SLSH',  label: '/',  category: 'basic', shifted: { code: 'KC_QUES', label: '?' } },
 
   // Basic — control keys
   { code: 'KC_ESC',   label: 'Esc',  category: 'basic' },
@@ -75,6 +76,8 @@ export const KEYCODES: readonly Keycode[] = [
   { code: 'KC_RALT', label: 'RAlt', category: 'modifiers' },
   { code: 'KC_LGUI', label: 'LGui', category: 'modifiers' },
   { code: 'KC_RGUI', label: 'RGui', category: 'modifiers' },
+  { code: 'KC_HYPR', label: 'Hyper', category: 'modifiers', description: 'Left Ctrl + Shift + Alt + GUI' },
+  { code: 'KC_MEH',  label: 'Meh',   category: 'modifiers', description: 'Left Ctrl + Shift + Alt' },
 
   // Mod-tap
   { code: 'LCTL_T(KC_ESC)',  label: 'Ctl/Esc', category: 'modifiers', description: 'Ctrl when held, Esc when tapped' },
@@ -143,5 +146,9 @@ export const KEYCODES: readonly Keycode[] = [
 ]
 
 export const keycodeMap = new Map<string, Keycode>(
-  KEYCODES.map((k) => [k.code, k])
+  KEYCODES.flatMap((k) => {
+    const entries: [string, Keycode][] = [[k.code, k]]
+    if (k.shifted) entries.push([k.shifted.code, { code: k.shifted.code, label: k.shifted.label, category: k.category }])
+    return entries
+  })
 )

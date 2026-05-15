@@ -144,7 +144,7 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
         conditionalOn: { SPLIT_TRANSPORT: 'i2c' } },
       { key: 'SPLIT_I2C_SCL', type: 'pin', description: 'I2C SCL pin for split link', defaultValue: 'D1',
         conditionalOn: { SPLIT_TRANSPORT: 'i2c' } },
-      { key: 'SPLIT_IS_MASTER', type: 'select', description: 'This half is the master side', defaultValue: 'yes', options: ['yes', 'no'] },
+      { key: 'SPLIT_IS_MASTER', type: 'select', description: 'Plugged in side is the master', defaultValue: 'yes', options: ['yes', 'no'] },
       { key: 'SPLIT_USB_DETECT', type: 'select', description: 'Auto-detect USB half', defaultValue: 'yes', options: ['yes', 'no'] },
       { key: 'SPLIT_TRANSPORT_MIRROR', type: 'select', description: 'Mirror keymap over split link', defaultValue: 'no', options: ['yes', 'no'] },
       { key: 'SPLIT_LAYER_STATE_ENABLE', type: 'select', description: 'Sync layer state across halves', defaultValue: 'no', options: ['yes', 'no'] },

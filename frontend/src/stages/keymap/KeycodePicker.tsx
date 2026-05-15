@@ -116,6 +116,44 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
   }
 
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!search) {
+      const blankKeyMap: Record<string, string> = {
+        ' ':           'KC_SPACE',
+        'Escape':      'KC_ESC',
+        'Backspace':   'KC_BSPC',
+        'Enter':       'KC_ENT',
+        'Tab':         'KC_TAB',
+        'Delete':      'KC_DEL',
+        'Insert':      'KC_INS',
+        'CapsLock':    'KC_CAPS',
+        'Control':     'KC_LCTL',
+        'Shift':       'KC_LSFT',
+        'Alt':         'KC_LALT',
+        'Meta':        'KC_LGUI',
+        'ArrowUp':     'KC_UP',
+        'ArrowDown':   'KC_DOWN',
+        'ArrowLeft':   'KC_LEFT',
+        'ArrowRight':  'KC_RGHT',
+        'Home':        'KC_HOME',
+        'End':         'KC_END',
+        'PageUp':      'KC_PGUP',
+        'PageDown':    'KC_PGDN',
+        'PrintScreen': 'KC_PSCR',
+        'ScrollLock':  'KC_SCRL',
+        'Pause':       'KC_PAUS',
+        'NumLock':     'KC_NLCK',
+        'F1':  'KC_F1',  'F2':  'KC_F2',  'F3':  'KC_F3',  'F4':  'KC_F4',
+        'F5':  'KC_F5',  'F6':  'KC_F6',  'F7':  'KC_F7',  'F8':  'KC_F8',
+        'F9':  'KC_F9',  'F10': 'KC_F10', 'F11': 'KC_F11', 'F12': 'KC_F12',
+      }
+      const code = blankKeyMap[e.key]
+      if (code) {
+        e.preventDefault()
+        e.stopPropagation()
+        handlePickKey(code)
+        return
+      }
+    }
     if (e.key !== 'Enter') return
     const exact = exactKeycodeMatch(search)
     if (!exact) return
@@ -212,9 +250,10 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
                   key={k.code}
                   title={k.code}
                   onClick={() => setTapCode(k.code)}
-                  className={`${styles.cell} ${tapCode === k.code ? styles.cellActive : ''}`}
+                  className={`${styles.cell} ${k.shifted ? '' : styles.cellSingle} ${tapCode === k.code ? styles.cellActive : ''}`}
                 >
-                  {k.label}
+                  {k.shifted && <span className={styles.cellTop}>{k.shifted.label}</span>}
+                  <span className={k.shifted ? styles.cellBottom : undefined}>{k.label}</span>
                 </button>
               ))}
             </div>
@@ -275,9 +314,10 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
                 key={k.code}
                 title={`${k.code}${k.description ? ` — ${k.description}` : ''}`}
                 onClick={() => handlePickKey(k.code)}
-                className={`${styles.cell} ${currentCode === k.code ? styles.cellActive : ''}`}
+                className={`${styles.cell} ${k.shifted ? '' : styles.cellSingle} ${currentCode === k.code ? styles.cellActive : ''}`}
               >
-                {k.label}
+                {k.shifted && <span className={styles.cellTop}>{k.shifted.label}</span>}
+                <span className={k.shifted ? styles.cellBottom : undefined}>{k.label}</span>
               </button>
             ))}
             {filtered.length === 0 && (

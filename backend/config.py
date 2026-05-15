@@ -7,6 +7,10 @@ class Settings(BaseSettings):
 
     google_client_id: str = ''
     google_client_secret: str = ''
+    github_client_id: str = ''
+    github_client_secret: str = ''
+    discord_client_id: str = ''
+    discord_client_secret: str = ''
     jwt_secret: str = 'dev-secret-change-in-prod'
     jwt_algorithm: str = 'HS256'
 

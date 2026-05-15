@@ -144,8 +144,8 @@ def test_generate_all_sanitizes_keyboard_name_for_written_files(tmp_path):
     generate_all(config, tmp_path)
 
     src = tmp_path / 'src'
-    assert (src / '___bad_name.c').exists()
-    assert (src / '___bad_name.h').exists()
+    assert (src / 'bad_name.c').exists()
+    assert (src / 'bad_name.h').exists()
     assert all(path.parent == src for path in src.iterdir())
 
 

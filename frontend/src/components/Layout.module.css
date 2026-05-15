@@ -90,12 +90,99 @@
   border: 1px solid #3D95CE;
   font-size: 15px;
   color: #3D95CE;
-  text-decoration: none;
+  background: none;
+  cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .donateBtn:hover {
   background: rgba(61, 149, 206, 0.12);
+}
+
+.donateModal {
+  width: min(520px, calc(100vw - 32px));
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.donateBody {
+  padding: 20px 24px 24px;
+}
+
+.donateIntro {
+  color: var(--text-muted);
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+
+.donateWhy {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.donateWhy li {
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.donateWhy li strong {
+  display: block;
+  margin-bottom: 2px;
+  color: var(--text);
+  font-size: 15px;
+}
+
+.donateActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.venmoCta {
+  flex: 1;
+  display: block;
+  padding: 10px 16px;
+  text-align: center;
+  border-radius: 6px;
+  background: #3D95CE;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.venmoCta:hover {
+  background: #2f7db5;
+}
+
+.donateLater {
+  padding: 10px 16px;
+  border-radius: 6px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 15px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.donateLater:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
 }
 
 .logout:hover {

@@ -46,6 +46,44 @@ def _all_keycodes(config: KeyboardConfig) -> list[str]:
     ]
 
 
+def _resolved_upstream_layout_name(config: KeyboardConfig) -> str:
+    macro = config.layout_macro or 'LAYOUT'
+    return config.layout_aliases.get(macro, macro)
+
+
+def _key_ids_for_keymap(config: KeyboardConfig) -> list[str | None]:
+    """Return key ids in the argument order required by the emitted layout macro.
+
+    Generated keyboards define their own layout macro from ``matrix_keys`` order,
+    so keymap.c must keep using that same matrix order.
+
+    Native QMK keyboards already have an upstream layout macro. Its arguments are
+    in the order declared by upstream ``keyboard.json``, which is often not
+    row-major matrix order (ErgoDox EZ is a common example). For native builds,
+    preserve that upstream argument order and resolve each entry back to our key
+    id by matrix coordinate.
+    """
+    if config.source_mode == 'qmk_native' and config.upstream_layouts:
+        layout_def = config.upstream_layouts.get(_resolved_upstream_layout_name(config))
+        upstream_keys = layout_def.get('layout') if isinstance(layout_def, dict) else None
+        if isinstance(upstream_keys, list):
+            by_matrix = {
+                (key.row, key.col): key.id
+                for key in config.keys
+                if key.row is not None and key.col is not None
+            }
+            key_order: list[str | None] = []
+            for entry in upstream_keys:
+                matrix = entry.get('matrix') if isinstance(entry, dict) else None
+                if isinstance(matrix, list) and len(matrix) == 2:
+                    key_order.append(by_matrix.get((matrix[0], matrix[1])))
+                else:
+                    key_order.append(None)
+            return key_order
+
+    return [key.id for key in matrix_keys(config)]
+
+
 _ORTHO_LAYER_ORDER = {
     '_QWERTY': 0,
     '_COLEMAK': 1,
@@ -124,7 +162,7 @@ def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
 
 
 def generate_keymap_c(config: KeyboardConfig) -> str:
-    keys = matrix_keys(config)
+    key_ids = _key_ids_for_keymap(config)
     rows = matrix_rows(config)
     cols = matrix_cols(config) or 1
 
@@ -140,7 +178,10 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
         layout_macro = config.layout_macro or 'LAYOUT'
         lines.append(f"    [{layer_idx}] = {layout_macro}(")
 
-        keycodes = [layer.keycodes.get(k.id, "KC_TRNS") for k in keys]
+        keycodes = [
+            layer.keycodes.get(key_id, "KC_TRNS") if key_id is not None else "KC_TRNS"
+            for key_id in key_ids
+        ]
 
         for i in range(0, len(keycodes), cols):
             chunk = keycodes[i : i + cols]

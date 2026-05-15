@@ -1,0 +1,5 @@
+# Native QMK keymap order bug
+
+2026-05-12: User reported ErgoDox EZ Shine generated firmware mapping keys incorrectly (examples: I outputs R, O outputs F, L outputs OS key). Root cause was `backend/codegen/keymap_c.py` emitting `keymap.c` layout arguments in row-major matrix order via `matrix_keys(config)`. For `source_mode='qmk_native'`, upstream QMK layout macros expect argument order from upstream `keyboard.json` `layouts[layout].layout`, which can differ from row-major (ErgoDox EZ does). Fix: `_key_ids_for_keymap` uses upstream layout order for native builds, resolving entries by matrix coordinate; generated keyboards still use matrix order. Regression test added: `test_keymap_c_native_uses_upstream_layout_argument_order`.
+
+Teensy note: ErgoDox EZ Shine data has `processor: atmega32u4` and `bootloader: halfkay`; Teensy 2.0 uses ATmega32U4, so MCU is correct. Wrong bootloader would affect flashing/build metadata, not key positions. Native QMK overlay uses upstream keyboard metadata, so no Teensy MCU change needed for this mapping bug.

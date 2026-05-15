@@ -86,10 +86,12 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         transport = sp.get('SPLIT_TRANSPORT', 'serial')
         lines.append(f'SPLIT_TRANSPORT = {transport}')
         serial_driver = sp.get('SERIAL_DRIVER')
-        if serial_driver:
+        # mk20dx256 (Kinetis K20): serial_usart.c doesn't support this MCU family
+        # and requires custom halconf.h; bitbang works on any ChibiOS target.
+        if mcu == 'mk20dx256':
+            lines.append('SERIAL_DRIVER = bitbang')
+        elif serial_driver:
             lines.append(f'SERIAL_DRIVER = {serial_driver}')
-        elif mcu == 'mk20dx256':
-            lines.append('SERIAL_DRIVER = usart')
         for key in ('SPLIT_USB_DETECT', 'SPLIT_TRANSPORT_MIRROR',
                     'SPLIT_LAYER_STATE_ENABLE', 'SPLIT_RGB_MATRIX_ENABLE'):
             val = sp.get(key)
