@@ -16,7 +16,7 @@ interface Props {
   snapGrid?: boolean
   onSelect: (id: string, shiftKey: boolean) => void
   onChange: (id: string, updates: Partial<KeyDef>) => void
-  onMatrixClick?: (id: string, mods: { shift: boolean; ctrl: boolean; alt: boolean }) => void
+  onMatrixClick?: (id: string, mods: { shift: boolean; alt: boolean }) => void
   onDragStart?: (id: string, node: Konva.Node) => void
   onDragMove?: (id: string, node: Konva.Node) => void
   onDragEnd?: (id: string, node: Konva.Node) => boolean
@@ -63,7 +63,6 @@ export default function KeyShape({
     if (showMatrix && onMatrixClick) {
       onMatrixClick(keyDef.id, {
         shift: e.evt.shiftKey,
-        ctrl: e.evt.ctrlKey,
         alt: e.evt.altKey,
       })
       return

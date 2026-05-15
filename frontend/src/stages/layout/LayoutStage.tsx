@@ -322,7 +322,7 @@ export default function LayoutStage() {
             <div className={styles.matrixInfo}>
               <strong>Matrix Mode</strong>
               <span>Click -&gt; Row <span style={{ color: SCHEME_COLORS[colorScheme].row }}>●</span></span>
-              <span>Ctrl+click -&gt; Col <span style={{ color: SCHEME_COLORS[colorScheme].col }}>●</span></span>
+              <span>Shift+click -&gt; Col <span style={{ color: SCHEME_COLORS[colorScheme].col }}>●</span></span>
               <span>Alt+click -&gt; LED <span style={{ color: SCHEME_COLORS[colorScheme].led }}>●</span></span>
               <span>Click two keys to connect / disconnect</span>
               <div style={{ display: 'flex', gap: 4, marginTop: 6, alignItems: 'center' }}>

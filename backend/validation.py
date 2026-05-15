@@ -389,4 +389,21 @@ def validate_build_ready(config: KeyboardConfig) -> list[str]:
         if missing_cols:
             errors.append(f'Matrix column pins missing assignments: {", ".join(missing_cols)}.')
 
+    # Duplicate (row, col) assignments cause QMK LAYOUT macro parameter collisions.
+    seen_positions: dict[tuple[int, int], str] = {}
+    dup_positions: list[str] = []
+    for k in config.keys:
+        if k.row is not None and k.col is not None:
+            pos = (k.row, k.col)
+            if pos in seen_positions:
+                dup_positions.append(f'[{k.row},{k.col}]')
+            else:
+                seen_positions[pos] = k.id
+    if dup_positions:
+        errors.append(
+            f'Duplicate matrix positions ({", ".join(sorted(set(dup_positions)))}): '
+            'each key must have a unique row/column. '
+            'For split keyboards, right-half keys should use row indices ≥ rows-per-half.'
+        )
+
     return errors

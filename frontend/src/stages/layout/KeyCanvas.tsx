@@ -96,8 +96,8 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     }
   }
 
-  function handleMatrixClick(id: string, mods: { shift: boolean; ctrl: boolean; alt: boolean }) {
-    const mode: MatrixMode = mods.ctrl ? 'col' : mods.alt ? 'led' : 'row'
+  function handleMatrixClick(id: string, mods: { shift: boolean; alt: boolean }) {
+    const mode: MatrixMode = mods.alt ? 'led' : mods.shift ? 'col' : 'row'
 
     if (!matrixPending) {
       setMatrixPending({ id, mode })

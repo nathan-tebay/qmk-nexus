@@ -76,8 +76,15 @@ def generate_config_h(config: KeyboardConfig) -> str:
             (p for p in config.row_pins if p.pin.strip()),
             key=lambda p: p.row,
         )
-        if features.get('split_keyboard') and len(sorted_row_pins) > rows // 2:
-            sorted_row_pins = sorted_row_pins[:rows // 2]
+        # For split keyboards with an even row count, QMK expects MATRIX_ROW_PINS to
+        # list only one half's pins (MATRIX_ROWS / 2). Only truncate when the user
+        # supplied exactly as many pins as total rows AND the count is even — odd row
+        # counts mean the keyboard uses a shared-row split scheme, so don't truncate.
+        rows_per_half = rows // 2
+        if (features.get('split_keyboard')
+                and rows % 2 == 0
+                and len(sorted_row_pins) > rows_per_half):
+            sorted_row_pins = sorted_row_pins[:rows_per_half]
         if sorted_row_pins:
             pin_list = ', '.join(p.pin for p in sorted_row_pins)
             lines.append(f'#define MATRIX_ROW_PINS {{ {pin_list} }}')
