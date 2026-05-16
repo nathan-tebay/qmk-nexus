@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from models import ColPin, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
+from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
 
 
 def pytest_addoption(parser):
@@ -88,6 +88,48 @@ def rp2040_oled_kb() -> KeyboardConfig:
         col_pins=[ColPin(col=0, pin='GP2'), ColPin(col=1, pin='GP3'), ColPin(col=2, pin='GP4')],
         layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'KC_Q', 'k1': 'KC_W', 'k2': 'KC_E'})],
         features={'oled': True, 'encoder': True, 'nkro': True, 'extrakey': True},
+    )
+
+
+@pytest.fixture
+def advanced_features_kb() -> KeyboardConfig:
+    """Exercises combos, leader_key, dynamic_macro, indicators, debounce, key_lock, wpm."""
+    return KeyboardConfig(
+        id='test-advanced',
+        name='Test Advanced',
+        mcu='atmega32u4',
+        usb_vid='0xFEED',
+        usb_pid='0x0004',
+        manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0),
+            _key('k1', 0, 1, 1, 0),
+            _key('k2', 1, 0, 0, 1),
+            _key('k3', 1, 1, 1, 1),
+        ],
+        row_pins=[MatrixPin(row=0, pin='B0'), MatrixPin(row=1, pin='B1')],
+        col_pins=[ColPin(col=0, pin='D0'), ColPin(col=1, pin='D1')],
+        layers=[
+            Layer(id='layer0', name='Base', keycodes={'k0': 'KC_A', 'k1': 'KC_B', 'k2': 'KC_TRNS', 'k3': 'KC_D'}),
+            Layer(id='layer1', name='Fn',   keycodes={'k0': 'KC_TRNS', 'k1': 'KC_TRNS', 'k2': 'KC_C', 'k3': 'KC_TRNS'}),
+        ],
+        features={
+            'combo': True, 'leader_key': True, 'dynamic_macro': True,
+            'indicators': True, 'debounce': True, 'key_lock': True, 'wpm': True,
+        },
+        feature_configs={
+            'debounce':       {'DEBOUNCE': '8', 'DEBOUNCE_TYPE': 'sym_eager_pr'},
+            'leader_key':     {'LEADER_TIMEOUT': '400', 'LEADER_PER_KEY_TIMING': 'yes'},
+            'dynamic_macro':  {'DYNAMIC_MACRO_SIZE': '256'},
+            'indicators':     {'LED_CAPS_LOCK_PIN': 'B2', 'LED_NUM_LOCK_PIN': 'B3', 'LED_PIN_ON_STATE': '0'},
+            'combo':          {'COMBO_TERM': '50'},
+        },
+        combos=[
+            # Combo 1: k0+k1 (base layer keys) → KC_ESC
+            ComboEntry(id='c0', keys=['k0', 'k1'], output='KC_ESC'),
+            # Combo 2: k2 resolves via layer 1 (base is TRNS) → exercises layer scan
+            ComboEntry(id='c1', keys=['k2', 'k3'], output='QK_LEAD'),
+        ],
     )
 
 

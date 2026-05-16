@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useKeyboardStore } from '@/store/keyboard'
 import FeatureToggles from './FeatureToggles'
+import ComboEditor from './ComboEditor'
 import { FEATURE_MODULES } from './modules'
 import { useBuildValidation } from './useBuildValidation'
 import styles from './FeatureStage.module.css'
@@ -42,6 +43,7 @@ export default function FeatureStage() {
 
       <div className={styles.featureShell}>
         <FeatureToggles />
+        {config.features.combo && <ComboEditor />}
       </div>
     </div>
   )

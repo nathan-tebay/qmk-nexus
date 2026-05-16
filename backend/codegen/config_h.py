@@ -99,7 +99,8 @@ def generate_config_h(config: KeyboardConfig) -> str:
     else:
         lines.append('/* #define MATRIX_COL_PINS { } */')
 
-    lines += ['', '#define DIODE_DIRECTION COL2ROW', '', '#define DEBOUNCE 5', '']
+    debounce_ms = (fc.get('debounce') or {}).get('DEBOUNCE', '5') if features.get('debounce') else '5'
+    lines += ['', '#define DIODE_DIRECTION COL2ROW', '', f'#define DEBOUNCE {debounce_ms}', '']
 
     ws2812_pin_defined = False
 
@@ -262,6 +263,35 @@ def generate_config_h(config: KeyboardConfig) -> str:
             f'#define BOOTMAGIC_LITE_COLUMN {col}',
             '',
         ]
+
+    if features.get('leader_key'):
+        lk = fc.get('leader_key', {})
+        timeout = lk.get('LEADER_TIMEOUT', '300')
+        per_key = lk.get('LEADER_PER_KEY_TIMING', 'no')
+        lines.append(f'#define LEADER_TIMEOUT {timeout}')
+        if per_key == 'yes':
+            lines.append('#define LEADER_PER_KEY_TIMING')
+        lines.append('')
+
+    if features.get('indicators'):
+        ind = fc.get('indicators', {})
+        caps = ind.get('LED_CAPS_LOCK_PIN', 'B0')
+        num = ind.get('LED_NUM_LOCK_PIN', '')
+        scroll = ind.get('LED_SCROLL_LOCK_PIN', '')
+        on_state = ind.get('LED_PIN_ON_STATE', '1')
+        if caps:
+            lines.append(f'#define LED_CAPS_LOCK_PIN {caps}')
+        if num:
+            lines.append(f'#define LED_NUM_LOCK_PIN {num}')
+        if scroll:
+            lines.append(f'#define LED_SCROLL_LOCK_PIN {scroll}')
+        lines.append(f'#define LED_PIN_ON_STATE {on_state}')
+        lines.append('')
+
+    if features.get('dynamic_macro'):
+        dm = fc.get('dynamic_macro', {})
+        size = dm.get('DYNAMIC_MACRO_SIZE', '128')
+        lines += [f'#define DYNAMIC_MACRO_SIZE {size}', '']
 
     bootloader = MCU_BOOTLOADER.get(config.mcu.lower(), 'atmel-dfu')
     lines += [f'#define BOOTLOADER {bootloader}', '']

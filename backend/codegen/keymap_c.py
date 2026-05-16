@@ -19,6 +19,7 @@ _KNOWN_KEYCODE_PREFIXES = (
     'AU_',
     'EE_',
     'DB_',
+    'DM_',
     'GU_',
     'CW_',
     'MAGIC_',
@@ -213,6 +214,30 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
             lines.append(f'    }}{layer_comma}')
         lines.append('};')
         lines.append('#endif')
+        lines.append('')
+
+    if config.combos and config.features.get('combo'):
+        lines.append('// Combos')
+        for i, combo in enumerate(config.combos):
+            trigger_kcs: list[str] = []
+            for key_id in combo.keys:
+                resolved = 'KC_TRNS'
+                for layer in config.layers:
+                    candidate = layer.keycodes.get(key_id)
+                    if candidate and candidate not in ('KC_TRNS', 'KC_NO', '_______'):
+                        resolved = candidate
+                        break
+                trigger_kcs.append(resolved)
+            if any(kc == 'KC_TRNS' for kc in trigger_kcs):
+                lines.append(f'// WARNING: combo_{i} has unmapped trigger keys (assigned KC_TRNS).')
+            kc_list = ', '.join(trigger_kcs)
+            lines.append(f'const uint16_t PROGMEM combo_{i}[] = {{{kc_list}, COMBO_END}};')
+        lines.append('')
+        lines.append('combo_t key_combos[] = {')
+        for i, combo in enumerate(config.combos):
+            sep = ',' if i < len(config.combos) - 1 else ''
+            lines.append(f'    COMBO(combo_{i}, {combo.output}){sep}')
+        lines.append('};')
         lines.append('')
 
     return "\n".join(lines)

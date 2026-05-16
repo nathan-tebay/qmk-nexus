@@ -152,6 +152,12 @@ export interface OledElement {
   displayRotation: 0 | 90 | 180 | 270
 }
 
+export interface ComboEntry {
+  id: string
+  keys: string[]
+  output: string
+}
+
 export interface TrackballElement {
   id: string
   x: number
@@ -190,6 +196,7 @@ export interface KeyboardConfig {
   trackballs: TrackballElement[]
   customFiles: Record<string, string>
   encoderKeycodes: Record<string, string>
+  combos: ComboEntry[]
 }
 
 const featureDefaults: Record<string, Record<string, string>> = {
@@ -206,6 +213,12 @@ const featureDefaults: Record<string, Record<string, string>> = {
   combo: { COMBO_TERM: '65' },
   audio: { AUDIO_PIN: 'C6', AUDIO_CLICKY: 'no' },
   pointing_device: { POINTING_DEVICE_DRIVER: 'pmw3360', POINTING_DEVICE_ROTATION_90: 'no', POINTING_DEVICE_INVERT_X: 'no', POINTING_DEVICE_INVERT_Y: 'no' },
+  debounce: { DEBOUNCE: '5', DEBOUNCE_TYPE: 'sym_defer_g' },
+  key_lock: {},
+  dynamic_macro: { DYNAMIC_MACRO_SIZE: '128' },
+  indicators: { LED_CAPS_LOCK_PIN: 'B0', LED_NUM_LOCK_PIN: '', LED_SCROLL_LOCK_PIN: '', LED_PIN_ON_STATE: '1' },
+  wpm: {},
+  leader_key: { LEADER_TIMEOUT: '300', LEADER_PER_KEY_TIMING: 'no' },
 }
 
 const featureAliases: Record<string, string> = {
@@ -388,6 +401,7 @@ const defaultConfig: KeyboardConfig = {
   trackballs: [],
   customFiles: {},
   encoderKeycodes: {},
+  combos: [],
 }
 
 interface KeyboardStore {
@@ -426,6 +440,9 @@ interface KeyboardStore {
   updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
   setCustomFiles: (files: Record<string, string>) => void
   setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw', keycode: string) => void
+  addCombo: () => void
+  removeCombo: (id: string) => void
+  updateCombo: (id: string, patch: Partial<Omit<ComboEntry, 'id'>>) => void
   reset: () => void
 }
 
@@ -704,6 +721,30 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
           ...s.config.encoderKeycodes,
           [`${layerId}:${encoderId}:${dir}`]: keycode,
         },
+      },
+    })),
+
+  addCombo: () =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        combos: [...(s.config.combos ?? []), { id: uid(), keys: [], output: 'KC_NO' }],
+      },
+    })),
+
+  removeCombo: (id) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        combos: (s.config.combos ?? []).filter((c) => c.id !== id),
+      },
+    })),
+
+  updateCombo: (id, patch) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        combos: (s.config.combos ?? []).map((c) => c.id === id ? { ...c, ...patch } : c),
       },
     })),
 

@@ -3,7 +3,6 @@ import { useEffect } from 'react'
 import { useAuthStore } from '@/store/auth'
 import { telemetryApi } from '@/api/telemetry'
 import Layout from '@/components/Layout'
-import LandingPage from '@/components/LandingPage'
 import LoginPage from '@/components/LoginPage'
 import AuthCallback from '@/components/AuthCallback'
 import LayoutStage from '@/stages/layout/LayoutStage'
@@ -47,7 +46,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
+        <Route path="/" element={user ? <Navigate to="/layout" replace /> : <Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route element={<Layout />}>

@@ -105,6 +105,14 @@ class MatrixEdge(BaseModel):
         return {'from': self.from_, 'to': self.to, 'type': self.type}
 
 
+class ComboEntry(BaseModel):
+    model_config = _camel()
+
+    id: str
+    keys: list[str] = Field(default_factory=list)
+    output: str = 'KC_NO'
+
+
 class KeyboardConfig(BaseModel):
     model_config = _camel()
 
@@ -139,6 +147,7 @@ class KeyboardConfig(BaseModel):
     trackballs: list[TrackballElement] = Field(default_factory=list)
     custom_files: dict[str, str] = Field(default_factory=dict)
     encoder_keycodes: dict[str, str] = Field(default_factory=dict)
+    combos: list[ComboEntry] = Field(default_factory=list)
 
 
 class BuildStatus(BaseModel):

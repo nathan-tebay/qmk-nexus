@@ -1,0 +1,23 @@
+#include QMK_KEYBOARD_H
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+    /* Layer 0: Base */
+    [0] = LAYOUT(
+        KC_A, KC_B,
+        KC_TRNS, KC_D
+    ),
+    /* Layer 1: Fn */
+    [1] = LAYOUT(
+        KC_TRNS, KC_TRNS,
+        KC_C, KC_TRNS
+    )
+};
+
+// Combos
+const uint16_t PROGMEM combo_0[] = {KC_A, KC_B, COMBO_END};
+const uint16_t PROGMEM combo_1[] = {KC_C, KC_D, COMBO_END};
+
+combo_t key_combos[] = {
+    COMBO(combo_0, KC_ESC),
+    COMBO(combo_1, QK_LEAD)
+};

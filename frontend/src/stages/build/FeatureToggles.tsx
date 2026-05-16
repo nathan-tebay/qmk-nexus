@@ -1,4 +1,4 @@
-import { useKeyboardStore } from '@/store/keyboard'
+import { useKeyboardStore, KeyDef, Layer } from '@/store/keyboard'
 import { FEATURE_MODULES, incompatMap, ConfigField } from './modules'
 import styles from './FeatureToggles.module.css'
 
@@ -12,6 +12,8 @@ const GROUPS = Array.from(new Set(FEATURE_MODULES.map((m) => m.group)))
 export default function FeatureToggles() {
   const features = useKeyboardStore((s) => s.config.features)
   const featureConfigs = useKeyboardStore((s) => s.config.featureConfigs)
+  const keys = useKeyboardStore((s) => s.config.keys)
+  const layers = useKeyboardStore((s) => s.config.layers)
   const toggleFeature = useKeyboardStore((s) => s.toggleFeature)
   const setFeatureConfig = useKeyboardStore((s) => s.setFeatureConfig)
   function handleToggleFeature(id: string) {
@@ -109,6 +111,18 @@ export default function FeatureToggles() {
                             />
                           )
                         })}
+                        {mod.id === 'bootmagic' && (
+                          <BootmagicKeyPicker
+                            keys={keys}
+                            layers={layers}
+                            row={cfg.BOOTMAGIC_LITE_ROW ?? ''}
+                            col={cfg.BOOTMAGIC_LITE_COLUMN ?? ''}
+                            onSelect={(r, c) => {
+                              setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_ROW', r)
+                              setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_COLUMN', c)
+                            }}
+                          />
+                        )}
                       </div>
                     )}
                   </div>
@@ -126,6 +140,53 @@ interface ConfigRowProps {
   field: ConfigField
   value: string
   onChange: (v: string) => void
+}
+
+interface BootmagicKeyPickerProps {
+  keys: KeyDef[]
+  layers: Layer[]
+  row: string
+  col: string
+  onSelect: (row: string, col: string) => void
+}
+
+function BootmagicKeyPicker({ keys, layers, row, col, onSelect }: BootmagicKeyPickerProps) {
+  const baseKeycodes = layers[0]?.keycodes ?? {}
+  const definedKeys = keys
+    .filter((k) => k.row != null && k.col != null)
+    .sort((a, b) => (a.y ?? 0) - (b.y ?? 0) || (a.x ?? 0) - (b.x ?? 0))
+
+  if (definedKeys.length === 0) return null
+
+  const selectedRow = row !== '' ? Number(row) : null
+  const selectedCol = col !== '' ? Number(col) : null
+
+  return (
+    <div className={styles.bootmagicPicker}>
+      <span className={`${styles.configLabel} ${styles.bootmagicPickerLabel}`}>
+        Click key to assign Bootmagic position
+      </span>
+      <div className={styles.bootmagicKeyGrid}>
+        {definedKeys.map((k) => {
+          const isSelected = k.row === selectedRow && k.col === selectedCol
+          const label = baseKeycodes[k.id] || k.id
+          const btnClass = isSelected
+            ? `${styles.bootmagicKey} ${styles.bootmagicKeySelected}`
+            : styles.bootmagicKey
+          return (
+            <button
+              key={k.id}
+              title={`Row ${k.row}, Col ${k.col}`}
+              onClick={() => onSelect(String(k.row), String(k.col))}
+              className={btnClass}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 function ConfigRow({ field, value, onChange }: ConfigRowProps) {

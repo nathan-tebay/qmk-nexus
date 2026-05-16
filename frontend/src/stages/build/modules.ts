@@ -52,6 +52,13 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     ],
   },
   {
+    id: 'key_lock', name: 'Key Lock', group: 'Input',
+    rulesMkKey: 'KEY_LOCK_ENABLE', qmkPrevalence: 0.012,
+    description: 'Lock any key in its pressed state using QK_LOCK.',
+    requiredConfig: [], optionalConfig: [], incompatibleWith: [],
+    inputs: [],
+  },
+  {
     id: 'nkro', name: 'N-Key Rollover', group: 'Input',
     rulesMkKey: 'NKRO_ENABLE', qmkPrevalence: 0.428,
     description: 'Report all simultaneous keypresses without USB protocol limits.',
@@ -129,6 +136,18 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     ],
   },
   {
+    id: 'debounce', name: 'Debounce', group: 'Hardware',
+    rulesMkKey: 'DEBOUNCE_TYPE', qmkPrevalence: 0.950,
+    description: 'Key debounce algorithm and timing (default: sym_defer_g, 5 ms).',
+    requiredConfig: [], optionalConfig: ['DEBOUNCE', 'DEBOUNCE_TYPE'], incompatibleWith: [],
+    inputs: [
+      { key: 'DEBOUNCE', type: 'text', description: 'Debounce time in ms', defaultValue: '5' },
+      { key: 'DEBOUNCE_TYPE', type: 'select', description: 'Debounce algorithm',
+        defaultValue: 'sym_defer_g',
+        options: ['sym_defer_g', 'sym_eager_pr', 'asym_eager_defer_pk', 'sym_defer_pr'] },
+    ],
+  },
+  {
     id: 'split_keyboard', name: 'Split Keyboard', group: 'Hardware',
     rulesMkKey: 'SPLIT_KEYBOARD', qmkPrevalence: 0.093,
     description: 'Bidirectional split keyboard communication over TRRS/USART.',
@@ -150,6 +169,13 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
       { key: 'SPLIT_LAYER_STATE_ENABLE', type: 'select', description: 'Sync layer state across halves', defaultValue: 'no', options: ['yes', 'no'] },
       { key: 'SPLIT_RGB_MATRIX_ENABLE', type: 'select', description: 'Sync RGB matrix across halves', defaultValue: 'no', options: ['yes', 'no'] },
     ],
+  },
+  {
+    id: 'wpm', name: 'WPM Counter', group: 'Display',
+    rulesMkKey: 'WPM_ENABLE', qmkPrevalence: 0.020,
+    description: 'Words-per-minute tracking. Exposes get_current_wpm() for use in OLED callbacks.',
+    requiredConfig: [], optionalConfig: [], incompatibleWith: [],
+    inputs: [],
   },
   {
     id: 'oled', name: 'OLED Display', group: 'Display',
@@ -174,6 +200,20 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
         repeatPerCount: 'OLED_COUNT' },
       { key: 'OLED_BRIGHTNESS', type: 'text', description: 'OLED brightness (0-255)', defaultValue: '255' },
       { key: 'OLED_TIMEOUT', type: 'text', description: 'Timeout before sleep (ms)', defaultValue: '20000' },
+    ],
+  },
+  {
+    id: 'indicators', name: 'Indicator LEDs', group: 'Lighting',
+    rulesMkKey: 'INDICATOR_LEDS', qmkPrevalence: 0.040,
+    description: 'Hardware indicator LEDs for Caps Lock, Num Lock, and Scroll Lock.',
+    requiredConfig: [], optionalConfig: ['LED_CAPS_LOCK_PIN', 'LED_NUM_LOCK_PIN', 'LED_SCROLL_LOCK_PIN'],
+    incompatibleWith: [],
+    inputs: [
+      { key: 'LED_CAPS_LOCK_PIN', type: 'pin', description: 'Caps Lock LED pin', defaultValue: 'B0' },
+      { key: 'LED_NUM_LOCK_PIN', type: 'pin', description: 'Num Lock LED pin (optional)', defaultValue: '' },
+      { key: 'LED_SCROLL_LOCK_PIN', type: 'pin', description: 'Scroll Lock LED pin (optional)', defaultValue: '' },
+      { key: 'LED_PIN_ON_STATE', type: 'select', description: 'Pin state when LED is on',
+        defaultValue: '1', options: ['1', '0'] },
     ],
   },
   {
@@ -204,12 +244,32 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     ],
   },
   {
+    id: 'dynamic_macro', name: 'Dynamic Macros', group: 'Advanced',
+    rulesMkKey: 'DYNAMIC_MACRO_ENABLE', qmkPrevalence: 0.025,
+    description: 'Record and replay macros at runtime without reflashing.',
+    requiredConfig: [], optionalConfig: ['DYNAMIC_MACRO_SIZE'], incompatibleWith: [],
+    inputs: [
+      { key: 'DYNAMIC_MACRO_SIZE', type: 'text', description: 'Macro buffer size in bytes', defaultValue: '128' },
+    ],
+  },
+  {
     id: 'combo', name: 'Combo Keys', group: 'Advanced',
     rulesMkKey: 'COMBO_ENABLE', qmkPrevalence: 0.012,
     description: 'Trigger actions when multiple keys are pressed simultaneously.',
     requiredConfig: [], optionalConfig: ['COMBO_TERM'], incompatibleWith: [],
     inputs: [
       { key: 'COMBO_TERM', type: 'text', description: 'Combo term in ms', defaultValue: '65' },
+    ],
+  },
+  {
+    id: 'leader_key', name: 'Leader Key', group: 'Advanced',
+    rulesMkKey: 'LEADER_ENABLE', qmkPrevalence: 0.008,
+    description: 'Trigger actions by pressing a leader key followed by a key sequence.',
+    requiredConfig: [], optionalConfig: ['LEADER_TIMEOUT'], incompatibleWith: [],
+    inputs: [
+      { key: 'LEADER_TIMEOUT', type: 'text', description: 'Leader key timeout in ms', defaultValue: '300' },
+      { key: 'LEADER_PER_KEY_TIMING', type: 'select', description: 'Reset timeout on each key press',
+        defaultValue: 'no', options: ['yes', 'no'] },
     ],
   },
   {

@@ -334,6 +334,9 @@ def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
     ('rp2040_oled_kb', generate_keymap_c, 'rp2040_oled.keymap_c'),
     ('rp2040_oled_kb', generate_config_h, 'rp2040_oled.config_h'),
     ('rp2040_oled_kb', generate_rules_mk, 'rp2040_oled.rules_mk'),
+    ('advanced_features_kb', generate_keymap_c, 'advanced_features.keymap_c'),
+    ('advanced_features_kb', generate_config_h, 'advanced_features.config_h'),
+    ('advanced_features_kb', generate_rules_mk, 'advanced_features.rules_mk'),
 ])
 def test_snapshot(request, fixture, gen_fn, suffix):
     kb: KeyboardConfig = request.getfixturevalue(fixture)

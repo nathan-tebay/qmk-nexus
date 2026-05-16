@@ -2,7 +2,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  min-height: 100%;
+  padding: 24px 16px;
   background: var(--bg);
 }
 
@@ -10,20 +11,45 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 28px 32px 36px;
+  gap: 0;
+  padding: 24px 32px 28px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 16px;
-  width: min(800px, calc(100vw - 32px));
+  width: min(820px, calc(100vw - 32px));
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.28);
 }
 
+/* ── Logo ── */
+
+.logoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  align-self: flex-start;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.logoText {
+  letter-spacing: -0.3px;
+}
+
+/* ── Hero image ── */
+
 .heroFrame {
-  display: block;
   width: 100%;
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 20px;
 }
 
 .heroImage {
@@ -32,17 +58,99 @@
   height: auto;
 }
 
-.intro {
-  font-size: 16px;
-  color: var(--text-muted);
-  width: 90%;
-  text-indent: 5%
+/* ── Value prop ── */
 
+.valueSection {
+  align-self: stretch;
+  margin-bottom: 20px;
 }
 
-.sub {
-  margin: -4px 0 0;
-  font-size: 2rem;
+.kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.headline {
+  margin: 0 0 10px;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text);
+  letter-spacing: -0.5px;
+}
+
+.lead {
+  margin: 0 0 16px;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 620px;
+}
+
+/* ── Stepper ── */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.step:not(:last-child)::after {
+  content: '→';
+  margin-left: 6px;
+  color: var(--border);
+}
+
+.stepIndex {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ── Divider ── */
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0 20px;
+}
+
+/* ── Auth section ── */
+
+.authSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+}
+
+.authLabel {
+  margin: 0 0 12px;
+  font-size: 13px;
   color: var(--text-muted);
   text-align: center;
 }
@@ -51,14 +159,14 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: min(400px, calc(100vw - 32px));
-  margin-top: 8px;
+  width: min(380px, 100%);
 }
 
 .ssoBtn {
   display: flex;
   align-items: center;
   gap: 10px;
+  justify-content: center;
   width: 100%;
   padding: 10px 16px;
   background: var(--bg-elevated);
@@ -66,50 +174,20 @@
   border-radius: 6px;
   font-size: 14px;
   color: var(--text);
-  transition: border-color 0.15s, background 0.15s;
-  justify-content: center;
   cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
 }
 
 .ssoBtn:hover {
   border-color: var(--accent);
-  background: var(--bg-elevated);
 }
 
-.credit {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.credit a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.credit a:hover {
-  text-decoration: underline;
-}
-
-.introduction {
-  font-size: 14px;
-  color: var(--text-muted);
-  width: 90%;
-  text-indent: 5%;
-} 
-
-.introduction a {
-  color: var(--accent);
-  text-decoration: none;
-  font-weight: 600;
-}
+/* ── Anonymous box ── */
 
 .anonymousBox {
-  width: min(400px, calc(100vw - 32px));
-  margin-top: 6px;
-  padding-top: 14px;
+  width: min(380px, 100%);
+  margin-top: 16px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
   text-align: center;
 }
@@ -117,12 +195,14 @@
 .anonymousBtn {
   width: 100%;
   padding: 10px 16px;
-  border: 1px solid var(--accent);
+  border: none;
   border-radius: 6px;
   background: var(--accent);
   color: var(--on-accent);
   font-size: 14px;
   font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
 .anonymousBtn:hover {
@@ -130,8 +210,32 @@
 }
 
 .anonymousBox p {
-  margin-top: 10px;
+  margin: 10px 0 0;
   color: var(--text-muted);
-  font-size: 12.75px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ── Footer ── */
+
+.footer {
+  display: flex;
+  gap: 20px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.footer a {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.12s;
+}
+
+.footer a:hover {
+  color: var(--accent);
 }

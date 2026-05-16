@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
-import { KEYCODES, CATEGORIES, keycodeMap } from './keycodes'
+import { KEYCODES, CATEGORIES, keycodeMap, isKeycodeAvailable } from './keycodes'
+import { useKeyboardStore } from '@/store/keyboard'
 import styles from './KeycodePicker.module.css'
 
 interface Props {
@@ -245,20 +246,27 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
     return () => window.removeEventListener('keydown', handler, true)
   }, [captureMode])
 
+  const features = useKeyboardStore((s) => s.config.features)
+
+  const availableKeycodes = useMemo(
+    () => KEYCODES.filter((k) => isKeycodeAvailable(k, features)),
+    [features],
+  )
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return KEYCODES.filter((k) => {
+    return availableKeycodes.filter((k) => {
       if (q) return k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
       return k.category === category
     })
-  }, [search, category])
+  }, [search, category, availableKeycodes])
 
   const tapFiltered = useMemo(() => {
     const q = tapSearch.toLowerCase()
-    return KEYCODES.filter((k) =>
+    return availableKeycodes.filter((k) =>
       !q || k.code.toLowerCase().includes(q) || k.label.toLowerCase().includes(q)
     )
-  }, [tapSearch])
+  }, [tapSearch, availableKeycodes])
 
   function handlePickKey(code: string) {
     if (holdTap) {

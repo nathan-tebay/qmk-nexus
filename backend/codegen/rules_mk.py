@@ -48,6 +48,10 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         ('combo',         'COMBO_ENABLE'),
         ('audio',         'AUDIO_ENABLE'),
         ('pointing_device','POINTING_DEVICE_ENABLE'),
+        ('key_lock',      'KEY_LOCK_ENABLE'),
+        ('dynamic_macro', 'DYNAMIC_MACRO_ENABLE'),
+        ('wpm',           'WPM_ENABLE'),
+        ('leader_key',    'LEADER_ENABLE'),
     ]
     for feat_id, rules_key in feature_map:
         if features.get(feat_id):
@@ -146,6 +150,12 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         cb = fc.get('combo', {})
         term = cb.get('COMBO_TERM', '65')
         lines.append(f'COMBO_TERM = {term}')
+        lines.append('')
+
+    if features.get('debounce'):
+        db = fc.get('debounce', {})
+        db_type = db.get('DEBOUNCE_TYPE', 'sym_defer_g')
+        lines.append(f'DEBOUNCE_TYPE = {db_type}')
         lines.append('')
 
     return '\n'.join(lines).rstrip() + '\n'

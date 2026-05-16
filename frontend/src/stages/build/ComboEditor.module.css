@@ -1,0 +1,170 @@
+.editor {
+  padding: 16px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #e0e0e0);
+}
+
+.addBtn {
+  padding: 5px 12px;
+  font-size: 13px;
+  background: var(--accent, #d18a00);
+  color: var(--on-accent, #080704);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.12s;
+}
+
+.addBtn:hover {
+  opacity: 0.85;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  margin: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.keyList {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.keySlot {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.keySelect {
+  min-width: 110px;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.3));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  cursor: pointer;
+  outline: none;
+}
+
+.keySelect:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.keySelect option {
+  background: #1a1a2e;
+  color: var(--text, #e0e0e0);
+}
+
+.plus,
+.arrow {
+  font-size: 15px;
+  color: var(--text-muted, #888);
+  flex-shrink: 0;
+}
+
+.outputInput {
+  flex: 0 0 120px;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.05));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+}
+
+.outputInput:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.outputInvalid {
+  border-color: #df5b2f;
+  background: rgba(223, 91, 47, 0.08);
+}
+
+.addKeyBtn {
+  font-size: 12px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.addKeyBtn:hover {
+  color: var(--accent, #d18a00);
+  border-color: var(--accent, #d18a00);
+}
+
+.removeKeyBtn {
+  padding: 0 6px;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.removeKeyBtn:hover {
+  background: rgba(223, 91, 47, 0.18);
+  color: #df5b2f;
+}
+
+.removeBtn {
+  padding: 3px 10px;
+  font-size: 16px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.removeBtn:hover {
+  background: var(--danger, #df5b2f);
+  color: #fff;
+  border-color: transparent;
+}

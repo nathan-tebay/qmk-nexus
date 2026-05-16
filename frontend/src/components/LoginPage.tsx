@@ -1,12 +1,20 @@
 import { useNavigate } from 'react-router-dom'
 import styles from './LoginPage.module.css'
 
+const steps = ['Layout', 'Matrix', 'Keymap', 'Features', 'Build']
+
 export default function LoginPage() {
   const navigate = useNavigate()
 
   return (
     <div className={styles.root}>
       <div className={styles.card}>
+
+        <div className={styles.logoRow}>
+          <img className={styles.logo} src="/qmk-nexus-small.png" alt="" />
+          <span className={styles.logoText}>QMK Nexus</span>
+        </div>
+
         <div className={styles.heroFrame}>
           <img
             className={styles.heroImage}
@@ -14,43 +22,60 @@ export default function LoginPage() {
             alt="QMK Nexus split keyboard circuit artwork"
           />
         </div>
-        <p className={styles.sub}>A unified QMK keyboard editor</p>
-        <p className={styles.credit}>
-          Brought to you by:{' '}
-          <a href="https://tebay.dev" target="_blank" rel="noreferrer">
-            tebay.dev
-          </a>
-        </p>
-        <p className={styles.introduction}>
-          QMK Nexus brings the entire QMK workflow into one place. Design your layout, build your matrix, assign keycodes, and generate firmware without jumping between tools or writing code.
 
-          Built while creating a custom split keyboard, QMK Nexus removes the friction from QMK by unifying everything into a single interface. It also adds support for advanced features like rotary encoders, OLEDs, and trackballs with no coding required.
-
-          This project is still a work in progress and feedback is welcome. Checkout  <a href="https://tebay.dev" target="_blank" rel="noreferrer">tebay.dev</a> for my other projects and more information on this one.
-        </p>
-        <div className={styles.ssoButtons}>
-          <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/google' }}>
-            <GoogleIcon />
-            Continue with Google
-          </button>
-          <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/github' }}>
-            <GitHubIcon />
-            Continue with GitHub
-          </button>
-          <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/discord' }}>
-            <DiscordIcon />
-            Continue with Discord
-          </button>
-        </div>
-        <div className={styles.anonymousBox}>
-          <button className={styles.anonymousBtn} onClick={() => navigate('/layout')}>
-            Continue without login
-          </button>
-          <p>
-            Your current keyboard auto-restores only in this browser. Clearing browser data loses anonymous work.
-            Sign in to save and load account keyboards, run hosted firmware builds, view build history, and keep work across devices.
+        <div className={styles.valueSection}>
+          <p className={styles.kicker}>Browser-based firmware builder</p>
+          <h1 className={styles.headline}>Build QMK firmware visually.</h1>
+          <p className={styles.lead}>
+            Create layouts, wire matrix rows and columns, assign keymaps, enable features,
+            and build firmware — all from one browser-based workflow.
+            For hand-wired boards, split keyboards, and existing QMK-compatible keyboards.
           </p>
+          <div className={styles.stepper}>
+            {steps.map((step, i) => (
+              <div key={step} className={styles.step}>
+                <span className={styles.stepIndex}>{i + 1}</span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
         </div>
+
+        <div className={styles.divider} />
+
+        <div className={styles.authSection}>
+          <p className={styles.authLabel}>Sign in to save and sync your keyboards</p>
+          <div className={styles.ssoButtons}>
+            <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/google' }}>
+              <GoogleIcon />
+              Continue with Google
+            </button>
+            <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/github' }}>
+              <GitHubIcon />
+              Continue with GitHub
+            </button>
+            <button className={styles.ssoBtn} onClick={() => { window.location.href = '/api/auth/discord' }}>
+              <DiscordIcon />
+              Continue with Discord
+            </button>
+          </div>
+          <div className={styles.anonymousBox}>
+            <button className={styles.anonymousBtn} onClick={() => navigate('/layout')}>
+              Continue without login
+            </button>
+            <p>
+              Work auto-restores in this browser only. Sign in to save across devices,
+              run hosted builds, and view build history.
+            </p>
+          </div>
+        </div>
+
+        <footer className={styles.footer}>
+          <a href="https://github.com/nathan-tebay/qmk-nexus" target="_blank" rel="noreferrer">GitHub</a>
+          <a href="https://github.com/nathan-tebay/qmk-nexus/issues" target="_blank" rel="noreferrer">Send Feedback</a>
+          <a href="https://tebay.dev/projects/qmknexus.html" target="_blank" rel="noreferrer">Case Study</a>
+          <a href="https://tebay.dev" target="_blank" rel="noreferrer">tebay.dev</a>
+        </footer>
       </div>
     </div>
   )
@@ -59,22 +84,10 @@ export default function LoginPage() {
 function GoogleIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path
-        d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z"
-        fill="#4285F4"
-      />
-      <path
-        d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z"
-        fill="#34A853"
-      />
-      <path
-        d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z"
-        fill="#FBBC05"
-      />
-      <path
-        d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z"
-        fill="#EA4335"
-      />
+      <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615Z" fill="#4285F4" />
+      <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18Z" fill="#34A853" />
+      <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332Z" fill="#FBBC05" />
+      <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58Z" fill="#EA4335" />
     </svg>
   )
 }

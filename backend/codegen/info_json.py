@@ -27,6 +27,11 @@ def generate_info_json(config: KeyboardConfig) -> str:
 
     enabled_features = [k for k, v in features.items() if v and k in _SAFE_INFO_FEATURES]
 
+    try:
+        debounce_ms = int((fc.get('debounce') or {}).get('DEBOUNCE') or 5)
+    except (TypeError, ValueError):
+        debounce_ms = 5
+
     info: dict = {
         'keyboard_name': config.name or 'Custom Keyboard',
         'manufacturer': config.manufacturer or '',
@@ -39,7 +44,7 @@ def generate_info_json(config: KeyboardConfig) -> str:
         },
         'processor': MCU_QMK_NAME.get(mcu, config.mcu or 'atmega32u4'),
         'bootloader': MCU_BOOTLOADER.get(mcu, 'atmel-dfu'),
-        'debounce': 5,
+        'debounce': debounce_ms,
         'features': {feat: True for feat in enabled_features},
         'matrix_pins': _matrix_pins_json(config),
         'diode_direction': 'COL2ROW',
