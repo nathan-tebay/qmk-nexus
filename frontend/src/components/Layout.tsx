@@ -80,14 +80,6 @@ export default function Layout() {
     })
   }
 
-  function handleSaveClick() {
-    if (isAnonymous) {
-      navigate('/login')
-      return
-    }
-    void save()
-  }
-
   function startEdit() {
     setNameValue(kbName)
     setEditingName(true)
@@ -155,17 +147,19 @@ export default function Layout() {
           {error && <span className={styles.saveError}>{error}</span>}
           {!error && warning && <span className={styles.saveWarning}>{warning}</span>}
           {isAnonymous && (
-            <span className={styles.saveWarning}>Draft auto-saves locally.</span>
+            <span className={styles.saveWarning}>Sign in to save.</span>
           )}
-          <button
-            className={styles.saveBtn}
-            onClick={handleSaveClick}
-            disabled={saving}
-            title={isAnonymous ? 'Sign in to save this keyboard to your account' : saving ? 'Saving keyboard changes' : 'Save the current keyboard to your account'}
-            aria-label="Save keyboard"
-          >
-            {isAnonymous ? 'Sign in to Save' : saving ? 'Saving...' : 'Save'}
-          </button>
+          {!isAnonymous && (
+            <button
+              className={styles.saveBtn}
+              onClick={() => void save()}
+              disabled={saving}
+              title={saving ? 'Saving keyboard changes' : 'Save the current keyboard to your account'}
+              aria-label="Save keyboard"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          )}
           <button
             className={styles.instructionsBtn}
             onClick={() => setShowInstructions(true)}
