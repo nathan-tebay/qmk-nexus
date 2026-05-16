@@ -19,6 +19,12 @@ export const qmkApi = {
 
   importKeyboard: (path: string, options?: { layoutOnly?: boolean }) =>
     api.get<KeyboardConfig>(`/qmk/import/${path}${options?.layoutOnly ? '?layoutOnly=true' : ''}`),
+
+  importConfiguratorFile: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.postForm<KeyboardConfig>('/keyboards/import/configurator', form)
+  },
 }
 
 export const keyboardsApi = {

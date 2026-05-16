@@ -41,6 +41,8 @@ def _apply_remap(path: str, remap: dict[str, str], max_depth: int = 5) -> str:
 
 
 router = APIRouter(prefix='/keyboards', tags=['keyboards'])
+MAX_CONFIGURATOR_UPLOAD_BYTES = 1_048_576
+MAX_CONFIGURATOR_JSON_BYTES = 262_144
 
 
 def _push(user_id: str, path):
@@ -56,6 +58,78 @@ def _validated_config(config: KeyboardConfig) -> KeyboardConfig:
     if errors:
         raise HTTPException(status_code=422, detail=errors)
     return config
+
+
+def _decode_configurator_json(raw: bytes, source_name: str = 'upload') -> dict[str, Any]:
+    if len(raw) > MAX_CONFIGURATOR_JSON_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f'{source_name}: JSON exceeds {MAX_CONFIGURATOR_JSON_BYTES // 1024} KB limit',
+        )
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail=f'{source_name}: invalid JSON: {e}')
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=422, detail=f'{source_name}: JSON root must be an object')
+    return data
+
+
+def _looks_like_configurator_export(data: dict[str, Any]) -> bool:
+    return all(field in data for field in ('keyboard', 'layout', 'layers'))
+
+
+def _configurator_json_from_zip(raw: bytes) -> dict[str, Any]:
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(raw))
+    except zipfile.BadZipFile:
+        raise HTTPException(status_code=400, detail='Not a valid zip file')
+
+    candidates: list[tuple[str, dict[str, Any]]] = []
+    total_uncompressed = 0
+    with zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            total_uncompressed += info.file_size
+            if total_uncompressed > MAX_CONFIGURATOR_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f'Zip contents exceed {MAX_CONFIGURATOR_UPLOAD_BYTES // 1024} KB limit',
+                )
+            if PurePosixPath(info.filename).suffix.lower() != '.json':
+                continue
+            try:
+                payload = zf.read(info)
+            except RuntimeError:
+                raise HTTPException(status_code=400, detail=f'{info.filename}: could not read zip entry')
+            data = _decode_configurator_json(payload, info.filename)
+            if _looks_like_configurator_export(data):
+                candidates.append((info.filename, data))
+
+    if not candidates:
+        raise HTTPException(status_code=422, detail='Zip does not contain a QMK Configurator JSON file')
+    if len(candidates) > 1:
+        keymap_json = [candidate for candidate in candidates if PurePosixPath(candidate[0]).name == 'keymap.json']
+        if len(keymap_json) == 1:
+            return keymap_json[0][1]
+        raise HTTPException(status_code=422, detail='Zip contains multiple QMK Configurator JSON files')
+    return candidates[0][1]
+
+
+def _configurator_json_from_upload(raw: bytes, filename: str | None, content_type: str | None) -> dict[str, Any]:
+    if len(raw) > MAX_CONFIGURATOR_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f'Upload exceeds {MAX_CONFIGURATOR_UPLOAD_BYTES // 1024} KB limit',
+        )
+
+    lower_name = (filename or '').lower()
+    lower_type = (content_type or '').lower()
+    is_zip = lower_name.endswith('.zip') or lower_type in {'application/zip', 'application/x-zip-compressed'}
+    if is_zip or zipfile.is_zipfile(io.BytesIO(raw)):
+        return _configurator_json_from_zip(raw)
+    return _decode_configurator_json(raw)
 
 
 @router.get('', include_in_schema=False)
@@ -281,12 +355,9 @@ async def import_configurator_json(
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
 ):
-    """Import a QMK Configurator exported JSON file as a new keyboard config."""
+    """Import a QMK Configurator exported JSON file or zip download as a new keyboard config."""
     raw = await file.read()
-    try:
-        data: dict[str, Any] = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f'Invalid JSON: {e}')
+    data = _configurator_json_from_upload(raw, file.filename, file.content_type)
 
     # Validate required fields
     missing = [f for f in ('keyboard', 'layout', 'layers') if f not in data]

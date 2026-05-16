@@ -260,6 +260,39 @@
   font-size: 16.25px;
 }
 
+.fileImport {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+}
+
+.fileImport > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileImport strong {
+  color: var(--text);
+  font-size: 14.5px;
+  font-weight: 650;
+}
+
+.fileImport span {
+  color: var(--text-muted);
+  font-size: 13.25px;
+}
+
+.hiddenFileInput {
+  display: none;
+}
+
 .importModeGroup {
   display: grid;
   grid-template-columns: 1fr 1fr;

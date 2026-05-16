@@ -183,10 +183,12 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
   const [results, setResults] = useState<QMKKeyboardSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState<string | null>(null)
+  const [fileImporting, setFileImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importMode, setImportMode] = useState<QMKImportMode>('nexus')
   const [pendingConfirm, setPendingConfirm] = useState<{ entry: QMKKeyboardSummary; config: KeyboardConfig } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { setConfig } = useKeyboardStore()
 
@@ -264,9 +266,51 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     }
   }
 
+  async function handleFileImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.currentTarget.files?.[0]
+    e.currentTarget.value = ''
+    if (!file) return
+
+    setFileImporting(true)
+    setError(null)
+    try {
+      const imported = await qmkApi.importConfiguratorFile(file)
+      setConfig(imported)
+      useBuildStore.getState().clearActiveBuild()
+      onClose()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import QMK download file'
+      setError(message)
+    } finally {
+      setFileImporting(false)
+    }
+  }
+
   return (
     <>
       <div className={styles.search}>
+        <div className={styles.fileImport}>
+          <div>
+            <strong>Load QMK Download File</strong>
+            <span>Import a downloaded QMK Configurator JSON or ZIP keymap.</span>
+          </div>
+          <input
+            ref={fileInputRef}
+            className={styles.hiddenFileInput}
+            type="file"
+            accept=".json,.zip,application/json,application/zip"
+            onChange={handleFileImport}
+          />
+          <button
+            className={styles.importBtn}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={fileImporting}
+            title="Choose a QMK Configurator JSON or ZIP download"
+            aria-label="Choose QMK download file"
+          >
+            {fileImporting ? 'Importing…' : 'Choose File'}
+          </button>
+        </div>
         <input
           ref={searchRef}
           className={styles.searchInput}
