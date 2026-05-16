@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { keyboardsApi } from '@/api/keyboards'
+import { useAuthStore } from '@/store/auth'
 import type { KeyboardConfig, KeyDef, MatrixEdge } from '@/store/keyboard'
 import { triggerTextDownload } from '@/utils/downloadBlob'
 import { matrixExtent } from '@/utils/matrixExtent'
@@ -517,6 +518,7 @@ export function FlashFirmwareModal({ config, onClose }: { config: KeyboardConfig
 }
 
 export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, onSaveFirst }: Props) {
+  const user = useAuthStore((state) => state.user)
   const base = filenameBase(config.name)
   const keyboardSlug = base || 'my_keyboard'
   const isNativeQmk = config.sourceMode === 'qmk_native'
@@ -530,6 +532,11 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
     setDownloadingSources(true)
     setError(null)
     try {
+      if (!user) {
+        await keyboardsApi.downloadSourcesFromConfig(config, `${base}_qmk_sources.zip`)
+        return
+      }
+
       let id = keyboardId
       if (!id) {
         id = await onSaveFirst()
@@ -607,26 +614,30 @@ export function BuildInstructionsPanel({ config, enabledFeatures, keyboardId, on
               >x</button>
             </div>
             <div className={styles.modalBody}>
+              <p className={styles.scriptNote}>
+                The ZIP includes <code>flash.sh</code> (Linux/macOS) and <code>flash.bat</code> (Windows) that automate the steps below. Run them from your <code>qmk_firmware</code> root.
+              </p>
               {isNativeQmk ? (
                 <>
                   <p>
-                    Download the QMK-native overlay, then apply it to a local QMK_firmware checkout.
+                    Download the generated keymap, then apply it to a local QMK_firmware checkout. The upstream QMK keyboard source files are already in your QMK clone.
                   </p>
                   <ol>
-                    <li>Clone and set up QMK_firmware.</li>
-                    <li>Unzip the generated archive.</li>
-                    <li>Copy the contents of <code>upstream_overlay/</code> into the QMK_firmware root.</li>
-                    <li>Copy <code>keymap.c</code> into <code>keyboards/{upstreamKeyboard}/keymaps/nexus/</code>.</li>
-                    <li>Compile or flash the upstream keyboard with the <code>nexus</code> keymap.</li>
+                    <li>Clone and set up QMK_firmware if you haven't already.</li>
+                    <li>Extract the ZIP — it can sit anywhere, or inside <code>qmk_firmware/</code>.</li>
+                    <li>From the <code>qmk_firmware</code> root, run <code>bash {base}_qmk_sources/flash.sh</code> (or <code>{base}_qmk_sources\flash.bat</code> on Windows).</li>
+                    <li>The script copies <code>keymap.c</code> into <code>keyboards/{upstreamKeyboard}/keymaps/nexus/</code> and flashes.</li>
                   </ol>
-                  <pre className={styles.commandBlock}>{`git clone https://github.com/qmk/qmk_firmware.git
+                  <pre className={styles.commandBlock}>{`git clone --recurse-submodules https://github.com/qmk/qmk_firmware.git
 cd qmk_firmware
 qmk setup
-# unzip the generated files outside this checkout, then copy:
-# upstream_overlay/* -> ./
+
+# Then, from inside qmk_firmware/:
+bash ${base}_qmk_sources/flash.sh
+
+# Or manually:
 mkdir -p keyboards/${upstreamKeyboard}/keymaps/nexus
-# keymap.c -> keyboards/${upstreamKeyboard}/keymaps/nexus/keymap.c
-qmk compile -kb ${upstreamKeyboard} -km nexus
+cp ${base}_qmk_sources/keymap.c keyboards/${upstreamKeyboard}/keymaps/nexus/
 qmk flash -kb ${upstreamKeyboard} -km nexus`}</pre>
                 </>
               ) : (
@@ -635,20 +646,26 @@ qmk flash -kb ${upstreamKeyboard} -km nexus`}</pre>
                     Download the generated QMK source files, then add them as a custom keyboard in a local QMK_firmware checkout.
                   </p>
                   <ol>
-                    <li>Clone and set up QMK_firmware.</li>
-                    <li>Create a keyboard folder such as <code>keyboards/custom/{keyboardSlug}</code>.</li>
-                    <li>Copy <code>config.h</code>, <code>rules.mk</code>, <code>info.json</code>, <code>keyboard.c</code>, and <code>keyboard.h</code> into that folder.</li>
-                    <li>Create <code>keymaps/default/</code> inside the keyboard folder and move <code>keymap.c</code> there.</li>
-                    <li>Compile or flash with the QMK commands below.</li>
+                    <li>Clone and set up QMK_firmware if you haven't already.</li>
+                    <li>Extract the ZIP — it can sit anywhere, or inside <code>qmk_firmware/</code>.</li>
+                    <li>From the <code>qmk_firmware</code> root, run <code>bash {base}_qmk_sources/flash.sh</code> (or <code>{base}_qmk_sources\flash.bat</code> on Windows).</li>
+                    <li>The script creates <code>keyboards/custom/{keyboardSlug}/</code>, copies all source files, and flashes.</li>
                   </ol>
-                  <pre className={styles.commandBlock}>{`git clone https://github.com/qmk/qmk_firmware.git
+                  <pre className={styles.commandBlock}>{`git clone --recurse-submodules https://github.com/qmk/qmk_firmware.git
 cd qmk_firmware
 qmk setup
+
+# Then, from inside qmk_firmware/:
+bash ${base}_qmk_sources/flash.sh
+
+# Or manually:
 mkdir -p keyboards/custom/${keyboardSlug}/keymaps/default
-# unzip the generated files, then copy:
-# config.h rules.mk info.json keyboard.c keyboard.h -> keyboards/custom/${keyboardSlug}/
-# keymap.c -> keyboards/custom/${keyboardSlug}/keymaps/default/
-qmk compile -kb custom/${keyboardSlug} -km default
+cp ${base}_qmk_sources/keyboard.c  keyboards/custom/${keyboardSlug}/${keyboardSlug}.c
+cp ${base}_qmk_sources/keyboard.h  keyboards/custom/${keyboardSlug}/${keyboardSlug}.h
+cp ${base}_qmk_sources/config.h    keyboards/custom/${keyboardSlug}/
+cp ${base}_qmk_sources/rules.mk    keyboards/custom/${keyboardSlug}/
+cp ${base}_qmk_sources/keyboard.json keyboards/custom/${keyboardSlug}/
+cp ${base}_qmk_sources/keymap.c    keyboards/custom/${keyboardSlug}/keymaps/default/
 qmk flash -kb custom/${keyboardSlug} -km default`}</pre>
                 </>
               )}

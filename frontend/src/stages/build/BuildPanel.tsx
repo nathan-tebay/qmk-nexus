@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { buildsApi, type BuildStatus } from '@/api/builds'
 import { useBuildStore } from '@/store/build'
+import { useAuthStore } from '@/store/auth'
 import { useKeyboardStore } from '@/store/keyboard'
 import { mcuById } from './mcus'
 import BuildStatusIndicator, { buildStatusLabel, isBuildRunning } from './BuildStatusIndicator'
@@ -52,6 +53,7 @@ interface Props {
 
 export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation }: Props) {
   const config = useKeyboardStore((s) => s.config)
+  const user = useAuthStore((s) => s.user)
   const keyboardName = config.name
   const mcu = config.mcu
   const mcuSupported = mcuById.get(mcu)?.supported ?? true
@@ -137,7 +139,7 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
     ].join('\n'))}`
     : 'mailto:nathan@tebay.dev'
 
-  const buildDisabled = triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked || configBlocked || featureBlocked
+  const buildDisabled = !user || triggering || isRunning || !mcuSupported || matrixBlocked || ledBlocked || configBlocked || featureBlocked
   const buildBtnCls = [
     styles.buildBtn,
     triggering ? styles.triggering : '',
@@ -170,17 +172,20 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
           <div style={{ marginTop: 4, fontWeight: 600 }}>Resolve feature settings above to enable build.</div>
         </div>
       )}
+      {!user && (
+        <div className={styles.warningNotice}>Hosted Build Firmware requires sign-in for account storage, build history, and infrastructure cost controls. Anonymous users can still download QMK files below and build locally.</div>
+      )}
       {encoderWarning && (
         <div className={styles.warningNotice}>{encoderWarning}</div>
       )}
       <button
         onClick={triggerBuild}
         disabled={buildDisabled}
-        title={!mcuSupported ? 'MCU build not available' : buildDisabled ? 'Resolve validation issues before building firmware' : 'Compile firmware for this keyboard'}
+        title={!user ? 'Sign in to use hosted firmware builds' : !mcuSupported ? 'MCU build not available' : buildDisabled ? 'Resolve validation issues before building firmware' : 'Compile firmware for this keyboard'}
         aria-label="Build firmware"
         className={buildBtnCls}
       >
-        {isRunning ? 'Building…' : triggering ? 'Starting…' : !mcuSupported ? 'MCU unavailable' : 'Build Firmware'}
+        {isRunning ? 'Building…' : triggering ? 'Starting…' : !user ? 'Sign in to Build Firmware' : !mcuSupported ? 'MCU unavailable' : 'Build Firmware'}
       </button>
 
       {error && <div className={styles.error}>{error}</div>}

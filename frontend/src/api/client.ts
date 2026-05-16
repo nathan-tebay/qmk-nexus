@@ -59,6 +59,14 @@ export const api = {
     request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
   postForm: <T>(path: string, body: FormData) =>
     request<T>(path, { method: 'POST', body }),
+  postBlob: async (path: string, body: unknown) => {
+    const res = await fetchWithRefresh(path, { method: 'POST', body: JSON.stringify(body) })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }))
+      throw new Error(Array.isArray(err.detail) ? err.detail.join(' ') : err.detail ?? 'Download failed')
+    }
+    return res.blob()
+  },
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),

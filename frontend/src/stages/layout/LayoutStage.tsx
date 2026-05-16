@@ -94,7 +94,7 @@ function parseKeyClipboardPayload(text: string): KeyClipboardPayload | null {
 export default function LayoutStage() {
   const location = useLocation()
   const navigate = useNavigate()
-  const [showMatrix, setShowMatrix] = useState(false)
+  const [showMatrix, setShowMatrix] = useState(() => location.pathname.startsWith('/matrix'))
   const [snapGrid, setSnapGrid] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [importTab, setImportTab] = useState<'user' | 'qmk'>('user')
@@ -113,6 +113,20 @@ export default function LayoutStage() {
     selectedPeripheralId, selectedPeripheralType,
     removeEncoder, removeOled, removeTrackball, setSelectedPeripheral,
   } = useKeyboardStore()
+
+  function handleToggleMatrix() {
+    const next = !showMatrix
+    setShowMatrix(next)
+    navigate(next ? '/matrix' : '/layout')
+  }
+
+  function handleStartFromScratch() {
+    addKey({ id: nanoid(), x: 0, y: 0, w: 1, h: 1, rotation: 0, label: '', row: null, col: null, ledIndex: null, shape: 'rect' })
+  }
+
+  function handleImportKeyboard() {
+    setShowImport(true)
+  }
 
   function handleValidate() {
     setValidation(validateMatrices(config))
@@ -221,13 +235,22 @@ export default function LayoutStage() {
   }, [activeLayerId, config.keys, config.layers, selectedKeyIds, removeKey, setActiveLayer, setConfig, setSelectedKeys, selectedPeripheralId, selectedPeripheralType, removeEncoder, removeOled, removeTrackball, setSelectedPeripheral])
 
   useEffect(() => {
-    if ((location.state as { openImport?: boolean } | null)?.openImport && !handledImportRef.current) {
+    const shouldOpenImport = (location.state as { openImport?: boolean } | null)?.openImport
+    if (!shouldOpenImport) {
+      handledImportRef.current = false
+      return
+    }
+    if (!handledImportRef.current) {
       handledImportRef.current = true
       setImportTab('qmk')
       setShowImport(true)
       navigate('/layout', { replace: true, state: {} })
     }
   }, [location.state, navigate])
+
+  useEffect(() => {
+    setShowMatrix(location.pathname.startsWith('/matrix'))
+  }, [location.pathname])
 
   return (
     <>
@@ -236,10 +259,10 @@ export default function LayoutStage() {
         <Toolbar
           showMatrix={showMatrix}
           snapGrid={snapGrid}
-          onToggleMatrix={() => setShowMatrix((v) => !v)}
+          onToggleMatrix={handleToggleMatrix}
           onToggleGrid={() => setSnapGrid((v) => !v)}
           onFitView={() => canvasRef.current?.fitView()}
-          onImportQMK={() => setShowImport(true)}
+          onImportQMK={handleImportKeyboard}
         />
       </aside>
 
@@ -256,24 +279,31 @@ export default function LayoutStage() {
           <div className={styles.welcome}>
             <div className={styles.welcomeCard}>
               <h1 className={styles.welcomeTitle}>QMK Nexus</h1>
-              <p className={styles.welcomeTagline}>A modernised firmware editor for custom keyboards.</p>
+              <p className={styles.welcomeTagline}>Build QMK firmware visually.</p>
               <div className={styles.welcomeSteps}>
                 <div className={styles.welcomeStep}>
                   <span className={styles.stepNum}>1</span>
                   <div>
-                    <strong>Layout + Wiring</strong>
-                    <span>Place keys on a canvas, assign matrix rows/cols and MCU pins.</span>
+                    <strong>Layout</strong>
+                    <span>Place keys on a keyboard canvas.</span>
                   </div>
                 </div>
                 <div className={styles.welcomeStep}>
                   <span className={styles.stepNum}>2</span>
                   <div>
-                    <strong>Keymap / Layers</strong>
-                    <span>Assign keycodes per layer, manage layers, and configure encoder and OLED mappings.</span>
+                    <strong>Matrix</strong>
+                    <span>Connect row and column wires, then assign MCU pins.</span>
                   </div>
                 </div>
                 <div className={styles.welcomeStep}>
                   <span className={styles.stepNum}>3</span>
+                  <div>
+                    <strong>Keymap</strong>
+                    <span>Assign keycodes per layer, manage layers, and configure encoder and OLED mappings.</span>
+                  </div>
+                </div>
+                <div className={styles.welcomeStep}>
+                  <span className={styles.stepNum}>4</span>
                   <div>
                     <strong>Features + Build</strong>
                     <span>Toggle feature modules, set USB metadata, compile and download firmware.</span>
@@ -283,19 +313,19 @@ export default function LayoutStage() {
               <div className={styles.welcomeActions}>
                 <button
                   className={styles.welcomePrimary}
-                  onClick={() => setShowImport(true)}
-                  title="Load a saved keyboard or import a QMK keyboard"
-                  aria-label="Load keyboard"
-                >
-                  Load Keyboard
-                </button>
-                <button
-                  className={styles.welcomeSecondary}
-                  onClick={() => addKey({ id: nanoid(), x: 0, y: 0, w: 1, h: 1, rotation: 0, label: '', row: null, col: null, ledIndex: null, shape: 'rect' })}
+                  onClick={handleStartFromScratch}
                   title="Create a blank keyboard with one 1u key"
                   aria-label="Start from scratch"
                 >
-                  Start from Scratch
+                  Start New Keyboard
+                </button>
+                <button
+                  className={styles.welcomeSecondary}
+                  onClick={handleImportKeyboard}
+                  title="Load a saved keyboard or import a QMK keyboard"
+                  aria-label="Load keyboard"
+                >
+                  Import Existing Keyboard
                 </button>
               </div>
               <p className={styles.welcomeCredits}>

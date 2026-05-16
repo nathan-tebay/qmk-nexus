@@ -7,6 +7,7 @@ import {
 } from "react";
 import { buildsApi, type RecentBuild } from "@/api/builds";
 import { useBuildStore } from "@/store/build";
+import { useAuthStore } from "@/store/auth";
 import { buildFilename } from "@/utils/buildFilename";
 import BuildStatusIndicator from "./BuildStatusIndicator";
 import styles from "./RecentBuildsPanel.module.css";
@@ -30,8 +31,15 @@ export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const setActiveBuild = useBuildStore((s) => s.setActiveBuild);
+    const user = useAuthStore((s) => s.user);
 
     const fetchBuilds = useCallback(async () => {
+      if (!user) {
+        setBuilds([]);
+        setLoading(false);
+        setError(null);
+        return;
+      }
       setLoading(true);
       setError(null);
       try {
@@ -44,7 +52,7 @@ export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
       } finally {
         setLoading(false);
       }
-    }, []);
+    }, [user]);
 
     useImperativeHandle(ref, () => ({ refresh: fetchBuilds }), [fetchBuilds]);
 
@@ -71,6 +79,7 @@ export const RecentBuildsPanel = forwardRef<RecentBuildsPanelHandle>(
       }
     }
 
+    if (!user) return null;
     if (builds.length === 0 && !loading && !error) return null;
 
     return (

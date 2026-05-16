@@ -1,33 +1,84 @@
 # QMK Nexus
 
-A modern, browser-based firmware editor for QMK keyboards. Design your layout, assign keycodes, configure features, and compile firmware — all in one place, without touching a terminal.
+QMK Nexus is a browser-based firmware builder for custom QMK keyboards. It helps users design layouts, wire matrix rows and columns, assign keymaps, configure hardware features, and build firmware from one visual workflow.
+
+## Try It
+
+- Live app: https://qmknexus.tebay.dev
+- Project writeup: https://tebay.dev/projects/qmknexus.html
+- Feedback/issues: https://github.com/nathan-tebay/qmk-nexus/issues
+
+## Project Status
+
+QMK Nexus is an active work in progress. It supports visual layout editing, matrix wiring, keymap layers, feature configuration, QMK keyboard imports, and firmware builds.
+
+Feedback from custom keyboard builders is welcome.
+
+## Screenshots
+
+### 1. Design the keyboard layout
+
+![Layout editor](docs/screenshots/layout-editor.png)
+
+### 2. Map keys and features
+
+![Keymap editor](docs/screenshots/keymap-editor.png)
+
+### 3. Build and download firmware
+
+![Build screen](docs/screenshots/build-screen.png)
 
 ## What It Is
 
-QMK Nexus replaces the QMK Python toolchain with a purpose-built web application. It generates standards-compliant QMK source files and compiles them using vendored AVR/ARM toolchains inside a container — no local QMK installation required.
+QMK Nexus replaces the QMK Python toolchain with a purpose-built web application. It generates standards-compliant QMK source files and compiles them using vendored AVR and ARM toolchains inside a container. No local QMK installation required.
 
-Three-stage workflow:
+You can also import existing keyboards from the QMK keyboard index to use as a starting point.
 
-1. **Layout + Wiring** — Draw your keyboard on a canvas. Assign matrix rows/columns by drawing edges between keys. Map MCU pins. Place encoders, OLEDs, and trackballs.
-2. **Keymap / Layers** — Click any key to assign a keycode. Manage layers. Configure encoder actions per layer. Set up OLED display content.
-3. **Features + Build** — Toggle QMK feature modules (RGB, split, tap-dance, etc.), set USB metadata, pick your MCU, and compile. Download the `.hex` or `.bin` when done.
+## Who This Is For
 
-You can also import any existing keyboard from the QMK keyboard index to use as a starting point.
+QMK Nexus is for:
+
+- builders creating hand-wired or custom QMK keyboards
+- users adapting existing QMK-supported keyboards
+- keyboard hobbyists who want visual tools instead of hand-editing config files
+- developers interested in firmware tooling, visual editors, and browser-based build workflows
+
+## Core Workflow
+
+```text
+Layout + Wiring → Keymap / Layers → Features + Build
+```
+
+1. **Layout + Wiring**: Draw your keyboard on a canvas. Assign matrix rows and columns by drawing edges between keys. Map MCU pins. Place encoders, OLEDs, and trackballs.
+2. **Keymap / Layers**: Click any key to assign a keycode. Manage layers. Configure encoder actions per layer. Set up OLED display content.
+3. **Features + Build**: Toggle QMK feature modules such as RGB, split, tap-dance, and combo keys. Set USB metadata, pick your MCU, compile, and download the `.hex` or `.bin` file.
+
+## Feedback Wanted
+
+The most useful feedback right now:
+
+- keyboards that do not import correctly
+- confusing parts of the matrix wiring workflow
+- browser or OS shortcut conflicts
+- QMK features that should be supported next
+- build failures with specific MCUs or keyboard types
+
+Please open feedback at https://github.com/nathan-tebay/qmk-nexus/issues.
 
 ## Features
 
-- **Visual layout editor** — drag, resize, rotate keys; ISO-enter shape support; multi-select with transform
-- **Matrix wiring** — draw row/col/LED edges between keys; row/col indices auto-derived via Union-Find
-- **Peripheral support** — encoders, OLED displays, trackballs with per-peripheral configuration
-- **Full keycode library** — complete QMK keycode set, categorized
-- **Layer management** — unlimited layers, rename, reorder
-- **OLED configurator** — preset content blocks (layer name, WPM, mod indicators, logo) or custom C code
-- **15 feature modules** — RGB Matrix, RGB Light, Backlight, Split Keyboard, Encoder, OLED, Pointing Device, Tap Dance, Combo Keys, Mouse Keys, NKRO, Boot Magic, Console, Extra Keys, Audio
-- **QMK keyboard import** — search 1000+ keyboards from the QMK index; import layout, matrix, default keymap
-- **QMK-native builds** — for boards that need upstream QMK source files overlaid (ErgoDox, HotDox, etc.)
-- **Live build log** — poll build status every 2s; stream compiler output; one-click download
-- **Custom source overrides** — upload your own `config.h`, `keyboard.c`, etc. to override generated files
-- **Per-user storage** — all keyboards saved to your account; up to 20 keyboards per user
+- **Visual layout editor**: drag, resize, rotate keys; ISO-enter shape support; multi-select with transform
+- **Matrix wiring**: draw row/col/LED edges between keys; row/col indices auto-derived via Union-Find
+- **Peripheral support**: encoders, OLED displays, trackballs with per-peripheral configuration
+- **Full keycode library**: complete QMK keycode set, categorized
+- **Layer management**: unlimited layers, rename, reorder
+- **OLED configurator**: preset content blocks (layer name, WPM, mod indicators, logo) or custom C code
+- **15 feature modules**: RGB Matrix, RGB Light, Backlight, Split Keyboard, Encoder, OLED, Pointing Device, Tap Dance, Combo Keys, Mouse Keys, NKRO, Boot Magic, Console, Extra Keys, Audio
+- **QMK keyboard import**: search 1000+ keyboards from the QMK index; import layout, matrix, default keymap
+- **QMK-native builds**: for boards that need upstream QMK source files overlaid (ErgoDox, HotDox, etc.)
+- **Live build log**: poll build status every 2s; stream compiler output; one-click download
+- **Custom source overrides**: upload your own `config.h`, `keyboard.c`, etc. to override generated files
+- **Per-user storage**: all keyboards saved to your account; up to 20 keyboards per user
 
 ## Supported MCUs
 
@@ -93,7 +144,7 @@ Open `http://localhost:3001`.
 ./run.sh builder
 ```
 
-This builds `qmk-nexus-builder` — a ~2GB image with vendored QMK source + AVR/ARM toolchains. Required to compile firmware locally.
+This builds `qmk-nexus-builder`: a ~2GB image with vendored QMK source + AVR/ARM toolchains. Required to compile firmware locally.
 
 ### Environment variables (backend `.env`)
 

@@ -7,34 +7,33 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 0 20px;
-  height: 64px;
+  gap: 12px;
+  padding: 0 14px;
+  min-height: 64px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .logo {
-  font-weight: 700;
-  font-size: 20px;
-  color: var(--accent);
-  letter-spacing: -0.5px;
-  white-space: nowrap;
+  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 2px;
 }
 
 .nav {
   display: flex;
   gap: 4px;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .navLink {
-  padding: 6px 14px;
+  padding: 6px 10px;
   border-radius: 6px;
   text-decoration: none;
   color: var(--text-muted);
-  font-size: 16.25px;
+  font-size: 15px;
+  font-weight: 650;
   transition: color 0.15s, background 0.15s;
 }
 
@@ -58,9 +57,10 @@
 .user {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 16.25px;
+  gap: 8px;
+  font-size: 15px;
   color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .avatar {
@@ -70,16 +70,21 @@
 }
 
 .adminBtn,
-.logout {
+.logout,
+.loginBtn,
+.headerLink {
   padding: 4px 10px;
   border-radius: 4px;
   border: 1px solid var(--border);
   font-size: 15px;
   color: var(--text-muted);
   transition: color 0.15s, border-color 0.15s;
+  text-decoration: none;
 }
 
-.adminBtn:hover {
+.adminBtn:hover,
+.loginBtn:hover,
+.headerLink:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
@@ -193,9 +198,10 @@
 .center {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
   justify-content: center;
+  min-width: 0;
 }
 
 .switcherBtn {

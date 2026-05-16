@@ -8,9 +8,11 @@ import { applyTheme, getStoredTheme, storeTheme, themes, type ThemeId } from '@/
 import styles from './Layout.module.css'
 
 const stages = [
-  { path: '/layout', label: '1. Layout + Wiring' },
-  { path: '/keymap', label: '2. Keymap / Layers' },
-  { path: '/build', label: '3. Features + Build' },
+  { path: '/layout', label: 'Layout' },
+  { path: '/matrix', label: 'Matrix' },
+  { path: '/keymap', label: 'Keymap' },
+  { path: '/features', label: 'Features' },
+  { path: '/build', label: 'Build' },
 ]
 
 const ADMIN_EMAIL = 'nathan.tebay80@gmail.com'
@@ -48,17 +50,17 @@ const instructions = {
 
 function instructionKey(pathname: string): keyof typeof instructions {
   if (pathname.startsWith('/keymap')) return 'keymap'
-  if (pathname.startsWith('/build')) return 'build'
+  if (pathname.startsWith('/build') || pathname.startsWith('/features') || pathname.startsWith('/settings')) return 'build'
   return 'layout'
 }
 
 export default function Layout() {
   const { user, logout } = useAuthStore()
+  const isAnonymous = !user
   const navigate = useNavigate()
   const location = useLocation()
   const kbName = useKeyboardStore((s) => s.config.name)
   const setConfig = useKeyboardStore((s) => s.setConfig)
-  const resetKeyboard = useKeyboardStore((s) => s.reset)
   const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
   const { save, saving, error, warning } = useKeyboardSync()
   const [editingName, setEditingName] = useState(false)
@@ -73,10 +75,17 @@ export default function Layout() {
   function handleLogout() {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => {
       logout()
-      resetKeyboard()
       clearActiveBuild()
-      navigate('/login')
+      navigate('/layout')
     })
+  }
+
+  function handleSaveClick() {
+    if (isAnonymous) {
+      navigate('/login')
+      return
+    }
+    void save()
   }
 
   function startEdit() {
@@ -106,11 +115,13 @@ export default function Layout() {
   return (
     <div className={styles.root}>
       <header className={styles.header}>
-      <span className={styles.logo}> <img
-      className={styles.smallHeroImage}
-      src="/qmk-nexus-small.png"
-      alt="QMK Nexus split keyboard circuit artwork"
-      /></span>
+      <button className={styles.logo} onClick={() => navigate('/')} title="Open QMK Nexus landing page">
+        <img
+          className={styles.smallHeroImage}
+          src="/qmk-nexus-small.png"
+          alt="QMK Nexus split keyboard circuit artwork"
+        />
+      </button>
         <nav className={styles.nav}>
           {stages.map((s) => (
             <NavLink
@@ -143,14 +154,17 @@ export default function Layout() {
           )}
           {error && <span className={styles.saveError}>{error}</span>}
           {!error && warning && <span className={styles.saveWarning}>{warning}</span>}
+          {isAnonymous && (
+            <span className={styles.saveWarning}>Draft auto-saves locally.</span>
+          )}
           <button
             className={styles.saveBtn}
-            onClick={save}
+            onClick={handleSaveClick}
             disabled={saving}
-            title={saving ? 'Saving keyboard changes' : 'Save the current keyboard to your account'}
+            title={isAnonymous ? 'Sign in to save this keyboard to your account' : saving ? 'Saving keyboard changes' : 'Save the current keyboard to your account'}
             aria-label="Save keyboard"
           >
-            {saving ? 'Saving...' : 'Save'}
+            {isAnonymous ? 'Sign in to Save' : saving ? 'Saving...' : 'Save'}
           </button>
           <button
             className={styles.instructionsBtn}
@@ -176,7 +190,7 @@ export default function Layout() {
           {user?.avatarUrl && (
             <img src={user.avatarUrl} alt={user.name} className={styles.avatar} />
           )}
-          <span>{user?.name}</span>
+          {user && <span>{user.name}</span>}
           {isAdmin && (
             <button
               onClick={() => navigate('/admin')}
@@ -194,9 +208,40 @@ export default function Layout() {
           >
             Donate
           </button>
-          <button onClick={handleLogout} className={styles.logout} title="Sign out of QMK Nexus" aria-label="Logout">
-            Logout
-          </button>
+          <a
+            className={styles.headerLink}
+            href="https://github.com/nathan-tebay/qmk-nexus"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            GitHub
+          </a>
+          <a
+            className={styles.headerLink}
+            href="https://github.com/nathan-tebay/qmk-nexus/issues"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Found a workflow issue? Tell me what keyboard you are building and where the process got confusing."
+          >
+            Feedback
+          </a>
+          <a
+            className={styles.headerLink}
+            href="https://tebay.dev/projects/qmknexus.html"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Case Study
+          </a>
+          {user ? (
+            <button onClick={handleLogout} className={styles.logout} title="Sign out of QMK Nexus" aria-label="Logout">
+              Logout
+            </button>
+          ) : (
+            <button onClick={() => navigate('/login')} className={styles.loginBtn} title="Sign in to QMK Nexus" aria-label="Sign in">
+              Sign in
+            </button>
+          )}
         </div>
       </header>
       <main className={styles.main}>

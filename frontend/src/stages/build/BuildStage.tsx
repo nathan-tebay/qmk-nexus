@@ -1,8 +1,7 @@
-import { useState, useRef } from 'react'
+import { useRef } from 'react'
 import { useKeyboardStore } from '@/store/keyboard'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { MetadataForm } from './MetadataForm'
-import FeatureToggles from './FeatureToggles'
 import { BuildPanel } from './BuildPanel'
 import { BuildInstructionsPanel } from './BuildInstructionsPanel'
 import { RecentBuildsPanel, type RecentBuildsPanelHandle } from './RecentBuildsPanel'
@@ -26,9 +25,6 @@ export default function BuildStage() {
     .map(([id]) => FEATURE_MODULES.find((m) => m.id === id)?.name ?? id)
   const buildValidation = useBuildValidation(config)
 
-  // Auto-expand when features are misconfigured so the user can see what's wrong.
-  // useState initial value only — user can manually collapse afterwards.
-  const [featuresExpanded, setFeaturesExpanded] = useState(() => !buildValidation.featuresOk)
   const sourceModeLabel =
     config.sourceMode === 'qmk_json' ? 'Upstream QMK' :
     config.sourceMode === 'qmk_native' ? 'Legacy Native' :
@@ -119,23 +115,6 @@ export default function BuildStage() {
           />
         </div>
        </div>
-      </div>
-
-      {/* ── Feature Modules ── */}
-      <div className={styles.featuresSection}>
-        <button
-          type="button"
-          className={`${styles.featuresSectionTitle} ${featuresExpanded ? styles.featuresSectionTitleOpen : ''}`}
-          aria-expanded={featuresExpanded}
-          onClick={() => setFeaturesExpanded((v) => !v)}
-        >
-          <span className={`${styles.featuresSectionArrow} ${featuresExpanded ? styles.featuresSectionArrowOpen : ''}`}>▸</span>
-          Feature Modules
-          {enabledFeatures.length > 0 && (
-            <span className={styles.featuresEnabledBadge}>{enabledFeatures.length} active</span>
-          )}
-        </button>
-        {featuresExpanded && <FeatureToggles />}
       </div>
     </div>
   )

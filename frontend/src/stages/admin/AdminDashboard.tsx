@@ -80,8 +80,12 @@ export default function AdminDashboard() {
 
       <div className={styles.metrics}>
         <div className={styles.metric}>
-          <span className={styles.metricLabel}>Unique Users</span>
+          <span className={styles.metricLabel}>Total Visitors</span>
           <strong>{summary?.uniqueUsers ?? 0}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span className={styles.metricLabel}>Anonymous Visitors</span>
+          <strong>{summary?.uniqueAnonymousVisitors ?? 0}</strong>
         </div>
         <div className={styles.metric}>
           <span className={styles.metricLabel}>Builds Done</span>
@@ -103,6 +107,7 @@ export default function AdminDashboard() {
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>Type</th>
                 <th>Email</th>
                 <th>Name</th>
                 <th>Last Seen</th>
@@ -113,6 +118,7 @@ export default function AdminDashboard() {
             <tbody>
               {visitors.map((visitor) => (
                 <tr key={visitor.email || visitor.userId}>
+                  <td>{visitor.userId.startsWith('anon_') ? 'Anonymous' : 'Signed in'}</td>
                   <td>{visitor.email || '-'}</td>
                   <td>{visitor.name || '-'}</td>
                   <td>{formatDate(visitor.lastSeenAt)}</td>
@@ -122,7 +128,7 @@ export default function AdminDashboard() {
               ))}
               {!loading && visitors.length === 0 && (
                 <tr>
-                  <td colSpan={5} className={styles.empty}>No visitors recorded yet.</td>
+                  <td colSpan={6} className={styles.empty}>No visitors recorded yet.</td>
                 </tr>
               )}
             </tbody>

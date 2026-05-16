@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
-from auth import get_current_user
+from auth import get_current_user, get_optional_current_user
 from codegen.generator import generate_sources
 from codegen.keycodes import TRIVIAL_KEYCODES, normalize_layers
 from codegen.validator import ALLOWED_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, validate_upload
@@ -58,6 +58,222 @@ def _validated_config(config: KeyboardConfig) -> KeyboardConfig:
     if errors:
         raise HTTPException(status_code=422, detail=errors)
     return config
+
+
+def _flash_scripts(config: KeyboardConfig, kb_slug: str) -> dict[str, str]:
+    """Return flash.sh and flash.bat content for the given keyboard config."""
+    mode = config.source_mode or 'generated'
+
+    if mode == 'qmk_native':
+        keyboard_path = config.upstream_keyboard or kb_slug
+        keymap = 'nexus'
+        steps_sh = (
+            f'  echo "    1. Create keyboards/{keyboard_path}/keymaps/{keymap}/"\n'
+            f'  echo "    2. Copy keymap.c into that directory"\n'
+            f'  echo "    3. Run: qmk flash -kb {keyboard_path} -km {keymap}"'
+        )
+        steps_bat = (
+            f'  echo     1. Create keyboards\\{keyboard_path.replace("/", chr(92))}\\keymaps\\{keymap}\\\n'
+            f'  echo     2. Copy keymap.c into that directory\n'
+            f'  echo     3. Run: qmk flash -kb {keyboard_path} -km {keymap}'
+        )
+        file_ops_sh = (
+            f'mkdir -p "keyboards/{keyboard_path}/keymaps/{keymap}"\n'
+            f'cp "$SCRIPT_DIR/keymap.c" "keyboards/{keyboard_path}/keymaps/{keymap}/keymap.c"\n'
+            f'echo "  Copied keymap.c -> keyboards/{keyboard_path}/keymaps/{keymap}/keymap.c"'
+        )
+        kb_path_bat = keyboard_path.replace('/', '\\')
+        file_ops_bat = (
+            f'if not exist "keyboards\\{kb_path_bat}\\keymaps\\{keymap}" '
+            f'mkdir "keyboards\\{kb_path_bat}\\keymaps\\{keymap}"\n'
+            f'copy /Y "%SCRIPT_DIR%\\keymap.c" "keyboards\\{kb_path_bat}\\keymaps\\{keymap}\\keymap.c"\n'
+            f'echo   Copied keymap.c -^> keyboards\\{kb_path_bat}\\keymaps\\{keymap}\\keymap.c'
+        )
+        flash_cmd = f'qmk flash -kb {keyboard_path} -km {keymap}'
+
+    elif mode == 'qmk_json':
+        keyboard_path = config.upstream_keyboard or kb_slug
+        keymap = config.keymap_name or 'nexus'
+        steps_sh = '  echo "    1. Run: qmk flash keymap.json  (no file copy needed)"'
+        steps_bat = '  echo     1. Run: qmk flash keymap.json  (no file copy needed)'
+        file_ops_sh = '# keymap.json is self-contained — no files to copy'
+        file_ops_bat = 'REM keymap.json is self-contained -- no files to copy'
+        flash_cmd = 'qmk flash "$SCRIPT_DIR/keymap.json"'
+
+    else:  # generated
+        keyboard_path = f'custom/{kb_slug}'
+        keymap = 'default'
+        steps_sh = (
+            f'  echo "    1. Create keyboards/{keyboard_path}/ and keymaps/{keymap}/ inside it"\n'
+            f'  echo "    2. Copy the keyboard source files into place"\n'
+            f'  echo "    3. Run: qmk flash -kb {keyboard_path} -km {keymap}"'
+        )
+        steps_bat = (
+            f'  echo     1. Create keyboards\\custom\\{kb_slug}\\ and keymaps\\default\\ inside it\n'
+            f'  echo     2. Copy the keyboard source files into place\n'
+            f'  echo     3. Run: qmk flash -kb {keyboard_path} -km {keymap}'
+        )
+        file_ops_sh = (
+            f'KB_DIR="keyboards/{keyboard_path}"\n'
+            f'KEYMAP_DIR="$KB_DIR/keymaps/{keymap}"\n'
+            f'mkdir -p "$KEYMAP_DIR"\n'
+            f'cp "$SCRIPT_DIR/keyboard.c"    "$KB_DIR/{kb_slug}.c"\n'
+            f'cp "$SCRIPT_DIR/keyboard.h"    "$KB_DIR/{kb_slug}.h"\n'
+            f'cp "$SCRIPT_DIR/config.h"      "$KB_DIR/config.h"\n'
+            f'cp "$SCRIPT_DIR/rules.mk"      "$KB_DIR/rules.mk"\n'
+            f'cp "$SCRIPT_DIR/keyboard.json" "$KB_DIR/keyboard.json"\n'
+            f'cp "$SCRIPT_DIR/keymap.c"      "$KEYMAP_DIR/keymap.c"\n'
+            f'echo "  Copied source files -> $KB_DIR"'
+        )
+        file_ops_bat = (
+            f'if not exist "keyboards\\custom\\{kb_slug}\\keymaps\\default" '
+            f'mkdir "keyboards\\custom\\{kb_slug}\\keymaps\\default"\n'
+            f'copy /Y "%SCRIPT_DIR%\\keyboard.c"    "keyboards\\custom\\{kb_slug}\\{kb_slug}.c"\n'
+            f'copy /Y "%SCRIPT_DIR%\\keyboard.h"    "keyboards\\custom\\{kb_slug}\\{kb_slug}.h"\n'
+            f'copy /Y "%SCRIPT_DIR%\\config.h"      "keyboards\\custom\\{kb_slug}\\config.h"\n'
+            f'copy /Y "%SCRIPT_DIR%\\rules.mk"      "keyboards\\custom\\{kb_slug}\\rules.mk"\n'
+            f'copy /Y "%SCRIPT_DIR%\\keyboard.json" "keyboards\\custom\\{kb_slug}\\keyboard.json"\n'
+            f'copy /Y "%SCRIPT_DIR%\\keymap.c"      "keyboards\\custom\\{kb_slug}\\keymaps\\default\\keymap.c"\n'
+            f'echo   Copied source files -^> keyboards\\custom\\{kb_slug}'
+        )
+        flash_cmd = f'qmk flash -kb {keyboard_path} -km {keymap}'
+
+    sh = f"""\
+#!/usr/bin/env bash
+# QMK Nexus — Flash helper for "{config.name}"
+# Run this script from the root of your qmk_firmware checkout.
+set -euo pipefail
+
+die() {{ echo ""; echo "  Error: $*" >&2; echo ""; exit 1; }}
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+
+# ── Detect QMK firmware root ──────────────────────────────────────────────────
+if [[ ! -d "keyboards" || ! -f "Makefile" ]]; then
+  echo ""
+  echo "  Error: not in a qmk_firmware root directory."
+  echo ""
+  echo "  Setup:"
+  echo "    git clone --recurse-submodules https://github.com/qmk/qmk_firmware.git"
+  echo "    cd qmk_firmware"
+  echo "    qmk setup"
+  echo ""
+  echo "  Then extract the downloaded ZIP next to qmk_firmware/ and run:"
+  echo "    bash ../{kb_slug}_qmk_sources/flash.sh"
+  echo "  or move the folder inside qmk_firmware/ and run:"
+  echo "    bash {kb_slug}_qmk_sources/flash.sh"
+  echo ""
+  exit 1
+fi
+
+# ── Preview ───────────────────────────────────────────────────────────────────
+echo ""
+echo "  QMK Nexus — Flash Setup"
+echo "  ────────────────────────────────────────────────"
+echo "  Keyboard : {config.name}"
+echo "  KB path  : {keyboard_path}"
+echo "  Keymap   : {keymap}"
+echo "  Sources  : $SCRIPT_DIR"
+echo ""
+echo "  This script will:"
+{steps_sh}
+echo ""
+printf "  Continue? [y/N] "
+read -r _ans
+[[ "$_ans" =~ ^[Yy] ]] || {{ echo "  Aborted."; exit 0; }}
+echo ""
+
+# ── Copy files ────────────────────────────────────────────────────────────────
+{file_ops_sh}
+
+# ── Flash ─────────────────────────────────────────────────────────────────────
+echo ""
+echo "  Running: {flash_cmd}"
+echo ""
+{flash_cmd}
+"""
+
+    bat = f"""\
+@echo off
+setlocal enabledelayedexpansion
+REM QMK Nexus -- Flash helper for "{config.name}"
+REM Run this script from the root of your qmk_firmware checkout.
+
+for %%I in ("%~dp0.") do set "SCRIPT_DIR=%%~fI"
+
+REM ── Detect QMK firmware root ──────────────────────────────────────────────
+if not exist "keyboards" goto :setup_help
+if not exist "Makefile" goto :setup_help
+goto :preview
+
+:setup_help
+echo.
+echo   Error: not in a qmk_firmware root directory.
+echo.
+echo   Setup:
+echo     git clone --recurse-submodules https://github.com/qmk/qmk_firmware.git
+echo     cd qmk_firmware
+echo     qmk setup
+echo.
+echo   Then extract the downloaded ZIP next to qmk_firmware\\ and run:
+echo     ..\\{kb_slug}_qmk_sources\\flash.bat
+echo   or move the folder inside qmk_firmware\\ and run:
+echo     {kb_slug}_qmk_sources\\flash.bat
+echo.
+pause
+exit /b 1
+
+:preview
+echo.
+echo   QMK Nexus -- Flash Setup
+echo   ------------------------------------------------
+echo   Keyboard : {config.name}
+echo   KB path  : {keyboard_path}
+echo   Keymap   : {keymap}
+echo   Sources  : %SCRIPT_DIR%
+echo.
+echo   This script will:
+{steps_bat}
+echo.
+set /p "_ans=  Continue? [y/N] "
+if /i not "%_ans%"=="y" ( echo   Aborted. & exit /b 0 )
+echo.
+
+REM ── Copy files ────────────────────────────────────────────────────────────
+{file_ops_bat}
+
+REM ── Flash ─────────────────────────────────────────────────────────────────
+echo.
+echo   Running: {flash_cmd}
+echo.
+{flash_cmd if mode != 'qmk_json' else flash_cmd.replace('$SCRIPT_DIR/', '%SCRIPT_DIR%\\')}
+pause
+"""
+
+    return {'flash.sh': sh, 'flash.bat': bat}
+
+
+def _sources_zip_response(config: KeyboardConfig) -> Response:
+    config = _validated_config(config)
+    build_errors = validate_build_ready(config)
+    if build_errors:
+        raise HTTPException(status_code=422, detail=build_errors)
+
+    files = generate_sources(config, overrides=config.custom_files)
+    kb_slug = safe_name(config.name)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for name, content in files.items():
+            zf.writestr(name, content)
+        for name, content in _flash_scripts(config, kb_slug).items():
+            zf.writestr(name, content)
+    buf.seek(0)
+
+    return Response(
+        content=buf.read(),
+        media_type='application/zip',
+        headers={'Content-Disposition': f'attachment; filename="{kb_slug}_sources.zip"'},
+    )
 
 
 def _decode_configurator_json(raw: bytes, source_name: str = 'upload') -> dict[str, Any]:
@@ -155,6 +371,11 @@ async def create_keyboard(config: KeyboardConfig, user: User = Depends(get_curre
     return jsonable_out(saved)
 
 
+@router.post('/sources/zip')
+async def download_sources_from_config(config: KeyboardConfig):
+    return _sources_zip_response(config)
+
+
 @router.get('/{keyboard_id}')
 async def get_keyboard(keyboard_id: str, user: User = Depends(get_current_user)):
     path = pull_user_db(user.id)
@@ -194,28 +415,7 @@ async def download_sources(keyboard_id: str, user: User = Depends(get_current_us
     config = database.get_keyboard(path, keyboard_id)
     if not config:
         raise HTTPException(status_code=404, detail='Keyboard not found')
-    config = _validated_config(config)
-    build_errors = validate_build_ready(config)
-    if build_errors:
-        raise HTTPException(status_code=422, detail=build_errors)
-
-    files = generate_sources(config, overrides=config.custom_files)
-
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for name, content in files.items():
-            zf.writestr(name, content)
-        if config.source_mode == 'qmk_native':
-            for name, content in (config.upstream_files or {}).items():
-                zf.writestr(f'upstream_overlay/{name}', content)
-    buf.seek(0)
-
-    kb_slug = safe_name(config.name)
-    return Response(
-        content=buf.read(),
-        media_type='application/zip',
-        headers={'Content-Disposition': f'attachment; filename="{kb_slug}_sources.zip"'},
-    )
+    return _sources_zip_response(config)
 
 
 @router.post('/{keyboard_id}/sources')
@@ -350,12 +550,7 @@ async def migrate_keyboard(
     return jsonable_out(saved)
 
 
-@router.post('/import/configurator', response_model=KeyboardConfig)
-async def import_configurator_json(
-    file: UploadFile = File(...),
-    user: User = Depends(get_current_user),
-):
-    """Import a QMK Configurator exported JSON file or zip download as a new keyboard config."""
+async def _config_from_configurator_upload(file: UploadFile) -> KeyboardConfig:
     raw = await file.read()
     data = _configurator_json_from_upload(raw, file.filename, file.content_type)
 
@@ -414,7 +609,26 @@ async def import_configurator_json(
     if 'keymap' in data:
         updates['keymap_name'] = str(data['keymap'])
 
-    config = config.model_copy(update=updates)
+    return config.model_copy(update=updates)
+
+
+@router.post('/import/configurator/preview', response_model=KeyboardConfig)
+async def preview_configurator_json(file: UploadFile = File(...)):
+    """Import a QMK Configurator export without saving it to an account."""
+    config = await _config_from_configurator_upload(file)
+    return jsonable_out(config.model_copy(update={'id': None}))
+
+
+@router.post('/import/configurator', response_model=KeyboardConfig)
+async def import_configurator_json(
+    file: UploadFile = File(...),
+    user: User | None = Depends(get_optional_current_user),
+):
+    """Import a QMK Configurator exported JSON file or zip download as a new keyboard config."""
+    config = await _config_from_configurator_upload(file)
+
+    if user is None:
+        return jsonable_out(config.model_copy(update={'id': None}))
 
     # Save to user's keyboard store
     path = pull_user_db(user.id)

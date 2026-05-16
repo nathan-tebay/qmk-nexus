@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useKeyboardStore, type KeyboardConfig } from '@/store/keyboard'
 import { useBuildStore } from '@/store/build'
+import { useAuthStore } from '@/store/auth'
 import { keyboardsApi, qmkApi, type QMKKeyboardSummary } from '@/api/keyboards'
 import styles from './LoadKeyboardModal.module.css'
 
@@ -57,6 +58,7 @@ export default function LoadKeyboardModal({ onClose, initialTab = 'user' }: Prop
 
 function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
   const { config, setConfig } = useKeyboardStore()
+  const user = useAuthStore((state) => state.user)
   const [keyboards, setKeyboards] = useState<KeyboardConfig[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -72,8 +74,9 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
   }
 
   useEffect(() => {
-    loadKeyboards()
-  }, [])
+    if (user) loadKeyboards()
+    else setLoading(false)
+  }, [user])
 
   function handleLoad(kb: KeyboardConfig) {
     setConfig(kb as Partial<KeyboardConfig>)
@@ -117,6 +120,21 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
     } finally {
       setDeleting(null)
     }
+  }
+
+  if (!user) {
+    return (
+      <>
+        <div className={styles.empty}>
+          Sign in to save/load account keyboards. Your current draft still auto-saves locally in this browser; clearing browser data can delete anonymous work.
+        </div>
+        <div className={styles.footer}>
+          <button className={styles.newBtn} onClick={handleNew} title="Start a blank local draft">
+            + New Local Draft
+          </button>
+        </div>
+      </>
+    )
   }
 
   return (
@@ -186,6 +204,7 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
   const [fileImporting, setFileImporting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [importMode, setImportMode] = useState<QMKImportMode>('nexus')
+  const user = useAuthStore((state) => state.user)
   const [pendingConfirm, setPendingConfirm] = useState<{ entry: QMKKeyboardSummary; config: KeyboardConfig } | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -218,12 +237,12 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
 
   async function applyImportedConfig(imported: KeyboardConfig) {
     const existingId = useKeyboardStore.getState().config.id
-    if (existingId) {
+    if (user && existingId) {
       const merged: KeyboardConfig = { ...imported, id: existingId }
       await keyboardsApi.update(existingId, merged)
       setConfig(merged)
     } else {
-      setConfig(imported)
+      setConfig(user ? imported : { ...imported, id: null })
     }
     useBuildStore.getState().clearActiveBuild()
     onClose()
@@ -274,8 +293,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     setFileImporting(true)
     setError(null)
     try {
-      const imported = await qmkApi.importConfiguratorFile(file)
-      setConfig(imported)
+      const imported = await qmkApi.importConfiguratorFile(file, { anonymous: !user })
+      setConfig(user ? imported : { ...imported, id: null })
       useBuildStore.getState().clearActiveBuild()
       onClose()
     } catch (err) {

@@ -1,6 +1,7 @@
 import { api } from './client'
 import type { KeyboardConfig } from '@/store/keyboard'
 import { triggerBlobDownload } from '@/utils/downloadBlob'
+import { telemetryApi } from './telemetry'
 
 export interface QMKKeyboardSummary {
   path: string
@@ -20,10 +21,13 @@ export const qmkApi = {
   importKeyboard: (path: string, options?: { layoutOnly?: boolean }) =>
     api.get<KeyboardConfig>(`/qmk/import/${path}${options?.layoutOnly ? '?layoutOnly=true' : ''}`),
 
-  importConfiguratorFile: (file: File) => {
+  importConfiguratorFile: (file: File, options?: { anonymous?: boolean }) => {
     const form = new FormData()
     form.append('file', file)
-    return api.postForm<KeyboardConfig>('/keyboards/import/configurator', form)
+    const path = options?.anonymous
+      ? '/keyboards/import/configurator/preview'
+      : '/keyboards/import/configurator'
+    return api.postForm<KeyboardConfig>(path, form)
   },
 }
 
@@ -41,6 +45,12 @@ export const keyboardsApi = {
   downloadSources: async (id: string, filename: string) => {
     const blob = await api.blob(`/keyboards/${id}/sources`)
     triggerBlobDownload(blob, filename)
+  },
+
+  downloadSourcesFromConfig: async (config: KeyboardConfig, filename: string) => {
+    const blob = await api.postBlob('/keyboards/sources/zip', config)
+    triggerBlobDownload(blob, filename)
+    telemetryApi.visit('source_download').catch(() => undefined)
   },
 
   delete: (id: string) =>

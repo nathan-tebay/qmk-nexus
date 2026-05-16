@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react'
 import { useKeyboardStore } from './keyboard'
+import { useAuthStore } from './auth'
 import { keyboardsApi } from '@/api/keyboards'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
 
 export function useKeyboardSync() {
   const { config, setConfig } = useKeyboardStore()
+  const user = useAuthStore((state) => state.user)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [warning, setWarning] = useState<string | null>(null)
@@ -14,6 +16,11 @@ export function useKeyboardSync() {
     setSaving(true)
     setError(null)
     setWarning(null)
+    if (!user) {
+      setWarning('Sign in to save/load account keyboards. Current draft still auto-saves in this browser.')
+      setSaving(false)
+      return null
+    }
     const configErrors = validateKeyboardConfig(config)
     if (configErrors.length > 0) {
       setError(configErrors.join(' '))
@@ -44,7 +51,7 @@ export function useKeyboardSync() {
     } finally {
       setSaving(false)
     }
-  }, [config, setConfig])
+  }, [config, setConfig, user])
 
   const load = useCallback(async (id: string) => {
     const kb = await keyboardsApi.get(id)

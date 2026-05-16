@@ -1,4 +1,5 @@
 import { api } from './client'
+import { getVisitorId } from './visitor'
 
 export interface TelemetryBuild {
   buildId: string
@@ -18,6 +19,8 @@ export interface TelemetryUser {
 
 export interface TelemetrySummary {
   uniqueUsers: number
+  uniqueAuthenticatedUsers?: number
+  uniqueAnonymousVisitors?: number
   users: TelemetryUser[]
   builds: {
     total: number
@@ -28,4 +31,9 @@ export interface TelemetrySummary {
 
 export const telemetryApi = {
   summary: () => api.get<TelemetrySummary>('/telemetry/summary'),
+  visit: (event = 'visit') =>
+    api.post<{ ok: boolean; userId: string }>('/telemetry/visit', {
+      visitorId: getVisitorId(),
+      event,
+    }),
 }

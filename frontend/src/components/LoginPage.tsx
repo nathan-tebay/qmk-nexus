@@ -1,6 +1,9 @@
+import { useNavigate } from 'react-router-dom'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
+  const navigate = useNavigate()
+
   return (
     <div className={styles.root}>
       <div className={styles.card}>
@@ -38,6 +41,15 @@ export default function LoginPage() {
             <DiscordIcon />
             Continue with Discord
           </button>
+        </div>
+        <div className={styles.anonymousBox}>
+          <button className={styles.anonymousBtn} onClick={() => navigate('/layout')}>
+            Continue without login
+          </button>
+          <p>
+            Your current keyboard auto-restores only in this browser. Clearing browser data loses anonymous work.
+            Sign in to save and load account keyboards, run hosted firmware builds, view build history, and keep work across devices.
+          </p>
         </div>
       </div>
     </div>

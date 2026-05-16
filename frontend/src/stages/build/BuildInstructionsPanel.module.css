@@ -57,6 +57,16 @@
   border-radius: 4px;
 }
 
+.scriptNote {
+  padding: 9px 11px;
+  border: 1px solid rgba(99, 179, 237, 0.35);
+  border-radius: 6px;
+  background: rgba(99, 179, 237, 0.08);
+  color: var(--text-muted);
+  font-size: 13.5px;
+  margin-bottom: 4px;
+}
+
 .modalOverlay {
   position: fixed;
   inset: 0;

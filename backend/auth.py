@@ -59,15 +59,25 @@ def clear_auth_cookies(response: Response) -> None:
                             secure=settings.is_prod, samesite='lax')
 
 
-def get_current_user(
+def get_optional_current_user(
     access_token: str | None = Cookie(default=None),
     bearer_creds: HTTPAuthorizationCredentials | None = Depends(bearer),
-) -> User:
+) -> User | None:
     token = access_token or (bearer_creds.credentials if bearer_creds else None)
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
+        return None
     try:
         payload = _decode_access_token(token)
         return _user_from_payload(payload)
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Invalid or expired token')
+        return None
+
+
+def get_current_user(
+    access_token: str | None = Cookie(default=None),
+    bearer_creds: HTTPAuthorizationCredentials | None = Depends(bearer),
+) -> User:
+    user = get_optional_current_user(access_token, bearer_creds)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Not authenticated')
+    return user

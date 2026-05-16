@@ -105,3 +105,33 @@
   text-decoration: none;
   font-weight: 600;
 }
+
+.anonymousBox {
+  width: min(400px, calc(100vw - 32px));
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.anonymousBtn {
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.anonymousBtn:hover {
+  background: var(--accent-hover);
+}
+
+.anonymousBox p {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-size: 12.75px;
+  line-height: 1.45;
+}

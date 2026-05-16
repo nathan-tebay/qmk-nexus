@@ -241,6 +241,96 @@
   border-color: var(--accent);
 }
 
+.shortcutPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-surface) 82%, var(--bg-elevated) 18%);
+  flex-shrink: 0;
+}
+
+.shortcutHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.captureBtn,
+.assignSmallBtn {
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 13.75px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.captureActive {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 35%, var(--bg-elevated) 65%);
+  color: var(--text);
+}
+
+.assignSmallBtn {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  white-space: nowrap;
+}
+
+.assignSmallBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.shortcutHint,
+.shortcutNotice,
+.shortcutWarning {
+  font-size: 13.75px;
+  color: var(--text-muted);
+}
+
+.shortcutWarning {
+  color: #fbbf24;
+}
+
+.capturePreview,
+.manualEntry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.capturePreview {
+  justify-content: space-between;
+  font-size: 13.75px;
+  color: var(--text);
+}
+
+.capturePreview code {
+  color: var(--text);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 5px;
+}
+
+.manualInput {
+  flex: 1;
+  box-sizing: border-box;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 13.75px;
+  font-family: monospace;
+}
+
 .holdTapLayout {
   flex: 1;
   display: flex;

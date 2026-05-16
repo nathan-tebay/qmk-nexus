@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -12,11 +14,21 @@ logger = logging.getLogger(__name__)
 
 USER_PREFIX = 'telemetry#user#'
 BUILD_PREFIX = 'telemetry#build#'
+_VISITOR_ID_RE = re.compile(r'^[A-Za-z0-9_.:-]{8,128}$')
 FINAL_STATUSES = {'success', 'failed'}
 
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+
+def _anonymous_user_id(visitor_id: str) -> str | None:
+    visitor_id = (visitor_id or '').strip()
+    if not _VISITOR_ID_RE.fullmatch(visitor_id):
+        return None
+    digest = hashlib.sha256(visitor_id.encode()).hexdigest()[:24]
+    return f'anon_{digest}'
 
 
 def _put_item(item: dict[str, Any]) -> None:
@@ -72,6 +84,27 @@ def record_user_seen(user: User) -> None:
         'created_at': now,
         'last_seen_at': now,
     })
+
+
+
+def record_anonymous_visit(visitor_id: str, event: str = 'visit') -> str | None:
+    user_id = _anonymous_user_id(visitor_id)
+    if not user_id:
+        return None
+    safe_event = re.sub(r'[^A-Za-z0-9_.:-]+', '_', (event or 'visit').strip())[:64] or 'visit'
+    now = _now_iso()
+    _record_item({
+        'id': f'{USER_PREFIX}{user_id}',
+        'type': 'user',
+        'user_id': user_id,
+        'email': '',
+        'name': '',
+        'anonymous': True,
+        'last_event': safe_event,
+        'created_at': now,
+        'last_seen_at': now,
+    })
+    return user_id
 
 
 def record_build_final(status: BuildStatus, user_id: str) -> None:
@@ -137,8 +170,12 @@ def summary() -> dict[str, Any]:
         reverse=True,
     )
 
+    anonymous_count = sum(1 for user in users if str(user.get('userId') or '').startswith('anon_'))
+
     return {
         'uniqueUsers': len(users_by_identity),
+        'uniqueAuthenticatedUsers': len(users_by_identity) - anonymous_count,
+        'uniqueAnonymousVisitors': anonymous_count,
         'users': users,
         'builds': {
             'total': total_builds,
