@@ -3,6 +3,15 @@ import { extname, join, normalize } from 'node:path'
 const distRoot = '/var/task/dist'
 const backendBaseUrl = process.env.API_BASE_URL || ''
 
+const SECURITY_HEADERS = {
+  'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'camera=(), geolocation=(), microphone=()',
+  'content-security-policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://qmknexus.tebay.dev; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+}
+
 const mimeTypes = {
   '.css': 'text/css; charset=utf-8',
   '.html': 'text/html; charset=utf-8',
@@ -70,6 +79,7 @@ async function serveStatic(pathname, method) {
   const headers = {
     'cache-control': cacheControl(filePath),
     'content-type': mimeTypes[ext] || 'application/octet-stream',
+    ...SECURITY_HEADERS,
   }
 
   if (method === 'HEAD') {
@@ -127,7 +137,7 @@ async function proxyApi(event, pathname, method) {
   const isBase64Encoded = !isTextContentType(headers['content-type'] || '')
   const body = isBase64Encoded ? bodyBuffer.toString('base64') : bodyBuffer.toString('utf8')
 
-  return response(backendResponse.status, headers, body, isBase64Encoded, cookies)
+  return response(backendResponse.status, { ...SECURITY_HEADERS, ...headers }, body, isBase64Encoded, cookies)
 }
 
 export async function handler(event) {

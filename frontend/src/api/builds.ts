@@ -14,6 +14,7 @@ export interface BuildStatus {
   createdAt?: string | null
   mode?: string | null
   mcu?: string | null
+  qmkCommit?: string | null
 }
 
 export interface RecentBuild {

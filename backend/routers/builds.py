@@ -76,10 +76,10 @@ def _fail_build(status: BuildStatus, build_dir: Path, user: User, label: str, ex
 
 # ── Build cookie (stateless, signed JWT) ─────────────────────────────────────
 
-def _set_build_cookie(response: Response, build_id: str, keyboard_id: str, **extra) -> None:
+def _set_build_cookie(response: Response, build_id: str, keyboard_id: str, user_id: str, **extra) -> None:
     exp = datetime.now(timezone.utc) + timedelta(seconds=_BUILD_TTL)
     token = jwt.encode(
-        {'build_id': build_id, 'keyboard_id': keyboard_id, 'exp': exp, **extra},
+        {'build_id': build_id, 'keyboard_id': keyboard_id, 'user_id': user_id, 'exp': exp, **extra},
         settings.jwt_secret,
         algorithm=settings.jwt_algorithm,
     )
@@ -100,11 +100,14 @@ def _clear_build_cookie(response: Response, build_id: str | None = None) -> None
         _KEYMAP_PAYLOADS.pop(build_id, None)
 
 
-def _decode_build_cookie(build_token: str | None) -> dict | None:
+def _decode_build_cookie(build_token: str | None, expected_user_id: str | None = None) -> dict | None:
     if not build_token:
         return None
     try:
-        return jwt.decode(build_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        payload = jwt.decode(build_token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        if expected_user_id and payload.get('user_id') != expected_user_id:
+            return None
+        return payload
     except JWTError:
         return None
 
@@ -226,7 +229,7 @@ async def trigger_build(
     build_token: str | None = Cookie(default=None),
     user: User = Depends(get_current_user),
 ):
-    existing_build = _decode_build_cookie(build_token)
+    existing_build = _decode_build_cookie(build_token, expected_user_id=user.id)
     if existing_build and await _build_cookie_is_active(existing_build):
         raise HTTPException(status_code=429, detail='A build is already running')
     if existing_build:
@@ -266,6 +269,7 @@ async def trigger_build(
             )
             _set_build_cookie(
                 response, cached['id'], keyboard_id,
+                user_id=user.id,
                 mode='ecs', bucket=cached['bucket'], prefix=cached['prefix'],
             )
             return jsonable_out(cached_status)
@@ -296,6 +300,10 @@ async def trigger_build(
         status.warning = _version_mismatch_warning
         status.log.append(f'WARNING: {_version_mismatch_warning}')
 
+    if not dynamo.acquire_build_lock(user.id):
+        shutil.rmtree(build_dir, ignore_errors=True)
+        raise HTTPException(status_code=429, detail='A build is already in progress for your account')
+
     try:
         try:
             generate_all(config, build_dir)
@@ -309,8 +317,10 @@ async def trigger_build(
             if keymap_path.exists():
                 _KEYMAP_PAYLOADS[build_id] = keymap_path.read_text(encoding='utf-8')
     except HTTPException:
+        dynamo.release_build_lock(user.id)
         raise
     except Exception as exc:
+        dynamo.release_build_lock(user.id)
         logger.exception('Codegen failed for build %s', build_id)
         status.status = 'failed'
         status.error = f'Codegen error: {exc}'
@@ -333,6 +343,7 @@ async def trigger_build(
                 response,
                 build_id,
                 keyboard_id,
+                user_id=user.id,
                 mode='ecs',
                 bucket=bundle['bucket'],
                 prefix=bundle['prefix'],
@@ -346,6 +357,7 @@ async def trigger_build(
             )
             shutil.rmtree(build_dir, ignore_errors=True)
         except Exception as exc:
+            dynamo.release_build_lock(user.id)
             logger.exception('ECS dispatch failed for build %s', build_id)
             _fail_build(status, build_dir, user, 'ECS error', exc)
     elif (proxy_url := settings.build_proxy_url.rstrip()):
@@ -371,10 +383,11 @@ async def trigger_build(
                     timeout=10,
                 )
                 r.raise_for_status()
-            _set_build_cookie(response, build_id, keyboard_id, mode='proxy', proxy_url=proxy_url)
+            _set_build_cookie(response, build_id, keyboard_id, user_id=user.id, mode='proxy', proxy_url=proxy_url)
             status.log.append('Build queued on proxy')
             dynamo.put_build(status.model_copy(update={'mode': 'proxy'}), user.id)
         except Exception as exc:
+            dynamo.release_build_lock(user.id)
             logger.exception('Proxy dispatch failed for build %s', build_id)
             _fail_build(status, build_dir, user, 'Proxy error', exc)
     else:
@@ -382,10 +395,11 @@ async def trigger_build(
         try:
             container_id, endpoint = _spawn_direct(build_dir, config)
             _set_build_cookie(response, build_id, keyboard_id,
-                              mode='direct', endpoint=endpoint, container_id=container_id)
+                              user_id=user.id, mode='direct', endpoint=endpoint, container_id=container_id)
             status.log.append('Container started')
             dynamo.put_build(status.model_copy(update={'mode': 'direct'}), user.id)
         except Exception as exc:
+            dynamo.release_build_lock(user.id)
             logger.exception('Container spawn failed for build %s', build_id)
             _fail_build(status, build_dir, user, 'Spawn error', exc)
 
@@ -427,7 +441,7 @@ async def restore_cached_build(
     if not bucket or not prefix:
         raise HTTPException(status_code=400, detail='Build artifact location not recorded')
     keyboard_id = record.get('keyboard_id', '')
-    _set_build_cookie(response, build_id, keyboard_id, mode='ecs', bucket=bucket, prefix=prefix)
+    _set_build_cookie(response, build_id, keyboard_id, user_id=user.id, mode='ecs', bucket=bucket, prefix=prefix)
     return jsonable_out(BuildStatus(
         id=build_id,
         keyboard_id=keyboard_id,
@@ -447,7 +461,7 @@ async def get_build_status(
     build_token: str | None = Cookie(default=None),
     user: User = Depends(get_current_user),
 ):
-    payload = _decode_build_cookie(build_token)
+    payload = _decode_build_cookie(build_token, expected_user_id=user.id)
     if not payload or payload.get('build_id') != build_id:
         raise HTTPException(status_code=404, detail='No active build found')
 
@@ -466,6 +480,7 @@ async def get_build_status(
             log=raw.get('log', []),
             artifact_available=bool(raw.get('artifact_available') or raw.get('artifact_key')),
             error=raw.get('error'),
+            qmk_commit=raw.get('qmk_commit'),
         )
     elif mode == 'proxy':
         proxy_url = payload['proxy_url'].rstrip('/')
@@ -507,7 +522,11 @@ async def get_build_status(
 
     if status.status == 'success' and status.artifact_available:
         new_ttl = dynamo._ts(dynamo._now() + dynamo.CACHE_TTL)
-        dynamo.update_build_fields(build_id, status='success', artifact_available=True, ttl=new_ttl)
+        extra = {'qmk_commit': status.qmk_commit} if status.qmk_commit else {}
+        dynamo.update_build_fields(build_id, status='success', artifact_available=True, ttl=new_ttl, **extra)
+
+    if status.status in {'success', 'failed'}:
+        dynamo.release_build_lock(user.id)
 
     _record_final_build(status, user)
     return jsonable_out(status)
@@ -520,7 +539,7 @@ async def download_artifact(
     build_token: str | None = Cookie(default=None),
     user: User = Depends(get_current_user),
 ):
-    payload = _decode_build_cookie(build_token)
+    payload = _decode_build_cookie(build_token, expected_user_id=user.id)
     if not payload or payload.get('build_id') != build_id:
         raise HTTPException(status_code=404, detail='No active build found')
 
@@ -604,7 +623,7 @@ async def download_keymap_json(
     user: User = Depends(get_current_user),
 ):
     """Return the generated keymap.json payload for a qmk_json-mode build."""
-    payload = _decode_build_cookie(build_token)
+    payload = _decode_build_cookie(build_token, expected_user_id=user.id)
     if not payload or payload.get('build_id') != build_id:
         raise HTTPException(status_code=404, detail='No active build found')
 

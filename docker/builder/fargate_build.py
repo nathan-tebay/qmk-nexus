@@ -41,6 +41,13 @@ def _put_status(bucket: str, prefix: str, payload: dict) -> None:
     )
 
 
+def _read_qmk_commit() -> str | None:
+    commit_file = Path('/qmk_firmware/.qmk_commit')
+    if commit_file.exists():
+        return commit_file.read_text(errors='replace').strip() or None
+    return None
+
+
 def _read_log() -> list[str]:
     if not LOG_PATH.exists():
         return []
@@ -122,6 +129,7 @@ def main() -> int:
             'artifact_available': bool(artifact_key),
             'log': _read_log(),
             'error': None if proc.returncode == 0 else 'QMK build failed',
+            'qmk_commit': _read_qmk_commit(),
         })
         return proc.returncode
     except Exception as exc:

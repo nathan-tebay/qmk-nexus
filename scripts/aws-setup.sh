@@ -214,6 +214,9 @@ CREATE_CF_ALIASES=1
 CREATE_VPC_ENDPOINTS=0
 SAVE_ENV=0
 DRY_RUN=0
+CREATE_SECURITY_HEADERS=0
+SECURITY_HEADERS_POLICY_ID="${SECURITY_HEADERS_POLICY_ID:-}"
+APPLY_SECURITY_HEADERS_DIST=""
 
 # ── Argument parsing ──────────────────────────────────────────────────────────
 usage() {
@@ -263,6 +266,9 @@ while [[ "$#" -gt 0 ]]; do
     --endpoint-security-groups) ENDPOINT_SECURITY_GROUPS="$2"; shift 2 ;;
     --save-env)        SAVE_ENV=1;             shift   ;;
     --dry-run)         DRY_RUN=1;              shift   ;;
+    --create-security-headers) CREATE_SECURITY_HEADERS=1; shift ;;
+    --apply-security-headers) APPLY_SECURITY_HEADERS_DIST="$2"; shift 2 ;;
+    --security-headers-policy-id) SECURITY_HEADERS_POLICY_ID="$2"; shift 2 ;;
     -h|--help)         usage ;;
     *) echo "Unknown option: $1"; usage ;;
   esac
@@ -1546,6 +1552,71 @@ JSON
   warn "Add a CNAME record: ${DOMAIN} → ${cf_domain}"
 }
 
+# ── Security headers helpers ──────────────────────────────────────────────────
+
+create_security_headers_policy() {
+  local policy_name="qmk-nexus-security-headers"
+  local csp="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://${DOMAIN}; font-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  local policy_config
+  policy_config=$(python3 - <<PYEOF
+import json
+print(json.dumps({
+  "Name": "${policy_name}",
+  "Comment": "QMK Nexus security response headers",
+  "CorsConfig": {"OriginOverride": False, "AccessControlAllowOrigins": {"Quantity": 0, "Items": []},
+                 "AccessControlAllowHeaders": {"Quantity": 0, "Items": []},
+                 "AccessControlAllowMethods": {"Quantity": 0, "Items": []},
+                 "AccessControlAllowCredentials": False},
+  "SecurityHeadersConfig": {
+    "XSSProtection": {"Override": True, "Protection": False},
+    "FrameOptions": {"Override": True, "FrameOption": "DENY"},
+    "ReferrerPolicy": {"Override": True, "ReferrerPolicy": "strict-origin-when-cross-origin"},
+    "ContentTypeOptions": {"Override": True},
+    "StrictTransportSecurity": {"Override": True, "AccessControlMaxAgeSec": 63072000,
+                                 "IncludeSubdomains": True, "Preload": True},
+    "ContentSecurityPolicy": {"Override": True, "ContentSecurityPolicy": "${csp}"}
+  },
+  "CustomHeadersConfig": {
+    "Quantity": 1,
+    "Items": [{"Header": "Permissions-Policy", "Value": "camera=(), geolocation=(), microphone=()", "Override": True}]
+  }
+}))
+PYEOF
+  )
+  SECURITY_HEADERS_POLICY_ID=$(aws cloudfront create-response-headers-policy \
+    --response-headers-policy-config "$policy_config" \
+    --query 'ResponseHeadersPolicy.Id' --output text)
+  ok "Created CloudFront response headers policy: $SECURITY_HEADERS_POLICY_ID"
+}
+
+apply_security_headers_to_dist() {
+  local dist_id="$1"
+  [[ -z "$dist_id" || -z "$SECURITY_HEADERS_POLICY_ID" ]] && { warn "Need --apply-security-headers <dist-id> and --security-headers-policy-id <id>"; return 1; }
+  local etag
+  etag=$(aws cloudfront get-distribution-config --id "$dist_id" --query ETag --output text)
+  local new_config
+  new_config=$(python3 - <<PYEOF
+import json, subprocess
+dist = json.loads(subprocess.check_output([
+    'aws', 'cloudfront', 'get-distribution-config', '--id', '${dist_id}', '--output', 'json']))
+config = dist['DistributionConfig']
+policy_id = '${SECURITY_HEADERS_POLICY_ID}'
+# Apply to default cache behavior
+config['DefaultCacheBehavior']['ResponseHeadersPolicyId'] = policy_id
+# Apply to all other cache behaviors
+for behavior in config.get('CacheBehaviors', {}).get('Items', []):
+    behavior['ResponseHeadersPolicyId'] = policy_id
+print(json.dumps(config))
+PYEOF
+  )
+  aws cloudfront update-distribution \
+    --id "$dist_id" --if-match "$etag" \
+    --distribution-config "$new_config" \
+    --query 'Distribution.Status' --output text >/dev/null
+  ok "Applied security headers policy to distribution $dist_id"
+}
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 section "QMK Nexus — AWS setup (${DOMAIN})"
 info "AWS_ACCOUNT_ID : $AWS_ACCOUNT_ID"
@@ -1763,6 +1834,26 @@ if [[ "$CREATE_CF" == "1" || -n "$CF_DIST_ID" || -n "$BACKEND_CF_DIST_ID" ]]; th
     fi
   fi
 fi
+
+# ── 7a. CloudFront security headers ──────────────────────────────────────────
+if [[ "$CREATE_SECURITY_HEADERS" == "1" ]]; then
+  section "7a. CloudFront security response headers policy"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "Would create CloudFront response headers policy 'qmk-nexus-security-headers'"
+  else
+    create_security_headers_policy
+  fi
+fi
+
+if [[ -n "$APPLY_SECURITY_HEADERS_DIST" ]]; then
+  section "7a. Applying security headers to distribution $APPLY_SECURITY_HEADERS_DIST"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "Would apply policy $SECURITY_HEADERS_POLICY_ID to distribution $APPLY_SECURITY_HEADERS_DIST"
+  else
+    apply_security_headers_to_dist "$APPLY_SECURITY_HEADERS_DIST"
+  fi
+fi
+
 
 # ── 7. Save env vars ──────────────────────────────────────────────────────────
 if [[ "$SAVE_ENV" == "1" ]]; then

@@ -218,6 +218,20 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
             <div className={styles.issueSummary}>{issueSummary}</div>
           )}
 
+          {isSuccess && status.qmkCommit && (
+            <div className={styles.provenance}>
+              Built with QMK{' '}
+              <a
+                href={`https://github.com/qmk/qmk_firmware/commit/${status.qmkCommit}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.provenanceLink}
+              >
+                {status.qmkCommit.slice(0, 8)}
+              </a>
+            </div>
+          )}
+
           <div ref={logRef} className={styles.log}>
             {status.log.map((line, i) => (
               <div key={i} className={`${styles.logLine} ${line.startsWith('[stderr]') ? styles.stderr : ''}`}>{line}</div>

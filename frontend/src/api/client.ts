@@ -18,11 +18,12 @@ async function fetchWithRefresh(path: string, init: RequestInit = {}, retry = tr
     !(init.body instanceof FormData) &&
     !(init.body instanceof Blob) &&
     !(init.body instanceof URLSearchParams)
-  const headers = init.headers
-    ? { ...(shouldUseJsonContentType ? { 'Content-Type': 'application/json' } : {}), ...init.headers }
-    : shouldUseJsonContentType
-      ? { 'Content-Type': 'application/json' }
-      : undefined
+  const isMutation = !new Set(['GET', 'HEAD']).has((init.method ?? 'GET').toUpperCase())
+  const headers = {
+    ...(shouldUseJsonContentType ? { 'Content-Type': 'application/json' } : {}),
+    ...(isMutation ? { 'x-qmk-csrf': '1' } : {}),
+    ...(init.headers as Record<string, string> | undefined),
+  }
 
   const res = await fetch(`${BASE}${path}`, {
     ...init,

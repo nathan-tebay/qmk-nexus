@@ -184,6 +184,7 @@ class BuildStatus(BaseModel):
     created_at: str | None = None
     mode: str | None = None
     mcu: str | None = None
+    qmk_commit: str | None = None
     bucket: str | None = Field(default=None, exclude=True)
     prefix: str | None = Field(default=None, exclude=True)
 

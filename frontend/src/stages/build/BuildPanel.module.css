@@ -278,3 +278,15 @@
 .warningList li + li {
   margin-top: 3px;
 }
+
+.provenance {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  margin-top: 4px;
+}
+
+.provenanceLink {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

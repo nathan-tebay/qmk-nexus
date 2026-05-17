@@ -14,6 +14,7 @@ from models import BuildStatus, User
 _builds_mem: dict[str, dict] = {}
 _refresh_mem: dict[str, dict] = {}  # token_hash → record
 TELEMETRY_PREFIX = 'telemetry#'
+LOCK_PREFIX = 'lock#'
 
 REFRESH_TTL = timedelta(days=30)
 BUILD_TTL = timedelta(hours=1)
@@ -34,7 +35,8 @@ def _builds_table():
 
 
 def _is_build_record(item: dict) -> bool:
-    return not str(item.get('id', '')).startswith(TELEMETRY_PREFIX)
+    id_ = str(item.get('id', ''))
+    return not id_.startswith(TELEMETRY_PREFIX) and not id_.startswith(LOCK_PREFIX)
 
 
 def _refresh_table():
@@ -140,6 +142,38 @@ def update_build_fields(build_id: str, **patch) -> None:
         ExpressionAttributeNames={f'#{k}': k for k in patch},
         ExpressionAttributeValues={f':{k}': v for k, v in patch.items()},
     )
+
+
+# ── Per-user build locks ───────────────────────────────────────────────────────
+
+def acquire_build_lock(user_id: str) -> bool:
+    """Atomically claim a build slot for user_id. Returns False if already locked."""
+    lock_key = f'{LOCK_PREFIX}{user_id}'
+    lock_ttl = _ts(_now() + BUILD_TTL + timedelta(seconds=60))
+    if not settings.is_prod:
+        if lock_key in _builds_mem:
+            return False
+        _builds_mem[lock_key] = {'id': lock_key, 'user_id': user_id, 'ttl': lock_ttl}
+        return True
+    try:
+        _builds_table().put_item(
+            Item={'id': lock_key, 'user_id': user_id, 'ttl': lock_ttl},
+            ConditionExpression='attribute_not_exists(id)',
+        )
+        return True
+    except Exception as e:
+        if getattr(e, 'response', {}).get('Error', {}).get('Code') == 'ConditionalCheckFailedException':
+            return False
+        raise
+
+
+def release_build_lock(user_id: str) -> None:
+    """Release the build lock for user_id. Safe to call even if no lock exists."""
+    lock_key = f'{LOCK_PREFIX}{user_id}'
+    if not settings.is_prod:
+        _builds_mem.pop(lock_key, None)
+        return
+    _builds_table().delete_item(Key={'id': lock_key})
 
 
 # ── Refresh tokens ─────────────────────────────────────────────────────────────
