@@ -88,6 +88,18 @@ function proxyHeaders(event) {
   return headers
 }
 
+function isTextContentType(contentType) {
+  const normalized = contentType.split(';', 1)[0].trim().toLowerCase()
+  return normalized.startsWith('text/')
+    || normalized === 'application/json'
+    || normalized === 'application/javascript'
+    || normalized === 'application/xml'
+    || normalized === 'application/x-www-form-urlencoded'
+    || normalized === 'image/svg+xml'
+    || normalized.endsWith('+json')
+    || normalized.endsWith('+xml')
+}
+
 async function proxyApi(event, pathname, method) {
   if (!backendBaseUrl) {
     return response(502, { 'content-type': 'application/json' }, JSON.stringify({ detail: 'API_BASE_URL is not configured' }))
@@ -104,16 +116,18 @@ async function proxyApi(event, pathname, method) {
   })
 
   const headers = {}
-  for (const key of ['cache-control', 'content-type', 'location']) {
+  for (const key of ['cache-control', 'content-disposition', 'content-type', 'location']) {
     const value = backendResponse.headers.get(key)
     if (value) headers[key] = value
   }
 
   const cookies = backendResponse.headers.getSetCookie?.()
     || (backendResponse.headers.get('set-cookie') ? [backendResponse.headers.get('set-cookie')] : [])
-  const body = await backendResponse.text()
+  const bodyBuffer = Buffer.from(await backendResponse.arrayBuffer())
+  const isBase64Encoded = !isTextContentType(headers['content-type'] || '')
+  const body = isBase64Encoded ? bodyBuffer.toString('base64') : bodyBuffer.toString('utf8')
 
-  return response(backendResponse.status, headers, body, false, cookies)
+  return response(backendResponse.status, headers, body, isBase64Encoded, cookies)
 }
 
 export async function handler(event) {

@@ -3,6 +3,7 @@ import { useKeyboardStore, type KeyboardConfig } from '@/store/keyboard'
 import { useBuildStore } from '@/store/build'
 import { useAuthStore } from '@/store/auth'
 import { keyboardsApi, qmkApi, type QMKKeyboardSummary } from '@/api/keyboards'
+import { MAX_KEY_COUNT } from '@/utils/validateKeyboardConfig'
 import styles from './LoadKeyboardModal.module.css'
 
 interface Props {
@@ -150,7 +151,9 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
         {!loading && keyboards.length === 0 && (
           <div className={styles.empty}>No saved keyboards yet.</div>
         )}
-        {keyboards.map((kb) => (
+        {keyboards.map((kb) => {
+          const keyLimitExceeded = kb.keys.length > MAX_KEY_COUNT
+          return (
           <div key={kb.id} className={`${styles.row} ${kb.id === config.id ? styles.active : ''}`}>
             <div className={styles.info}>
               <span className={styles.name}>{kb.name}</span>
@@ -161,7 +164,17 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
             </div>
             <div className={styles.actions}>
               {kb.id !== config.id
-                ? <button className={styles.loadBtn} onClick={() => handleLoad(kb)} title={`Load ${kb.name}`} aria-label={`Load ${kb.name}`}>Load</button>
+                ? (
+                  <button
+                    className={styles.loadBtn}
+                    onClick={() => handleLoad(kb)}
+                    title={keyLimitExceeded ? `Keyboard has ${kb.keys.length} keys; maximum is ${MAX_KEY_COUNT}` : `Load ${kb.name}`}
+                    aria-label={`Load ${kb.name}`}
+                    disabled={keyLimitExceeded}
+                  >
+                    Load
+                  </button>
+                )
                 : <span className={styles.current}>current</span>
               }
               <button
@@ -175,7 +188,8 @@ function UserKeyboardsPanel({ onClose }: { onClose: () => void }) {
               </button>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
       <div className={styles.footer}>
         <button
@@ -236,6 +250,10 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
   }
 
   async function applyImportedConfig(imported: KeyboardConfig) {
+    if (imported.keys.length > MAX_KEY_COUNT) {
+      throw new Error(`Keyboard has ${imported.keys.length} keys; maximum is ${MAX_KEY_COUNT}.`)
+    }
+
     const existingId = useKeyboardStore.getState().config.id
     if (user && existingId) {
       const merged: KeyboardConfig = { ...imported, id: existingId }
@@ -265,8 +283,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
       }
 
       await applyImportedConfig(imported)
-    } catch {
-      setError(`Failed to import ${entry.name}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to import ${entry.name}`)
       setImporting(null)
       setPendingConfirm(null)
     }
@@ -278,8 +296,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     setError(null)
     try {
       await applyImportedConfig(pendingConfirm.config)
-    } catch {
-      setError(`Failed to import ${pendingConfirm.entry.name}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Failed to import ${pendingConfirm.entry.name}`)
       setImporting(null)
       setPendingConfirm(null)
     }
@@ -294,6 +312,9 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
     setError(null)
     try {
       const imported = await qmkApi.importConfiguratorFile(file, { anonymous: !user })
+      if (imported.keys.length > MAX_KEY_COUNT) {
+        throw new Error(`Keyboard has ${imported.keys.length} keys; maximum is ${MAX_KEY_COUNT}.`)
+      }
       setConfig(user ? imported : { ...imported, id: null })
       useBuildStore.getState().clearActiveBuild()
       onClose()
@@ -377,7 +398,9 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
             )}
           </div>
         )}
-        {results.map((entry) => (
+        {results.map((entry) => {
+          const keyLimitExceeded = entry.key_count > MAX_KEY_COUNT
+          return (
           <div key={entry.path} className={styles.row}>
             <div className={styles.info}>
               <span className={styles.name}>{entry.name || entry.path}</span>
@@ -391,8 +414,10 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
             <button
               className={styles.importBtn}
               onClick={() => handleImport(entry)}
-              disabled={importing === entry.path}
-              title={importMode === 'nexus'
+              disabled={importing === entry.path || keyLimitExceeded}
+              title={keyLimitExceeded
+                ? `Keyboard has ${entry.key_count} keys; maximum is ${MAX_KEY_COUNT}`
+                : importMode === 'nexus'
                 ? `Import ${entry.name || entry.path} as a generated Nexus keyboard`
                 : `Import ${entry.name || entry.path} using QMK Legacy`}
               aria-label={`Import ${entry.name || entry.path}`}
@@ -400,7 +425,8 @@ function QMKKeyboardsPanel({ onClose }: { onClose: () => void }) {
               {importing === entry.path ? '…' : 'Import'}
             </button>
           </div>
-        ))}
+          )
+        })}
       </div>
       {pendingConfirm && (
         <div className={styles.advisoryOverlay} onClick={(e) => { if (e.target === e.currentTarget) setPendingConfirm(null) }}>

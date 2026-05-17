@@ -269,3 +269,12 @@
   50% { opacity: 0.3; }
 }
 
+
+.warningList {
+  margin: 6px 0 0 18px;
+  padding: 0;
+}
+
+.warningList li + li {
+  margin-top: 3px;
+}

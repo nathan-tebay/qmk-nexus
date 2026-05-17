@@ -34,6 +34,8 @@
 #   IMAGE_TAG=latest
 #   BUILDER_ECR_REPOSITORY=qmk-nexus-builder
 #   BUILDER_IMAGE_TAG=latest
+#   BUILDER_QMK_COMMIT=<qmk commit baked into builder image>
+#   QMK_FIRMWARE_REF=<qmk ref passed to builder image build; defaults to BUILDER_QMK_COMMIT or master>
 #   AWS_PROFILE=profile-name
 #
 # Examples:
@@ -49,6 +51,20 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+read_qmk_commit_from_meta() {
+  local meta="$ROOT/backend/data/qmk_meta.json"
+  [[ -f "$meta" ]] || return 0
+  python3 - "$meta" <<'PYJSON' 2>/dev/null || true
+import json
+import sys
+try:
+    value = json.load(open(sys.argv[1])).get('qmk_commit') or ''
+except Exception:
+    value = ''
+print(value if value != 'unknown' else '')
+PYJSON
+}
+
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 DOMAIN="${DOMAIN:-qmknexus.tebay.dev}"
@@ -63,6 +79,11 @@ FRONTEND_ECR_REPOSITORY="${FRONTEND_ECR_REPOSITORY:-qmk-nexus-frontend}"
 FRONTEND_IMAGE_TAG="${FRONTEND_IMAGE_TAG:-latest}"
 BUILDER_ECR_REPOSITORY="${BUILDER_ECR_REPOSITORY:-${ECR_REPOSITORY:-qmk-nexus-builder}}"
 BUILDER_IMAGE_TAG="${BUILDER_IMAGE_TAG:-latest}"
+BUILDER_QMK_COMMIT="${BUILDER_QMK_COMMIT:-$(read_qmk_commit_from_meta)}"
+QMK_FIRMWARE_REF="${QMK_FIRMWARE_REF:-${BUILDER_QMK_COMMIT:-master}}"
+if [[ -z "$BUILDER_QMK_COMMIT" && "$QMK_FIRMWARE_REF" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+  BUILDER_QMK_COMMIT="$QMK_FIRMWARE_REF"
+fi
 VITE_API_URL="${VITE_API_URL:-https://${BACKEND_DOMAIN}}"
 
 DEPLOY_BACKEND=0
@@ -184,6 +205,15 @@ while [[ "$#" -gt 0 ]]; do
       BUILDER_IMAGE_TAG="$2"
       shift 2
       ;;
+    --builder-qmk-commit)
+      BUILDER_QMK_COMMIT="$2"
+      QMK_FIRMWARE_REF="$2"
+      shift 2
+      ;;
+    --qmk-firmware-ref)
+      QMK_FIRMWARE_REF="$2"
+      shift 2
+      ;;
     --skip-build)
       SKIP_BUILD=1
       shift
@@ -271,6 +301,40 @@ ecr_login() {
   fi
 }
 
+
+update_backend_builder_commit_env() {
+  if [[ -z "$BUILDER_QMK_COMMIT" ]]; then
+    info "BUILDER_QMK_COMMIT not known; leaving Lambda environment unchanged"
+    return
+  fi
+  if [[ "$DRY_RUN" == "1" ]]; then
+    info "dry-run: set Lambda env BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT} on ${LAMBDA_NAME}"
+    return
+  fi
+
+  need_command python3
+  local current_env new_env
+  current_env="$(aws "${aws_args[@]}" lambda get-function-configuration \
+    --function-name "$LAMBDA_NAME" \
+    --query 'Environment.Variables' \
+    --output json 2>/dev/null || printf '{}')"
+  new_env="$(python3 - "$current_env" "$BUILDER_QMK_COMMIT" <<'PYJSON'
+import json
+import sys
+variables = json.loads(sys.argv[1] or '{}') or {}
+variables['BUILDER_QMK_COMMIT'] = sys.argv[2]
+print(json.dumps({'Variables': variables}, separators=(',', ':')))
+PYJSON
+)"
+  aws "${aws_args[@]}" lambda update-function-configuration \
+    --function-name "$LAMBDA_NAME" \
+    --environment "$new_env" \
+    --query 'FunctionArn' \
+    --output text >/dev/null
+  info "Set Lambda env BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT}"
+  aws "${aws_args[@]}" lambda wait function-updated --function-name "$LAMBDA_NAME"
+}
+
 deploy_backend() {
   need_command aws
   need_command podman
@@ -310,6 +374,8 @@ deploy_backend() {
     info "Waiting for Lambda code update to finish"
     aws "${aws_args[@]}" lambda wait function-updated --function-name "$LAMBDA_NAME"
   fi
+
+  update_backend_builder_commit_env
 
   if [[ -n "$BACKEND_CF_DIST_ID" ]]; then
     invalidate_cloudfront "$BACKEND_CF_DIST_ID" '/*'
@@ -388,7 +454,8 @@ deploy_builder() {
 
   log "Building firmware builder image"
   ensure_ecr_repository "$image_uri"
-  run podman build -t "$image_uri" "$ROOT/docker/builder"
+  info "QMK firmware ref: $QMK_FIRMWARE_REF"
+  run podman build --build-arg "QMK_FIRMWARE_REF=$QMK_FIRMWARE_REF" -t "$image_uri" "$ROOT/docker/builder"
 
   ecr_login "$registry"
 

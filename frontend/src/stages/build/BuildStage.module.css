@@ -156,3 +156,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.summaryWarning {
+  color: var(--warning, #fbbf24);
+}

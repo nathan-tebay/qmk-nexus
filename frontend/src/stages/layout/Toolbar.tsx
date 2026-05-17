@@ -1,5 +1,5 @@
 import { useKeyboardStore, type KeyDef, type KeyShapeType } from '@/store/keyboard'
-import { maxSupportedOleds } from '@/utils/validateKeyboardConfig'
+import { MAX_KEY_COUNT, maxSupportedOleds } from '@/utils/validateKeyboardConfig'
 import styles from './Toolbar.module.css'
 import { nanoid } from './nanoid'
 
@@ -26,10 +26,12 @@ const KEY_SIZES: { label: string; w: number; h: number; shape?: KeyShapeType }[]
 export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggleGrid, onFitView, onImportQMK }: Props) {
   const { config, selectedKeyIds, addKey, removeKey, addEncoder, addOled, addTrackball } = useKeyboardStore()
   const oledLimitReached = (config.oleds?.length ?? 0) >= maxSupportedOleds(config)
+  const keyLimitReached = config.keys.length >= MAX_KEY_COUNT
 
   const WRAP_U = 15
 
   function addNewKey(w: number, h: number, shape: KeyShapeType = 'rect') {
+    if (keyLimitReached) return
     const existing = config.keys
     let nextX = 0
     let nextY = 0
@@ -90,7 +92,8 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
               key={s.label}
               className={styles.sizeBtn}
               onClick={() => addNewKey(s.w, s.h, s.shape)}
-              title={`Add ${s.label} key`}
+              title={keyLimitReached ? `Limit of ${MAX_KEY_COUNT} keys reached` : `Add ${s.label} key`}
+              disabled={keyLimitReached}
             >
               {s.label}
             </button>

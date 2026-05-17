@@ -7,6 +7,7 @@ import { BuildInstructionsPanel } from './BuildInstructionsPanel'
 import { RecentBuildsPanel, type RecentBuildsPanelHandle } from './RecentBuildsPanel'
 import { FEATURE_MODULES } from './modules'
 import { useBuildValidation } from './useBuildValidation'
+import { formatFirmwareEstimate } from '@/utils/firmwareSizeEstimate'
 import styles from './BuildStage.module.css'
 
 export default function BuildStage() {
@@ -98,6 +99,12 @@ export default function BuildStage() {
             <div className={styles.summaryRow}>
               <span className={styles.summaryLabel}>Layers</span>
               <span className={styles.summaryValue}>{config.layers.length}</span>
+            </div>
+            <div className={styles.summaryRow}>
+              <span className={styles.summaryLabel}>Estimated firmware size</span>
+              <span className={`${styles.summaryValue} ${buildValidation.firmwareSize.level === 'ok' ? '' : styles.summaryWarning}`}>
+                {formatFirmwareEstimate(buildValidation.firmwareSize)}
+              </span>
             </div>
             {enabledFeatures.length > 0 && (
               <div className={styles.summaryRow}>

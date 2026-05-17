@@ -15,7 +15,7 @@ from models import KeyboardConfig, Layer, User
 from routers.qmk import _convert_to_config, _load_keyboard_info
 from s3 import S3ConflictError, pull_user_db, push_user_db
 from utils import jsonable_out, safe_name
-from validation import sanitize_keyboard_config, validate_build_ready, validate_keyboard_config
+from validation import MAX_KEY_COUNT, sanitize_keyboard_config, validate_build_ready, validate_keyboard_config
 import db as database
 
 _REMAP_PATH = Path(__file__).parent.parent / 'data' / 'qmk_remap.json'
@@ -58,6 +58,14 @@ def _validated_config(config: KeyboardConfig) -> KeyboardConfig:
     if errors:
         raise HTTPException(status_code=422, detail=errors)
     return config
+
+
+def _enforce_key_count_limit(config: KeyboardConfig) -> None:
+    if len(config.keys) > MAX_KEY_COUNT:
+        raise HTTPException(
+            status_code=422,
+            detail=[f'Keyboard has {len(config.keys)} keys; maximum is {MAX_KEY_COUNT}.'],
+        )
 
 
 def _flash_scripts(config: KeyboardConfig, kb_slug: str) -> dict[str, str]:
@@ -616,6 +624,7 @@ async def _config_from_configurator_upload(file: UploadFile) -> KeyboardConfig:
 async def preview_configurator_json(file: UploadFile = File(...)):
     """Import a QMK Configurator export without saving it to an account."""
     config = await _config_from_configurator_upload(file)
+    _enforce_key_count_limit(config)
     return jsonable_out(config.model_copy(update={'id': None}))
 
 
@@ -626,6 +635,7 @@ async def import_configurator_json(
 ):
     """Import a QMK Configurator exported JSON file or zip download as a new keyboard config."""
     config = await _config_from_configurator_upload(file)
+    _enforce_key_count_limit(config)
 
     if user is None:
         return jsonable_out(config.model_copy(update={'id': None}))

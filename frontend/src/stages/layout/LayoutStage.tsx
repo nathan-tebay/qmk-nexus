@@ -11,6 +11,7 @@ import styles from './LayoutStage.module.css'
 import { useKeyboardStore } from '@/store/keyboard'
 import type { KeyDef, Layer } from '@/store/keyboard'
 import { validateMatrices, type MatrixValidationResult } from '@/utils/validateMatrices'
+import { MAX_KEY_COUNT } from '@/utils/validateKeyboardConfig'
 import { type ColorScheme, COLOR_SCHEME_LABELS, SCHEME_COLORS } from './MatrixLines'
 
 type RightTab = 'properties' | 'pins'
@@ -166,12 +167,15 @@ export default function LayoutStage() {
         e.preventDefault()
         const paste = (payload: KeyClipboardPayload | null) => {
           if (!payload || payload.keys.length === 0) return
-          const newIds = payload.keys.map(() => nanoid())
-          const minX = Math.min(...payload.keys.map((keyDef) => keyDef.x))
-          const minY = Math.min(...payload.keys.map((keyDef) => keyDef.y))
+          const availableSlots = MAX_KEY_COUNT - config.keys.length
+          if (availableSlots <= 0) return
+          const keysToPaste = payload.keys.slice(0, availableSlots)
+          const newIds = keysToPaste.map(() => nanoid())
+          const minX = Math.min(...keysToPaste.map((keyDef) => keyDef.x))
+          const minY = Math.min(...keysToPaste.map((keyDef) => keyDef.y))
           const baseX = minX + PASTE_OFFSET_U
           const baseY = minY + PASTE_OFFSET_U
-          const pastedKeys: KeyDef[] = payload.keys.map((keyDef, index) => ({
+          const pastedKeys: KeyDef[] = keysToPaste.map((keyDef, index) => ({
             id: newIds[index],
             x: baseX + keyDef.dx,
             y: baseY + keyDef.dy,

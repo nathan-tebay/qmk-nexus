@@ -370,3 +370,58 @@
 .instructionsList li + li {
   margin-top: 8px;
 }
+
+.firmwareWarningModal {
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+  background: var(--bg-surface);
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 8px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+}
+
+.firmwareWarningBody {
+  padding: 18px 20px 20px;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.firmwareWarningBody p + p {
+  margin-top: 8px;
+}
+
+.firmwareWarningBody ul {
+  margin: 12px 0 0 20px;
+  padding: 0;
+  color: var(--warning, #fbbf24);
+}
+
+.firmwareWarningActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.warningPrimaryBtn,
+.warningSecondaryBtn {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.warningPrimaryBtn {
+  background: var(--accent);
+  color: var(--on-accent);
+  border: 1px solid var(--accent);
+}
+
+.warningSecondaryBtn {
+  background: var(--bg-elevated);
+  color: var(--text);
+  border: 1px solid var(--border);
+}

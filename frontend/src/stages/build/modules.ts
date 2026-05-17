@@ -34,10 +34,12 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     id: 'bootmagic', name: 'Boot Magic', group: 'Input',
     rulesMkKey: 'BOOTMAGIC_ENABLE', qmkPrevalence: 0.554,
     description: 'Hold a key at power-on to enter bootloader or change settings.',
-    requiredConfig: [], optionalConfig: ['BOOTMAGIC_LITE_ROW','BOOTMAGIC_LITE_COLUMN'], incompatibleWith: [],
+    requiredConfig: [], optionalConfig: ['BOOTMAGIC_LITE_ROW','BOOTMAGIC_LITE_COLUMN','BOOTMAGIC_LITE_ROW_RIGHT','BOOTMAGIC_LITE_COLUMN_RIGHT'], incompatibleWith: [],
     inputs: [
-      { key: 'BOOTMAGIC_LITE_ROW', type: 'text', description: 'Row for Bootmagic Lite key' },
-      { key: 'BOOTMAGIC_LITE_COLUMN', type: 'text', description: 'Column for Bootmagic Lite key' },
+      { key: 'BOOTMAGIC_LITE_ROW', type: 'text', description: 'Left/default Bootmagic row' },
+      { key: 'BOOTMAGIC_LITE_COLUMN', type: 'text', description: 'Left/default Bootmagic column' },
+      { key: 'BOOTMAGIC_LITE_ROW_RIGHT', type: 'text', description: 'Right-half Bootmagic row' },
+      { key: 'BOOTMAGIC_LITE_COLUMN_RIGHT', type: 'text', description: 'Right-half Bootmagic column' },
     ],
   },
   {

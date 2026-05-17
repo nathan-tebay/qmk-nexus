@@ -13,9 +13,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # additionally restore files via /build/upstream_overlay.
 # To pin to a specific commit, pass --build-arg QMK_FIRMWARE_REF=<sha>.
 # Rebuild the builder image + regenerate qmk_index.json at the same ref.
-RUN git clone --depth 1 --branch "${QMK_FIRMWARE_REF}" \
-        https://github.com/qmk/qmk_firmware.git /qmk_firmware && \
+RUN git init /qmk_firmware && \
     cd /qmk_firmware && \
+    git remote add origin https://github.com/qmk/qmk_firmware.git && \
+    git fetch --depth 1 origin "${QMK_FIRMWARE_REF}" && \
+    git checkout --detach FETCH_HEAD && \
+    git rev-parse HEAD > /qmk_firmware/.qmk_commit && \
     git submodule update --init --depth 1 lib/lufa lib/vusb lib/chibios lib/chibios-contrib lib/pico-sdk lib/printf && \
     rm -rf \
         .build \
@@ -57,7 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=qmk-source /qmk_firmware /qmk_firmware
 
 ARG QMK_FIRMWARE_REF=master
-ENV QMK_COMMIT=${QMK_FIRMWARE_REF}
+ENV QMK_FIRMWARE_REF=${QMK_FIRMWARE_REF}
 ENV QMK_HOME=/qmk_firmware
 ENV PATH=/qmk_firmware/bin:$PATH
 RUN python3 -m pip install --no-cache-dir --break-system-packages qmk -r /qmk_firmware/requirements.txt

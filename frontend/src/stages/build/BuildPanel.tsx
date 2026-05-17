@@ -7,6 +7,7 @@ import { mcuById } from './mcus'
 import BuildStatusIndicator, { buildStatusLabel, isBuildRunning } from './BuildStatusIndicator'
 import { useBuildPoller } from './useBuildPoller'
 import type { BuildValidation } from './useBuildValidation'
+import { formatFirmwareEstimate } from '@/utils/firmwareSizeEstimate'
 import styles from './BuildPanel.module.css'
 
 function likelyBuildIssue(status: BuildStatus | null): string | null {
@@ -177,6 +178,16 @@ export function BuildPanel({ keyboardId, onSaveFirst, onBuildSuccess, validation
       )}
       {encoderWarning && (
         <div className={styles.warningNotice}>{encoderWarning}</div>
+      )}
+      {validation.firmwareSize.level !== 'ok' && (
+        <div className={styles.warningNotice}>
+          Estimated firmware size: {formatFirmwareEstimate(validation.firmwareSize)}
+          {validation.firmwareSize.messages.length > 0 && (
+            <ul className={styles.warningList}>
+              {validation.firmwareSize.messages.map((message) => <li key={message}>{message}</li>)}
+            </ul>
+          )}
+        </div>
       )}
       <button
         onClick={triggerBuild}

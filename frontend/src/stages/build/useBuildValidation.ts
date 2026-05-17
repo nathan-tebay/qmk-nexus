@@ -1,6 +1,7 @@
 import type { KeyboardConfig } from '@/store/keyboard'
 import { validateMatrices } from '@/utils/validateMatrices'
 import { validateKeyboardConfig } from '@/utils/validateKeyboardConfig'
+import { estimateFirmwareSize } from '@/utils/firmwareSizeEstimate'
 import {
   featureSettingsOk,
   getFeatureConflictErrors,
@@ -12,6 +13,7 @@ export function useBuildValidation(config: KeyboardConfig) {
   const configErrors = validateKeyboardConfig(config)
   const featureErrors = getFeatureValidationErrors(config.features, config.featureConfigs)
   const conflictErrors = getFeatureConflictErrors(config.features)
+  const firmwareSize = estimateFirmwareSize(config)
 
   return {
     matrixValidation,
@@ -23,6 +25,7 @@ export function useBuildValidation(config: KeyboardConfig) {
     conflictErrors,
     featureBlocked: featureErrors.length > 0 || conflictErrors.length > 0,
     featuresOk: featureSettingsOk(config),
+    firmwareSize,
   }
 }
 

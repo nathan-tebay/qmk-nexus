@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/auth'
 import { useKeyboardSync } from '@/store/useKeyboardSync'
 import { useKeyboardStore } from '@/store/keyboard'
 import { useBuildStore } from '@/store/build'
+import { estimateFirmwareSize, formatFirmwareEstimate } from '@/utils/firmwareSizeEstimate'
 import { applyTheme, getStoredTheme, storeTheme, themes, type ThemeId } from '@/theme'
 import styles from './Layout.module.css'
 
@@ -59,7 +60,8 @@ export default function Layout() {
   const isAnonymous = !user
   const navigate = useNavigate()
   const location = useLocation()
-  const kbName = useKeyboardStore((s) => s.config.name)
+  const config = useKeyboardStore((s) => s.config)
+  const kbName = config.name
   const setConfig = useKeyboardStore((s) => s.setConfig)
   const clearActiveBuild = useBuildStore((s) => s.clearActiveBuild)
   const { save, saving, error, warning } = useKeyboardSync()
@@ -68,6 +70,7 @@ export default function Layout() {
   const [showDonate, setShowDonate] = useState(false)
   const [theme, setTheme] = useState<ThemeId>(() => getStoredTheme())
   const [nameValue, setNameValue] = useState('')
+  const [pendingFirmwarePath, setPendingFirmwarePath] = useState<string | null>(null)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const currentInstructions = instructions[instructionKey(location.pathname)]
   const isAdmin = user?.email?.toLowerCase() === ADMIN_EMAIL
@@ -104,6 +107,19 @@ export default function Layout() {
     storeTheme(nextTheme)
   }
 
+  function maybeWarnBeforeStageNav(e: React.MouseEvent<HTMLAnchorElement>, path: string) {
+    if (!location.pathname.startsWith('/keymap') || path.startsWith('/keymap')) return
+    const sizeEstimate = estimateFirmwareSize(config)
+    if (sizeEstimate.level !== 'near' && sizeEstimate.level !== 'over') return
+    e.preventDefault()
+    setPendingFirmwarePath(path)
+  }
+
+  function continueAfterFirmwareWarning() {
+    if (pendingFirmwarePath) navigate(pendingFirmwarePath)
+    setPendingFirmwarePath(null)
+  }
+
   return (
     <div className={styles.root}>
       <header className={styles.header}>
@@ -122,6 +138,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `${styles.navLink} ${isActive ? styles.active : ''}`
               }
+              onClick={(e) => maybeWarnBeforeStageNav(e, s.path)}
             >
               {s.label}
             </NavLink>
@@ -281,6 +298,35 @@ export default function Layout() {
           </div>
         </div>
       )}
+
+      {pendingFirmwarePath && (() => {
+        const sizeEstimate = estimateFirmwareSize(config)
+        return (
+          <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setPendingFirmwarePath(null) }}>
+            <div className={styles.firmwareWarningModal} role="dialog" aria-modal="true" aria-labelledby="firmware-warning-title">
+              <div className={styles.modalHeader}>
+                <h2 id="firmware-warning-title">Firmware size warning</h2>
+                <button className={styles.modalClose} onClick={() => setPendingFirmwarePath(null)} aria-label="Close">×</button>
+              </div>
+              <div className={styles.firmwareWarningBody}>
+                <p>
+                  Estimated firmware size: <strong>{formatFirmwareEstimate(sizeEstimate)}</strong>.
+                </p>
+                <p>This is a conservative local estimate, not an exact compiled size. You can continue.</p>
+                {sizeEstimate.messages.length > 0 && (
+                  <ul>
+                    {sizeEstimate.messages.map((message) => <li key={message}>{message}</li>)}
+                  </ul>
+                )}
+                <div className={styles.firmwareWarningActions}>
+                  <button className={styles.warningPrimaryBtn} onClick={continueAfterFirmwareWarning}>Continue anyway</button>
+                  <button className={styles.warningSecondaryBtn} onClick={() => setPendingFirmwarePath(null)}>Stay on Keymap</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {showInstructions && (
         <div className={styles.modalOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowInstructions(false) }}>

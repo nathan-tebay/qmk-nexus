@@ -15,8 +15,12 @@ OUT_DIR=/build/output
 QMK_HOME="${QMK_HOME:-/qmk_firmware}"
 KEYBOARD_NAME="${KEYBOARD_NAME:-keyboard}"
 MCU="${TARGET_MCU:-atmega32u4}"
+QMK_COMMIT_EFFECTIVE="${QMK_COMMIT:-}"
+if [[ -z "$QMK_COMMIT_EFFECTIVE" && -f "${QMK_HOME}/.qmk_commit" ]]; then
+  QMK_COMMIT_EFFECTIVE="$(cat "${QMK_HOME}/.qmk_commit")"
+fi
 
-echo "[builder] QMK commit: ${QMK_COMMIT:-unknown}"
+echo "[builder] QMK commit: ${QMK_COMMIT_EFFECTIVE:-unknown}"
 echo "[builder] QMK CLI: $(qmk --version 2>/dev/null || echo 'not installed')"
 
 # Sanitize: lowercase letters, digits, underscores only; must start with a letter
@@ -45,7 +49,7 @@ if [[ -f "${SRC_DIR}/keymap.json" ]]; then
 
   echo "[builder] keyboard=${QMK_KEYBOARD} layout=${QMK_LAYOUT} keymap=${QMK_KEYMAP}"
   echo "[builder] QMK CLI version: $(qmk --version 2>/dev/null || echo 'unknown')"
-  echo "[builder] QMK commit: ${QMK_COMMIT:-unknown}"
+  echo "[builder] QMK commit: ${QMK_COMMIT_EFFECTIVE:-unknown}"
 
   # Copy keymap.json to a temp location qmk compile can find
   # qmk compile accepts a path to a keymap.json file

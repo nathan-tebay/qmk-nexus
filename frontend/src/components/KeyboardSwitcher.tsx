@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useKeyboardStore, type KeyboardConfig } from '@/store/keyboard'
 import { keyboardsApi } from '@/api/keyboards'
+import { MAX_KEY_COUNT } from '@/utils/validateKeyboardConfig'
 import styles from './KeyboardSwitcher.module.css'
 
 const MAX_KEYBOARDS = 20
@@ -82,7 +83,9 @@ export default function KeyboardSwitcher({ onClose }: Props) {
           {!loading && keyboards.length === 0 && (
             <div className={styles.empty}>No saved keyboards yet.</div>
           )}
-          {keyboards.map((kb) => (
+          {keyboards.map((kb) => {
+            const keyLimitExceeded = kb.keys.length > MAX_KEY_COUNT
+            return (
             <div key={kb.id} className={`${styles.row} ${kb.id === config.id ? styles.active : ''}`}>
               <div className={styles.info}>
                 <span className={styles.name}>{kb.name}</span>
@@ -93,7 +96,14 @@ export default function KeyboardSwitcher({ onClose }: Props) {
               </div>
               <div className={styles.actions}>
                 {kb.id !== config.id && (
-                  <button className={styles.loadBtn} onClick={() => handleLoad(kb)}>Load</button>
+                  <button
+                    className={styles.loadBtn}
+                    onClick={() => handleLoad(kb)}
+                    disabled={keyLimitExceeded}
+                    title={keyLimitExceeded ? `Keyboard has ${kb.keys.length} keys; maximum is ${MAX_KEY_COUNT}` : undefined}
+                  >
+                    Load
+                  </button>
                 )}
                 {kb.id === config.id && (
                   <span className={styles.current}>current</span>
@@ -107,7 +117,8 @@ export default function KeyboardSwitcher({ onClose }: Props) {
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         <div className={styles.footer}>

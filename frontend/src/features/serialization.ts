@@ -66,6 +66,7 @@ const CONFIG_H_KEYS = new Set([
   'ENCODER_COUNT',
   'OLED_COUNT',
   'BOOTMAGIC_LITE_ROW', 'BOOTMAGIC_LITE_COLUMN',
+  'BOOTMAGIC_LITE_ROW_RIGHT', 'BOOTMAGIC_LITE_COLUMN_RIGHT',
 ])
 
 export function serializeConfigH(config: KeyboardConfig): string {

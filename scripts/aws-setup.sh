@@ -121,6 +121,9 @@
 #                  ENABLED or DISABLED for Fargate awsvpc networking.
 #   --builder-task-policy-name
 #                  IAM managed policy name attached to --ecs-task-role.
+#   --builder-qmk-commit
+#                  QMK commit baked into the deployed builder image. Defaults
+#                  to backend/data/qmk_meta.json when present.
 #   --create-vpc-endpoints
 #                  Create cost-control endpoints so private Fargate tasks can
 #                  reach S3, ECR, and CloudWatch Logs without a NAT gateway.
@@ -142,8 +145,8 @@
 #   FRONTEND_BUCKET, CERT_ARN, DOMAIN, BACKEND_DOMAIN, BUILD_DOMAIN,
 #   ECS_CLUSTER, ECS_TASK_DEFINITION, ECS_CONTAINER_NAME, ECS_TASK_ROLE_ARN,
 #   ECS_EXECUTION_ROLE_ARN, ECS_SUBNETS, ECS_SECURITY_GROUPS,
-#   ECS_ASSIGN_PUBLIC_IP, BUILDER_TASK_POLICY_NAME, VPC_ID, ROUTE_TABLE_IDS,
-#   ENDPOINT_SECURITY_GROUPS
+#   ECS_ASSIGN_PUBLIC_IP, BUILDER_TASK_POLICY_NAME, BUILDER_QMK_COMMIT,
+#   VPC_ID, ROUTE_TABLE_IDS, ENDPOINT_SECURITY_GROUPS
 #
 # Backward-compatible aliases are also accepted:
 #   QMK_NEXUS_BUCKET, QMK_NEXUS_PRINCIPAL, QMK_NEXUS_POLICY_NAME,
@@ -152,6 +155,23 @@
 #   QMK_NEXUS_BUILD_DOMAIN, QMK_NEXUS_CF_DIST, QMK_NEXUS_BACKEND_CF_DIST
 
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+read_qmk_commit_from_meta() {
+  local meta="$ROOT/backend/data/qmk_meta.json"
+  [[ -f "$meta" ]] || return 0
+  python3 - "$meta" <<'PYJSON' 2>/dev/null || true
+import json
+import sys
+try:
+    value = json.load(open(sys.argv[1])).get('qmk_commit') or ''
+except Exception:
+    value = ''
+print(value if value != 'unknown' else '')
+PYJSON
+}
 
 # ── Defaults ──────────────────────────────────────────────────────────────────
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
@@ -182,6 +202,7 @@ VPC_ID="${VPC_ID:-}"
 ROUTE_TABLE_IDS="${ROUTE_TABLE_IDS:-}"
 ENDPOINT_SECURITY_GROUPS="${ENDPOINT_SECURITY_GROUPS:-}"
 BUILDER_TASK_POLICY_NAME="${BUILDER_TASK_POLICY_NAME:-qmk-nexus-builder-task-policy}"
+BUILDER_QMK_COMMIT="${BUILDER_QMK_COMMIT:-$(read_qmk_commit_from_meta)}"
 TRUST_ENTITY="${TRUST_ENTITY:-lambda.amazonaws.com}"
 CREATE_ROLE=0
 CREATE_BUCKET=0
@@ -235,6 +256,7 @@ while [[ "$#" -gt 0 ]]; do
     --ecs-security-groups) ECS_SECURITY_GROUPS="$2"; shift 2 ;;
     --ecs-assign-public-ip) ECS_ASSIGN_PUBLIC_IP="$2"; shift 2 ;;
     --builder-task-policy-name) BUILDER_TASK_POLICY_NAME="$2"; shift 2 ;;
+    --builder-qmk-commit) BUILDER_QMK_COMMIT="$2"; shift 2 ;;
     --create-vpc-endpoints) CREATE_VPC_ENDPOINTS=1; shift ;;
     --vpc-id)           VPC_ID="$2";           shift 2 ;;
     --route-table-ids)  ROUTE_TABLE_IDS="$2";  shift 2 ;;
@@ -787,6 +809,14 @@ create_vpc_endpoints() {
 }
 
 # ── Lambda helpers ────────────────────────────────────────────────────────────
+lambda_env_vars() {
+  local vars="ENVIRONMENT=production,S3_BUCKET=${AWS_BUCKET},FRONTEND_URL=https://${DOMAIN},API_BASE_URL=https://${DOMAIN},BUILD_RUNNER=ecs,ECS_CLUSTER=${ECS_CLUSTER},ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION},ECS_CONTAINER_NAME=${ECS_CONTAINER_NAME},ECS_SUBNETS=${ECS_SUBNETS},ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS},ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}"
+  if [[ -n "$BUILDER_QMK_COMMIT" ]]; then
+    vars="${vars},BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT}"
+  fi
+  printf 'Variables={%s}' "$vars"
+}
+
 create_or_update_lambda() {
   if aws lambda get-function --function-name "$LAMBDA_NAME" >/dev/null 2>&1; then
     local package_type
@@ -818,6 +848,7 @@ create_or_update_lambda() {
     warn "  ECS_SUBNETS=${ECS_SUBNETS}"
     warn "  ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS}"
     warn "  ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}"
+    [[ -n "$BUILDER_QMK_COMMIT" ]] && warn "  BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT}"
   else
     info "Creating Lambda function $LAMBDA_NAME..."
     aws lambda create-function \
@@ -827,7 +858,7 @@ create_or_update_lambda() {
       --code "ImageUri=${LAMBDA_IMAGE_URI}" \
       --timeout 30 \
       --memory-size 512 \
-      --environment "Variables={ENVIRONMENT=production,S3_BUCKET=${AWS_BUCKET},FRONTEND_URL=https://${DOMAIN},API_BASE_URL=https://${DOMAIN},BUILD_RUNNER=ecs,ECS_CLUSTER=${ECS_CLUSTER},ECS_TASK_DEFINITION=${ECS_TASK_DEFINITION},ECS_CONTAINER_NAME=${ECS_CONTAINER_NAME},ECS_SUBNETS=${ECS_SUBNETS},ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS},ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}}" \
+      --environment "$(lambda_env_vars)" \
       --description "QMK Nexus API (FastAPI + Mangum)" \
       --query 'FunctionArn' --output text >/dev/null
     ok "Created $LAMBDA_NAME"
@@ -1645,6 +1676,7 @@ if [[ "$CREATE_LAMBDA" == "1" ]]; then
     info "             ECS_SUBNETS=${ECS_SUBNETS}"
     info "             ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS}"
     info "             ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}"
+    [[ -n "$BUILDER_QMK_COMMIT" ]] && info "             BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT}"
     info "Would create Function URL with CORS for https://${DOMAIN}"
   else
     create_or_update_lambda
@@ -1761,6 +1793,7 @@ if [[ "$SAVE_ENV" == "1" ]]; then
     info "  export ECS_SECURITY_GROUPS=\"$ECS_SECURITY_GROUPS\""
     info "  export ECS_ASSIGN_PUBLIC_IP=\"$ECS_ASSIGN_PUBLIC_IP\""
     info "  export BUILDER_TASK_POLICY_NAME=\"$BUILDER_TASK_POLICY_NAME\""
+    [[ -n "$BUILDER_QMK_COMMIT" ]] && info "  export BUILDER_QMK_COMMIT=\"$BUILDER_QMK_COMMIT\""
     info "  export VPC_ID=\"$VPC_ID\""
     info "  export ROUTE_TABLE_IDS=\"$ROUTE_TABLE_IDS\""
     info "  export ENDPOINT_SECURITY_GROUPS=\"$ENDPOINT_SECURITY_GROUPS\""
@@ -1791,6 +1824,7 @@ if [[ "$SAVE_ENV" == "1" ]]; then
     persist_env ECS_SECURITY_GROUPS        "$ECS_SECURITY_GROUPS"
     persist_env ECS_ASSIGN_PUBLIC_IP       "$ECS_ASSIGN_PUBLIC_IP"
     persist_env BUILDER_TASK_POLICY_NAME   "$BUILDER_TASK_POLICY_NAME"
+    [[ -n "$BUILDER_QMK_COMMIT" ]] && persist_env BUILDER_QMK_COMMIT "$BUILDER_QMK_COMMIT"
     persist_env VPC_ID                     "$VPC_ID"
     persist_env ROUTE_TABLE_IDS            "$ROUTE_TABLE_IDS"
     persist_env ENDPOINT_SECURITY_GROUPS   "$ENDPOINT_SECURITY_GROUPS"
@@ -1816,6 +1850,7 @@ if [[ "$DRY_RUN" == "0" ]]; then
   info "  ECS_SUBNETS=${ECS_SUBNETS}"
   info "  ECS_SECURITY_GROUPS=${ECS_SECURITY_GROUPS}"
   info "  ECS_ASSIGN_PUBLIC_IP=${ECS_ASSIGN_PUBLIC_IP}"
+  [[ -n "$BUILDER_QMK_COMMIT" ]] && info "  BUILDER_QMK_COMMIT=${BUILDER_QMK_COMMIT}"
   info "Frontend Lambda env vars:"
   info "  API_BASE_URL=https://${BACKEND_DOMAIN}"
   info "Builder image must be deployed as the ECS task definition container."
