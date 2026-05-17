@@ -14,7 +14,7 @@ from codegen.keycodes import TRIVIAL_KEYCODES, normalize_keycode
 from codegen._mcu import MCU_ARCH
 from models import ColPin, EncoderElement, KeyDef, KeyboardConfig, Layer, MatrixEdge, MatrixPin, OledElement, TrackballElement
 from utils import jsonable_out
-from validation import canonical_feature_id, sanitize_keyboard_config
+from validation import MAX_KEY_COUNT, canonical_feature_id, sanitize_keyboard_config
 
 logger = logging.getLogger('qmk-nexus.qmk')
 
@@ -884,26 +884,22 @@ def _matrix_row_count(keys: list[KeyDef]) -> int:
     return max(rows) + 1 if rows else 0
 
 
-def _split_physical_sides(group: list[KeyDef], split_enabled: bool) -> list[list[KeyDef]]:
+def _keyboard_center_x(keys: list[KeyDef]) -> float:
+    if not keys:
+        return 0.0
+    min_x = min(key.x for key in keys)
+    max_x = max(key.x + key.w for key in keys)
+    return (min_x + max_x) / 2
+
+
+def _split_physical_sides(group: list[KeyDef], split_enabled: bool, kb_center_x: float) -> list[list[KeyDef]]:
     if not split_enabled or len(group) < 2:
         return [group]
-
-    ordered = sorted(group, key=lambda key: key.x)
-    min_x = min(key.x for key in ordered)
-    max_x = max(key.x + key.w for key in ordered)
-    center_x = (min_x + max_x) / 2
-    split_candidates = [
-        (
-            abs(((ordered[i].x + ordered[i].w + ordered[i + 1].x) / 2) - center_x),
-            i,
-        )
-        for i in range(len(ordered) - 1)
-        if ordered[i + 1].x - (ordered[i].x + ordered[i].w) >= 1.5
-    ]
-    if not split_candidates:
-        return [group]
-    _distance_from_center, split_at = min(split_candidates)
-    return [ordered[:split_at + 1], ordered[split_at + 1:]]
+    left = [key for key in group if key.x + key.w / 2 < kb_center_x]
+    right = [key for key in group if key.x + key.w / 2 >= kb_center_x]
+    if left and right:
+        return [left, right]
+    return [group]
 
 
 def _split_by_matrix_half(group: list[KeyDef], attr: str, extent: int, split_enabled: bool) -> list[list[KeyDef]]:
@@ -917,6 +913,30 @@ def _split_by_matrix_half(group: list[KeyDef], attr: str, extent: int, split_ena
     return [group]
 
 
+def _order_segment(segment: list[KeyDef]) -> list[KeyDef]:
+    if len(segment) < 2:
+        return list(segment)
+    xs = [key.x for key in segment]
+    ys = [key.y for key in segment]
+    if max(xs) - min(xs) >= max(ys) - min(ys):
+        return sorted(segment, key=lambda key: (key.x, key.y))
+    return sorted(segment, key=lambda key: (key.y, key.x))
+
+
+def _matrix_is_row_doubled(keys: list[KeyDef], kb_center_x: float) -> bool:
+    # True when matrix col indices are shared across physical halves
+    # (e.g., 12-row × 7-col ergodox: col 0 has keys on both sides).
+    # False for col-doubled matrices (e.g., 6-row × 14-col hotdox v1)
+    # where each col index belongs to exactly one physical side.
+    sides_by_col: dict[int, set[str]] = defaultdict(set)
+    for key in keys:
+        if key.col is None:
+            continue
+        side = 'left' if key.x + key.w / 2 < kb_center_x else 'right'
+        sides_by_col[key.col].add(side)
+    return any(len(sides) > 1 for sides in sides_by_col.values())
+
+
 def _matrix_edges_from_keys(keys: list[KeyDef], split_enabled: bool) -> list[MatrixEdge]:
     row_groups: dict[int, list[KeyDef]] = defaultdict(list)
     col_groups: dict[int, list[KeyDef]] = defaultdict(list)
@@ -927,16 +947,23 @@ def _matrix_edges_from_keys(keys: list[KeyDef], split_enabled: bool) -> list[Mat
             col_groups[key.col].append(key)
 
     row_count = _matrix_row_count(keys)
+    kb_center_x = _keyboard_center_x(keys)
+    row_doubled = split_enabled and _matrix_is_row_doubled(keys, kb_center_x)
     matrix_edges: list[MatrixEdge] = []
     for group in row_groups.values():
-        for segment in _split_physical_sides(group, split_enabled):
-            ordered = sorted(segment, key=lambda key: (key.x, key.y))
+        for segment in _split_physical_sides(group, split_enabled, kb_center_x):
+            ordered = _order_segment(segment)
             for i in range(len(ordered) - 1):
                 matrix_edges.append(MatrixEdge(from_=ordered[i].id, to=ordered[i + 1].id, type='row'))
     for group in col_groups.values():
-        for matrix_segment in _split_by_matrix_half(group, 'row', row_count, split_enabled):
-            for segment in _split_physical_sides(matrix_segment, split_enabled):
-                ordered = sorted(segment, key=lambda key: (key.y, key.x))
+        matrix_segments = (
+            _split_by_matrix_half(group, 'row', row_count, split_enabled)
+            if row_doubled
+            else [group]
+        )
+        for matrix_segment in matrix_segments:
+            for segment in _split_physical_sides(matrix_segment, split_enabled, kb_center_x):
+                ordered = _order_segment(segment)
                 for i in range(len(ordered) - 1):
                     matrix_edges.append(MatrixEdge(from_=ordered[i].id, to=ordered[i + 1].id, type='col'))
 
@@ -1162,7 +1189,13 @@ def import_keyboard(
     layout_only: bool = Query(default=False, alias='layoutOnly'),
 ) -> KeyboardConfig:
     info = _load_keyboard_info(kb_path)
-    return jsonable_out(_convert_to_config(kb_path, info, layout_only=layout_only))
+    config = _convert_to_config(kb_path, info, layout_only=layout_only)
+    if len(config.keys) > MAX_KEY_COUNT:
+        raise HTTPException(
+            status_code=422,
+            detail=[f'Keyboard has {len(config.keys)} keys; maximum is {MAX_KEY_COUNT}.'],
+        )
+    return jsonable_out(config)
 
 
 class LayoutSwitchRequest(BaseModel):

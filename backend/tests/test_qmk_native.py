@@ -459,6 +459,89 @@ def test_import_split_matrix_edges_do_not_cross_physical_halves():
     )
 
 
+def test_import_ergodox_style_col_edges_are_monotonic_in_x():
+    # Ergodox-style: matrix "col" index spans a horizontal stripe of keys
+    # across both halves with near-constant y. Edges within a half must
+    # progress monotonically along x (no zigzag from y-tiebreaker sort).
+    imported = _convert_to_config('ergodox/test', {
+        'keyboard_name': 'Ergodox Test',
+        'matrix_pins': {'custom_lite': True},
+        'split': {'enabled': True},
+        'layouts': {
+            'LAYOUT': {
+                'layout': [
+                    # matrix col 0 = top physical row; 5 keys per half with
+                    # tiny y variation that would scramble a (y, x) sort.
+                    {'matrix': [0, 0], 'x': 0.0, 'y': 0.4},
+                    {'matrix': [1, 0], 'x': 1.0, 'y': 0.1},
+                    {'matrix': [2, 0], 'x': 2.0, 'y': 0.0},
+                    {'matrix': [3, 0], 'x': 3.0, 'y': 0.1},
+                    {'matrix': [4, 0], 'x': 4.0, 'y': 0.2},
+                    {'matrix': [5, 0], 'x': 9.0, 'y': 0.2},
+                    {'matrix': [6, 0], 'x': 10.0, 'y': 0.1},
+                    {'matrix': [7, 0], 'x': 11.0, 'y': 0.0},
+                    {'matrix': [8, 0], 'x': 12.0, 'y': 0.1},
+                    {'matrix': [9, 0], 'x': 13.0, 'y': 0.4},
+                    # second matrix col so the column group has > 1 col
+                    {'matrix': [0, 1], 'x': 0.0, 'y': 1.4},
+                    {'matrix': [4, 1], 'x': 4.0, 'y': 1.2},
+                    {'matrix': [5, 1], 'x': 9.0, 'y': 1.2},
+                    {'matrix': [9, 1], 'x': 13.0, 'y': 1.4},
+                ],
+            },
+        },
+    })
+
+    by_id = {key.id: key for key in imported.keys}
+    col_edges = [edge for edge in imported.matrix_edges if edge.type == 'col']
+    assert col_edges
+    # No col edge may cross the keyboard's physical midline.
+    kb_center_x = (
+        min(key.x for key in imported.keys)
+        + max(key.x + key.w for key in imported.keys)
+    ) / 2
+    for edge in col_edges:
+        fx = by_id[edge.from_].x + by_id[edge.from_].w / 2
+        tx = by_id[edge.to].x + by_id[edge.to].w / 2
+        assert (fx < kb_center_x) == (tx < kb_center_x)
+    # Each col edge must step in a single x direction (no zigzag).
+    for edge in col_edges:
+        assert by_id[edge.to].x - by_id[edge.from_].x >= 0
+
+
+def test_import_col_doubled_split_keeps_columns_continuous():
+    # Hotdox v1 style: 6-row × 14-col matrix where col indices are doubled
+    # across halves (cols 0-6 = left, cols 7-13 = right). Every col index
+    # belongs to one physical side, so the row-half split must NOT cut
+    # col edges in the middle of a single column.
+    layout_keys = []
+    for col in range(14):
+        x = float(col) + (3.0 if col >= 7 else 0.0)  # gap between halves
+        for row in range(6):
+            layout_keys.append({'matrix': [row, col], 'x': x, 'y': float(row)})
+
+    imported = _convert_to_config('hotdox/v1', {
+        'keyboard_name': 'HotDox v1',
+        'matrix_pins': {'custom': True},
+        'split': {'enabled': True},
+        'layouts': {'LAYOUT': {'layout': layout_keys}},
+    })
+
+    by_id = {key.id: key for key in imported.keys}
+    edges_by_col: dict[int, list[tuple[int, int]]] = {}
+    for edge in imported.matrix_edges:
+        if edge.type != 'col':
+            continue
+        fk, tk = by_id[edge.from_], by_id[edge.to]
+        assert fk.col == tk.col
+        edges_by_col.setdefault(fk.col, []).append((fk.row, tk.row))
+
+    for col in range(14):
+        pairs = sorted(edges_by_col.get(col, []))
+        assert pairs == [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)], \
+            f'col {col} edges {pairs} — expected continuous 0→5 chain'
+
+
 def test_import_extracts_rgb_matrix_i2c_pins_from_upstream_config():
     config = _convert_to_config('vendor/is31', {
         'keyboard_name': 'IS31 Board',
