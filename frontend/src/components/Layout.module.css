@@ -49,7 +49,6 @@
 
 .smallHeroImage {
   display: block;
-  width: auto;
   height: 50px;
   filter: var(--small-hero-filter);
 }
@@ -202,23 +201,6 @@
   flex: 1;
   justify-content: center;
   min-width: 0;
-}
-
-.switcherBtn {
-  background: none;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text-muted);
-  font-size: 17.5px;
-  cursor: pointer;
-  padding: 3px 8px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.switcherBtn:hover {
-  background: var(--bg-elevated);
-  color: var(--text);
 }
 
 .kbNameBtn {

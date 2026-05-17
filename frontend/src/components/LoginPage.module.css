@@ -22,25 +22,10 @@
 
 /* ── Logo ── */
 
-.logoRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  align-self: flex-start;
-  margin-bottom: 16px;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text);
-}
-
 .logo {
   width: 36px;
   height: 36px;
   object-fit: contain;
-}
-
-.logoText {
-  letter-spacing: -0.3px;
 }
 
 /* ── Hero image ── */
@@ -55,7 +40,6 @@
 .heroImage {
   display: block;
   width: 100%;
-  height: auto;
 }
 
 /* ── Value prop ── */
@@ -63,6 +47,7 @@
 .valueSection {
   align-self: stretch;
   margin-bottom: 20px;
+  align-self: center;
 }
 
 .kicker {
@@ -84,11 +69,18 @@
 }
 
 .lead {
+  text-indent: 3ch;
   margin: 0 0 16px;
   font-size: 14.5px;
   line-height: 1.55;
   color: var(--text-muted);
   max-width: 620px;
+}
+
+.lead a {
+  color:var(--accent);
+  text-decoration:none;
+  font-weight:600
 }
 
 /* ── Stepper ── */
