@@ -61,6 +61,37 @@ def test_undefined_keys_excluded_from_keymap(undefined_key_kb):
     assert 'undef' not in c, 'Undefined key id must not appear in keymap.c'
 
 
+# ── Macro emission ────────────────────────────────────────────────────────────
+
+def test_no_macros_emits_no_process_record_user(minimal_avr_kb):
+    c = generate_keymap_c(minimal_avr_kb)
+    assert 'process_record_user' not in c
+    assert 'SAFE_RANGE' not in c
+    assert 'enum nexus_macros' not in c
+
+
+def test_macros_emit_enum_and_process_record_user(macros_kb):
+    c = generate_keymap_c(macros_kb)
+    assert 'enum nexus_macros {' in c
+    assert 'NX_M0 = SAFE_RANGE,' in c
+    assert 'NX_M1,' in c
+    assert '#define M(n) (NX_M0 + (n))' in c
+    assert 'bool process_record_user(uint16_t keycode, keyrecord_t *record)' in c
+    # M(n) tokens survive into the keymap (not stubbed as KC_NO)
+    assert 'M(0)' in c and 'M(1)' in c
+    assert '#define M(0) KC_NO' not in c
+
+
+def test_macro_step_emission_covers_each_type(macros_kb):
+    c = generate_keymap_c(macros_kb)
+    assert 'tap_code16(KC_ENT);' in c
+    assert 'register_code16(KC_LSFT);' in c
+    assert 'unregister_code16(KC_LSFT);' in c
+    assert 'wait_ms(50);' in c
+    # String escaping: " becomes \" and \n becomes \\n
+    assert 'SEND_STRING("hi \\"world\\"\\n");' in c
+
+
 def test_layout_param_count_matches_defined_keys(minimal_avr_kb):
     info = json.loads(generate_info_json(minimal_avr_kb))
     layout = info['layouts']['LAYOUT']['layout']
@@ -256,6 +287,30 @@ def test_direct_matrix_generates_direct_pins_not_row_col_defines(minimal_avr_kb)
     assert '#define MATRIX_COL_PINS' not in config
 
 
+def test_split_bootmagic_emits_right_half_position(split_rgb_kb):
+    kb = split_rgb_kb.model_copy(update={
+        'features': {**split_rgb_kb.features, 'bootmagic': True},
+        'feature_configs': {
+            **split_rgb_kb.feature_configs,
+            'bootmagic': {
+                'BOOTMAGIC_LITE_ROW': '0',
+                'BOOTMAGIC_LITE_COLUMN': '0',
+                'BOOTMAGIC_LITE_ROW_RIGHT': '1',
+                'BOOTMAGIC_LITE_COLUMN_RIGHT': '1',
+            },
+        },
+    })
+
+    config = generate_config_h(kb)
+
+    assert '#define BOOTMAGIC_LITE_ROW 0' in config
+    assert '#define BOOTMAGIC_LITE_COLUMN 0' in config
+    assert '#define BOOTMAGIC_LITE_ROW_RIGHT 1' in config
+    assert '#define BOOTMAGIC_LITE_COLUMN_RIGHT 1' in config
+    assert '#define BOOTMAGIC_ROW_RIGHT 1' in config
+    assert '#define BOOTMAGIC_COLUMN_RIGHT 1' in config
+
+
 def test_mk20dx256_generates_arm_rules_and_kiibohd_bootloader(minimal_avr_kb):
     kb = minimal_avr_kb.model_copy(update={'mcu': 'mk20dx256'})
 
@@ -337,6 +392,7 @@ def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
     ('advanced_features_kb', generate_keymap_c, 'advanced_features.keymap_c'),
     ('advanced_features_kb', generate_config_h, 'advanced_features.config_h'),
     ('advanced_features_kb', generate_rules_mk, 'advanced_features.rules_mk'),
+    ('macros_kb', generate_keymap_c, 'macros.keymap_c'),
 ])
 def test_snapshot(request, fixture, gen_fn, suffix):
     kb: KeyboardConfig = request.getfixturevalue(fixture)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from models import KeyboardConfig
+from models import KeyboardConfig, MacroEntry, MacroStep
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
 
 
@@ -141,6 +141,61 @@ def _generated_custom_keycode_defines(
     return custom
 
 
+def _macro_enum_name(index: int) -> str:
+    return f'NX_M{index}'
+
+
+_SEND_STRING_ESCAPE = {'\\': '\\\\', '"': '\\"', '\n': '\\n', '\t': '\\t', '\r': '\\r'}
+
+
+def _escape_send_string(text: str) -> str:
+    out: list[str] = []
+    for ch in text:
+        if ch in _SEND_STRING_ESCAPE:
+            out.append(_SEND_STRING_ESCAPE[ch])
+            continue
+        code = ord(ch)
+        if 0x20 <= code < 0x7F:
+            out.append(ch)
+        else:
+            out.append(f'\\x{code:02x}' if code < 0x100 else '?')
+    return ''.join(out)
+
+
+def _macro_step_to_c(step: MacroStep) -> str | None:
+    if step.type == 'tap' and step.keycode:
+        return f'tap_code16({step.keycode});'
+    if step.type == 'down' and step.keycode:
+        return f'register_code16({step.keycode});'
+    if step.type == 'up' and step.keycode:
+        return f'unregister_code16({step.keycode});'
+    if step.type == 'string' and step.text is not None:
+        return f'SEND_STRING("{_escape_send_string(step.text)}");'
+    if step.type == 'delay' and step.ms is not None:
+        return f'wait_ms({int(step.ms)});'
+    return None
+
+
+def _emit_macros_block(macros: list[MacroEntry]) -> list[str]:
+    if not macros:
+        return []
+    lines = ['bool process_record_user(uint16_t keycode, keyrecord_t *record) {',
+             '    if (!record->event.pressed) return true;',
+             '    switch (keycode) {']
+    for i, macro in enumerate(macros):
+        lines.append(f'        case {_macro_enum_name(i)}:  /* {_c_comment(macro.name)} */')
+        for step in macro.steps:
+            emitted = _macro_step_to_c(step)
+            if emitted:
+                lines.append(f'            {emitted}')
+        lines.append('            return false;')
+    lines.append('    }')
+    lines.append('    return true;')
+    lines.append('}')
+    lines.append('')
+    return lines
+
+
 def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     keycodes = _all_keycodes(config)
     layer_symbols = _generated_layer_symbols(keycodes, len(config.layers))
@@ -157,6 +212,16 @@ def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     for keycode in custom_keycodes:
         lines.append(f'#define {keycode} KC_NO')
     if custom_keycodes:
+        lines.append('')
+
+    macros = config.macros or []
+    if macros:
+        lines.append('enum nexus_macros {')
+        for i, _ in enumerate(macros):
+            suffix = ' = SAFE_RANGE' if i == 0 else ''
+            lines.append(f'    {_macro_enum_name(i)}{suffix},')
+        lines.append('};')
+        lines.append(f'#define M(n) ({_macro_enum_name(0)} + (n))')
         lines.append('')
 
     return lines
@@ -239,5 +304,7 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
             lines.append(f'    COMBO(combo_{i}, {combo.output}){sep}')
         lines.append('};')
         lines.append('')
+
+    lines.extend(_emit_macros_block(config.macros or []))
 
     return "\n".join(lines)

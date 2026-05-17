@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
+from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement
 
 
 def pytest_addoption(parser):
@@ -129,6 +129,40 @@ def advanced_features_kb() -> KeyboardConfig:
             ComboEntry(id='c0', keys=['k0', 'k1'], output='KC_ESC'),
             # Combo 2: k2 resolves via layer 1 (base is TRNS) → exercises layer scan
             ComboEntry(id='c1', keys=['k2', 'k3'], output='QK_LEAD'),
+        ],
+    )
+
+
+@pytest.fixture
+def macros_kb() -> KeyboardConfig:
+    """Two macros: one mixes string + delay + tap; another uses register/unregister mod-hold."""
+    return KeyboardConfig(
+        id='test-macros',
+        name='Test Macros',
+        mcu='atmega32u4',
+        usb_vid='0xFEED', usb_pid='0x0005', manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0),
+            _key('k1', 0, 1, 1, 0),
+            _key('k2', 1, 0, 0, 1),
+            _key('k3', 1, 1, 1, 1),
+        ],
+        row_pins=[MatrixPin(row=0, pin='B0'), MatrixPin(row=1, pin='B1')],
+        col_pins=[ColPin(col=0, pin='D0'), ColPin(col=1, pin='D1')],
+        layers=[Layer(id='layer0', name='Base', keycodes={
+            'k0': 'M(0)', 'k1': 'M(1)', 'k2': 'KC_A', 'k3': 'KC_B',
+        })],
+        macros=[
+            MacroEntry(id='m0', name='Email', steps=[
+                MacroStep(type='string', text='hi "world"\n'),
+                MacroStep(type='delay', ms=50),
+                MacroStep(type='tap', keycode='KC_ENT'),
+            ]),
+            MacroEntry(id='m1', name='ShiftA', steps=[
+                MacroStep(type='down', keycode='KC_LSFT'),
+                MacroStep(type='tap', keycode='KC_A'),
+                MacroStep(type='up', keycode='KC_LSFT'),
+            ]),
         ],
     )
 

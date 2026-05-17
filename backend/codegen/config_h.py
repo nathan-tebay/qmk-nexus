@@ -256,13 +256,23 @@ def generate_config_h(config: KeyboardConfig) -> str:
 
     if features.get('bootmagic'):
         bm = fc.get('bootmagic', {})
-        row = bm.get('BOOTMAGIC_LITE_ROW', '0')
-        col = bm.get('BOOTMAGIC_LITE_COLUMN', '0')
+        row = bm.get('BOOTMAGIC_LITE_ROW') or '0'
+        col = bm.get('BOOTMAGIC_LITE_COLUMN') or '0'
         lines += [
             f'#define BOOTMAGIC_LITE_ROW {row}',
             f'#define BOOTMAGIC_LITE_COLUMN {col}',
-            '',
         ]
+        if features.get('split_keyboard'):
+            right_row = bm.get('BOOTMAGIC_LITE_ROW_RIGHT') or bm.get('BOOTMAGIC_ROW_RIGHT')
+            right_col = bm.get('BOOTMAGIC_LITE_COLUMN_RIGHT') or bm.get('BOOTMAGIC_COLUMN_RIGHT')
+            if right_row and right_col:
+                lines += [
+                    f'#define BOOTMAGIC_LITE_ROW_RIGHT {right_row}',
+                    f'#define BOOTMAGIC_LITE_COLUMN_RIGHT {right_col}',
+                    f'#define BOOTMAGIC_ROW_RIGHT {right_row}',
+                    f'#define BOOTMAGIC_COLUMN_RIGHT {right_col}',
+                ]
+        lines.append('')
 
     if features.get('leader_key'):
         lk = fc.get('leader_key', {})

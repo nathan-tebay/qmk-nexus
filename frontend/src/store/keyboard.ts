@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { matrixExtentOrNull } from '@/utils/matrixExtent'
+import { MAX_KEY_COUNT } from '@/utils/validateKeyboardConfig'
 
 function makeUF(ids: string[]) {
   const parent = new Map<string, string>()
@@ -158,6 +159,21 @@ export interface ComboEntry {
   output: string
 }
 
+export type MacroStepType = 'tap' | 'down' | 'up' | 'string' | 'delay'
+
+export interface MacroStep {
+  type: MacroStepType
+  keycode?: string
+  text?: string
+  ms?: number
+}
+
+export interface MacroEntry {
+  id: string
+  name: string
+  steps: MacroStep[]
+}
+
 export interface TrackballElement {
   id: string
   x: number
@@ -197,10 +213,11 @@ export interface KeyboardConfig {
   customFiles: Record<string, string>
   encoderKeycodes: Record<string, string>
   combos: ComboEntry[]
+  macros: MacroEntry[]
 }
 
 const featureDefaults: Record<string, Record<string, string>> = {
-  bootmagic: { BOOTMAGIC_LITE_ROW: '', BOOTMAGIC_LITE_COLUMN: '' },
+  bootmagic: { BOOTMAGIC_LITE_ROW: '', BOOTMAGIC_LITE_COLUMN: '', BOOTMAGIC_LITE_ROW_RIGHT: '', BOOTMAGIC_LITE_COLUMN_RIGHT: '' },
   mousekeys: { MOUSEKEY_DELAY: '500', MOUSEKEY_INTERVAL: '50', MOUSEKEY_MAX_SPEED: '5' },
   nkro: { FORCE_NKRO: 'no' },
   rgblight: { RGBLIGHT_PIN: 'D3', RGBLIGHT_LED_COUNT: '30', RGBLIGHT_LIMIT_VAL: '255', RGBLIGHT_DEFAULT_MODE: 'RGBLIGHT_EFFECT_BREATHING' },
@@ -402,6 +419,7 @@ const defaultConfig: KeyboardConfig = {
   customFiles: {},
   encoderKeycodes: {},
   combos: [],
+  macros: [],
 }
 
 interface KeyboardStore {
@@ -443,6 +461,13 @@ interface KeyboardStore {
   addCombo: () => void
   removeCombo: (id: string) => void
   updateCombo: (id: string, patch: Partial<Omit<ComboEntry, 'id'>>) => void
+  addMacro: () => string
+  removeMacro: (id: string) => void
+  updateMacro: (id: string, patch: Partial<Omit<MacroEntry, 'id' | 'steps'>>) => void
+  addMacroStep: (macroId: string, step: MacroStep, index?: number) => void
+  updateMacroStep: (macroId: string, index: number, patch: Partial<MacroStep>) => void
+  removeMacroStep: (macroId: string, index: number) => void
+  reorderMacroStep: (macroId: string, from: number, to: number) => void
   reset: () => void
 }
 
@@ -488,7 +513,10 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
   setActiveLayer: (id) => set({ activeLayerId: id }),
 
   addKey: (key) =>
-    set((s) => ({ config: { ...s.config, keys: [...s.config.keys, key] } })),
+    set((s) => {
+      if (s.config.keys.length >= MAX_KEY_COUNT) return s
+      return { config: { ...s.config, keys: [...s.config.keys, key] } }
+    }),
 
   updateKey: (id, updates) =>
     set((s) => {
@@ -745,6 +773,88 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       config: {
         ...s.config,
         combos: (s.config.combos ?? []).map((c) => c.id === id ? { ...c, ...patch } : c),
+      },
+    })),
+
+  addMacro: () => {
+    const id = uid()
+    set((s) => {
+      const macros = s.config.macros ?? []
+      return {
+        config: {
+          ...s.config,
+          macros: [...macros, { id, name: `Macro ${macros.length + 1}`, steps: [] }],
+        },
+      }
+    })
+    return id
+  },
+
+  removeMacro: (id) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).filter((m) => m.id !== id),
+      },
+    })),
+
+  updateMacro: (id, patch) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).map((m) => m.id === id ? { ...m, ...patch } : m),
+      },
+    })),
+
+  addMacroStep: (macroId, step, index) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).map((m) => {
+          if (m.id !== macroId) return m
+          const steps = [...m.steps]
+          const at = index ?? steps.length
+          steps.splice(at, 0, step)
+          return { ...m, steps }
+        }),
+      },
+    })),
+
+  updateMacroStep: (macroId, index, patch) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).map((m) => {
+          if (m.id !== macroId) return m
+          const steps = m.steps.map((st, i) => i === index ? { ...st, ...patch } : st)
+          return { ...m, steps }
+        }),
+      },
+    })),
+
+  removeMacroStep: (macroId, index) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).map((m) => {
+          if (m.id !== macroId) return m
+          return { ...m, steps: m.steps.filter((_, i) => i !== index) }
+        }),
+      },
+    })),
+
+  reorderMacroStep: (macroId, from, to) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        macros: (s.config.macros ?? []).map((m) => {
+          if (m.id !== macroId) return m
+          if (from === to || from < 0 || to < 0 || from >= m.steps.length || to >= m.steps.length) return m
+          const steps = [...m.steps]
+          const [moved] = steps.splice(from, 1)
+          steps.splice(to, 0, moved)
+          return { ...m, steps }
+        }),
       },
     })),
 

@@ -14,6 +14,7 @@ export default function FeatureToggles() {
   const featureConfigs = useKeyboardStore((s) => s.config.featureConfigs)
   const keys = useKeyboardStore((s) => s.config.keys)
   const layers = useKeyboardStore((s) => s.config.layers)
+  const splitEnabled = !!features['split_keyboard']
   const toggleFeature = useKeyboardStore((s) => s.toggleFeature)
   const setFeatureConfig = useKeyboardStore((s) => s.setFeatureConfig)
   function handleToggleFeature(id: string) {
@@ -115,11 +116,19 @@ export default function FeatureToggles() {
                           <BootmagicKeyPicker
                             keys={keys}
                             layers={layers}
+                            splitEnabled={splitEnabled}
                             row={cfg.BOOTMAGIC_LITE_ROW ?? ''}
                             col={cfg.BOOTMAGIC_LITE_COLUMN ?? ''}
-                            onSelect={(r, c) => {
-                              setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_ROW', r)
-                              setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_COLUMN', c)
+                            rightRow={cfg.BOOTMAGIC_LITE_ROW_RIGHT ?? ''}
+                            rightCol={cfg.BOOTMAGIC_LITE_COLUMN_RIGHT ?? ''}
+                            onSelect={(side, r, c) => {
+                              if (side === 'right') {
+                                setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_ROW_RIGHT', r)
+                                setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_COLUMN_RIGHT', c)
+                              } else {
+                                setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_ROW', r)
+                                setFeatureConfig('bootmagic', 'BOOTMAGIC_LITE_COLUMN', c)
+                              }
                             }}
                           />
                         )}
@@ -145,12 +154,15 @@ interface ConfigRowProps {
 interface BootmagicKeyPickerProps {
   keys: KeyDef[]
   layers: Layer[]
+  splitEnabled: boolean
   row: string
   col: string
-  onSelect: (row: string, col: string) => void
+  rightRow: string
+  rightCol: string
+  onSelect: (side: 'left' | 'right', row: string, col: string) => void
 }
 
-function BootmagicKeyPicker({ keys, layers, row, col, onSelect }: BootmagicKeyPickerProps) {
+function BootmagicKeyPicker({ keys, layers, splitEnabled, row, col, rightRow, rightCol, onSelect }: BootmagicKeyPickerProps) {
   const baseKeycodes = layers[0]?.keycodes ?? {}
   const definedKeys = keys
     .filter((k) => k.row != null && k.col != null)
@@ -160,15 +172,23 @@ function BootmagicKeyPicker({ keys, layers, row, col, onSelect }: BootmagicKeyPi
 
   const selectedRow = row !== '' ? Number(row) : null
   const selectedCol = col !== '' ? Number(col) : null
+  const selectedRightRow = rightRow !== '' ? Number(rightRow) : null
+  const selectedRightCol = rightCol !== '' ? Number(rightCol) : null
+  const rowValues = definedKeys.map((k) => k.row!).filter((r) => Number.isFinite(r))
+  const rowCount = rowValues.length > 0 ? Math.max(...rowValues) + 1 : 0
+  const splitRowMidpoint = splitEnabled && rowCount > 1 && rowCount % 2 === 0 ? rowCount / 2 : null
 
   return (
     <div className={styles.bootmagicPicker}>
       <span className={`${styles.configLabel} ${styles.bootmagicPickerLabel}`}>
-        Click key to assign Bootmagic position
+        Click key to assign Bootmagic position{splitEnabled ? ' (right-half keys use RIGHT defines)' : ''}
       </span>
       <div className={styles.bootmagicKeyGrid}>
         {definedKeys.map((k) => {
-          const isSelected = k.row === selectedRow && k.col === selectedCol
+          const side: 'left' | 'right' = splitRowMidpoint !== null && k.row! >= splitRowMidpoint ? 'right' : 'left'
+          const isSelected = side === 'right'
+            ? k.row === selectedRightRow && k.col === selectedRightCol
+            : k.row === selectedRow && k.col === selectedCol
           const label = baseKeycodes[k.id] || k.id
           const btnClass = isSelected
             ? `${styles.bootmagicKey} ${styles.bootmagicKeySelected}`
@@ -176,8 +196,8 @@ function BootmagicKeyPicker({ keys, layers, row, col, onSelect }: BootmagicKeyPi
           return (
             <button
               key={k.id}
-              title={`Row ${k.row}, Col ${k.col}`}
-              onClick={() => onSelect(String(k.row), String(k.col))}
+              title={`${side === 'right' ? 'Right ' : ''}Row ${k.row}, Col ${k.col}`}
+              onClick={() => onSelect(side, String(k.row), String(k.col))}
               className={btnClass}
             >
               {label}

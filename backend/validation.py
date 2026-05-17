@@ -8,6 +8,12 @@ from models import KeyboardConfig, Layer
 
 _MAX_UPSTREAM_FILES = 200
 _MAX_UPSTREAM_KEY_LEN = 256
+MAX_KEY_COUNT = 250
+MAX_MACROS = 16
+MAX_MACRO_STEPS = 32
+MAX_MACRO_STRING_LEN = 256
+MAX_MACRO_DELAY_MS = 10_000
+_MACRO_REF_RE = re.compile(r'\bM\(\s*(\d+)\s*\)')
 
 _VALID_ENCODER_DIRS = frozenset({'cw', 'ccw'})
 _FEATURE_ALIASES = {
@@ -36,6 +42,10 @@ _NUMERIC_KEYS = frozenset({
     'BACKLIGHT_LEVELS',
     'BOOTMAGIC_LITE_ROW',
     'BOOTMAGIC_LITE_COLUMN',
+    'BOOTMAGIC_LITE_ROW_RIGHT',
+    'BOOTMAGIC_LITE_COLUMN_RIGHT',
+    'BOOTMAGIC_ROW_RIGHT',
+    'BOOTMAGIC_COLUMN_RIGHT',
     'MOUSEKEY_DELAY',
     'MOUSEKEY_INTERVAL',
     'MOUSEKEY_MAX_SPEED',
@@ -229,8 +239,61 @@ def _validate_feature_config_value(feature_id: str, key: str, value: str, errors
         errors.append(f'{label} contains unsupported characters.')
 
 
+def _validate_macros(config: KeyboardConfig, errors: list[str]) -> None:
+    macros = config.macros or []
+    if len(macros) > MAX_MACROS:
+        errors.append(f'At most {MAX_MACROS} macros are supported (got {len(macros)}).')
+
+    for i, macro in enumerate(macros):
+        label = f'Macro {i} ({macro.name})' if macro.name else f'Macro {i}'
+        if not macro.id:
+            errors.append(f'{label} is missing an id.')
+        if _has_control_chars(macro.name or ''):
+            errors.append(f'{label} name contains control characters.')
+        if len(macro.steps) > MAX_MACRO_STEPS:
+            errors.append(f'{label} has {len(macro.steps)} steps; maximum is {MAX_MACRO_STEPS}.')
+
+        total_string_chars = 0
+        for j, step in enumerate(macro.steps):
+            step_label = f'{label} step {j}'
+            if step.type in ('tap', 'down', 'up'):
+                if not step.keycode:
+                    errors.append(f'{step_label}: {step.type} requires a keycode.')
+                else:
+                    _validate_keycode(step_label, step.keycode, errors)
+            elif step.type == 'string':
+                if step.text is None:
+                    errors.append(f'{step_label}: string requires text.')
+                else:
+                    if _has_control_chars(step.text.replace('\n', '').replace('\t', '')):
+                        errors.append(f'{step_label}: string contains unsupported control characters.')
+                    total_string_chars += len(step.text)
+            elif step.type == 'delay':
+                if step.ms is None or step.ms < 1 or step.ms > MAX_MACRO_DELAY_MS:
+                    errors.append(f'{step_label}: delay must be 1-{MAX_MACRO_DELAY_MS} ms.')
+            else:
+                errors.append(f'{step_label}: unknown step type {step.type!r}.')
+
+        if total_string_chars > MAX_MACRO_STRING_LEN:
+            errors.append(
+                f'{label} total string length is {total_string_chars}; maximum is {MAX_MACRO_STRING_LEN}.'
+            )
+
+    macro_count = len(macros)
+    for layer_idx, layer in enumerate(config.layers):
+        for key_id, keycode in (layer.keycodes or {}).items():
+            for match in _MACRO_REF_RE.finditer(keycode or ''):
+                n = int(match.group(1))
+                if n < 0 or n >= macro_count:
+                    errors.append(
+                        f'Layer {layer_idx} key {key_id} references M({n}) but only {macro_count} macros are defined.'
+                    )
+
+
 def validate_keyboard_config(config: KeyboardConfig) -> list[str]:
     errors: list[str] = []
+    if len(config.keys) > MAX_KEY_COUNT:
+        errors.append(f'Keyboard has {len(config.keys)} keys; maximum is {MAX_KEY_COUNT}.')
     if _has_control_chars(config.name or ''):
         errors.append('Keyboard name contains control characters.')
     if _has_control_chars(config.manufacturer or ''):
@@ -295,6 +358,8 @@ def validate_keyboard_config(config: KeyboardConfig) -> list[str]:
 
     for binding, keycode in (config.encoder_keycodes or {}).items():
         _validate_keycode(f'Encoder binding {binding}', keycode, errors)
+
+    _validate_macros(config, errors)
 
     for feature_id, values in (config.feature_configs or {}).items():
         if not config.features.get(feature_id):

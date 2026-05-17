@@ -218,11 +218,19 @@
 
 .modRow {
   display: flex;
+  align-items: center;
   gap: 6px;
   padding: 8px 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.modLabel {
+  font-size: 13.75px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 2px;
 }
 
 .modBtn {
@@ -241,7 +249,7 @@
   border-color: var(--accent);
 }
 
-.shortcutPanel {
+.manualPanel {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -251,35 +259,16 @@
   flex-shrink: 0;
 }
 
-.shortcutHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.captureBtn,
 .assignSmallBtn {
   padding: 5px 10px;
   border-radius: 4px;
   font-size: 13.75px;
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.captureActive {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 35%, var(--bg-elevated) 65%);
-  color: var(--text);
-}
-
-.assignSmallBtn {
   background: var(--accent);
   color: var(--on-accent);
   border-color: var(--accent);
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .assignSmallBtn:disabled {
@@ -287,36 +276,10 @@
   cursor: not-allowed;
 }
 
-.shortcutHint,
-.shortcutNotice,
-.shortcutWarning {
-  font-size: 13.75px;
-  color: var(--text-muted);
-}
-
-.shortcutWarning {
-  color: #fbbf24;
-}
-
-.capturePreview,
 .manualEntry {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.capturePreview {
-  justify-content: space-between;
-  font-size: 13.75px;
-  color: var(--text);
-}
-
-.capturePreview code {
-  color: var(--text);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 2px 5px;
 }
 
 .manualInput {
@@ -395,4 +358,156 @@
 .assignBtn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.macroPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.macroListRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.macroTab {
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border, #444);
+  background: var(--panel, #2a2a2a);
+  color: var(--text, #eee);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.macroTab.macroTabActive {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.macroEditor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.macroEditorHeader {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.macroNameInput {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--input-bg, #1e1e1e);
+  border: 1px solid var(--border, #444);
+  border-radius: 4px;
+  color: var(--text, #eee);
+  font-size: 14px;
+}
+
+.macroStepList {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.macroStepRow {
+  display: grid;
+  grid-template-columns: 36px 90px 1fr auto auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 6px;
+  background: var(--panel, #2a2a2a);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.macroStepIndex {
+  color: var(--text-muted, #888);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.macroStepType {
+  padding: 4px;
+  background: var(--input-bg, #1e1e1e);
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  color: var(--text, #eee);
+  font-size: 13px;
+}
+
+.macroStepValue {
+  padding: 4px 6px;
+  background: var(--input-bg, #1e1e1e);
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  color: var(--text, #eee);
+  font-size: 13px;
+  font-family: monospace;
+  min-width: 0;
+}
+
+.macroStepBtn {
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border, #444);
+  border-radius: 3px;
+  color: var(--text, #eee);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.macroStepBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.macroAddRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.macroAddBtn {
+  padding: 4px 10px;
+  background: var(--panel, #2a2a2a);
+  border: 1px dashed var(--border, #444);
+  border-radius: 4px;
+  color: var(--text, #eee);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.macroAddBtn:hover {
+  background: var(--panel-hover, #333);
+}
+
+.macroEmpty {
+  color: var(--text-muted, #888);
+  font-style: italic;
+  padding: 12px 0;
+  text-align: center;
+}
+
+.macroHelp {
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  margin: 0;
 }

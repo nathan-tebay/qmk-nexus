@@ -1,0 +1,32 @@
+#include QMK_KEYBOARD_H
+
+enum nexus_macros {
+    NX_M0 = SAFE_RANGE,
+    NX_M1,
+};
+#define M(n) (NX_M0 + (n))
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+    /* Layer 0: Base */
+    [0] = LAYOUT(
+        M(0), M(1),
+        KC_A, KC_B
+    )
+};
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!record->event.pressed) return true;
+    switch (keycode) {
+        case NX_M0:  /* Email */
+            SEND_STRING("hi \"world\"\n");
+            wait_ms(50);
+            tap_code16(KC_ENT);
+            return false;
+        case NX_M1:  /* ShiftA */
+            register_code16(KC_LSFT);
+            tap_code16(KC_A);
+            unregister_code16(KC_LSFT);
+            return false;
+    }
+    return true;
+}

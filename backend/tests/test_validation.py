@@ -1,9 +1,18 @@
 from codegen.generator import generate_all
 from codegen.keycodes import TRIVIAL_KEYCODES
 from codegen.keyboard_c import generate_keyboard_c
-from models import ColPin, EncoderElement, KeyboardConfig, KeyDef, Layer, MatrixPin, OledElement
-from validation import _FEATURE_ALIASES
-from validation import sanitize_keyboard_config, validate_build_ready, validate_keyboard_config
+from models import ColPin, EncoderElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement
+from validation import (
+    MAX_KEY_COUNT,
+    MAX_MACRO_DELAY_MS,
+    MAX_MACRO_STEPS,
+    MAX_MACRO_STRING_LEN,
+    MAX_MACROS,
+    _FEATURE_ALIASES,
+    sanitize_keyboard_config,
+    validate_build_ready,
+    validate_keyboard_config,
+)
 
 
 def test_feature_aliases_match_frontend_contract():
@@ -46,6 +55,17 @@ def test_validate_keyboard_config_rejects_multiple_oleds_without_split():
     errors = validate_keyboard_config(config)
 
     assert errors == ['Multiple OLEDs are only supported when Split Keyboard is enabled.']
+
+
+def test_validate_keyboard_config_rejects_more_than_250_keys():
+    config = KeyboardConfig(
+        keys=[KeyDef(id=f'k{i}', x=0, y=0) for i in range(MAX_KEY_COUNT + 1)],
+        layers=[Layer(id='layer0', name='Base', keycodes={})],
+    )
+
+    errors = validate_keyboard_config(config)
+
+    assert f'Keyboard has {MAX_KEY_COUNT + 1} keys; maximum is {MAX_KEY_COUNT}.' in errors
 
 
 def test_sanitize_keyboard_config_normalizes_feature_aliases_and_trims_stale_pins():
@@ -133,6 +153,95 @@ def test_validate_keyboard_config_allows_saving_incomplete_matrix_drafts():
     )
 
     assert validate_keyboard_config(config) == []
+
+
+def _macro_kb(macros: list[MacroEntry], layer_keycodes: dict[str, str] | None = None) -> KeyboardConfig:
+    return KeyboardConfig(
+        keys=[KeyDef(id='k0', x=0, y=0, row=0, col=0)],
+        layers=[Layer(id='layer0', name='Base', keycodes=layer_keycodes or {})],
+        macros=macros,
+    )
+
+
+def test_validate_macros_accepts_well_formed_macro():
+    config = _macro_kb(
+        [MacroEntry(id='m0', name='Email', steps=[
+            MacroStep(type='string', text='hi'),
+            MacroStep(type='delay', ms=50),
+            MacroStep(type='tap', keycode='KC_ENT'),
+            MacroStep(type='down', keycode='KC_LSFT'),
+            MacroStep(type='up', keycode='KC_LSFT'),
+        ])],
+        layer_keycodes={'k0': 'M(0)'},
+    )
+
+    assert validate_keyboard_config(config) == []
+
+
+def test_validate_macros_rejects_too_many_macros():
+    macros = [MacroEntry(id=f'm{i}', name=f'Macro {i}', steps=[]) for i in range(MAX_MACROS + 1)]
+    errors = validate_keyboard_config(_macro_kb(macros))
+    assert any(f'At most {MAX_MACROS} macros' in e for e in errors)
+
+
+def test_validate_macros_rejects_too_many_steps():
+    steps = [MacroStep(type='tap', keycode='KC_A') for _ in range(MAX_MACRO_STEPS + 1)]
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(id='m0', name='Big', steps=steps)]))
+    assert any(f'maximum is {MAX_MACRO_STEPS}' in e for e in errors)
+
+
+def test_validate_macros_rejects_oversize_total_string():
+    text = 'x' * (MAX_MACRO_STRING_LEN + 1)
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(
+        id='m0', name='Long', steps=[MacroStep(type='string', text=text)],
+    )]))
+    assert any(f'maximum is {MAX_MACRO_STRING_LEN}' in e for e in errors)
+
+
+def test_validate_macros_rejects_invalid_delay():
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(
+        id='m0', name='Slow', steps=[MacroStep(type='delay', ms=MAX_MACRO_DELAY_MS + 1)],
+    )]))
+    assert any('delay must be' in e for e in errors)
+
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(
+        id='m0', name='Zero', steps=[MacroStep(type='delay', ms=0)],
+    )]))
+    assert any('delay must be' in e for e in errors)
+
+
+def test_validate_macros_rejects_missing_required_fields():
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(id='m0', name='X', steps=[
+        MacroStep(type='tap'),
+        MacroStep(type='string'),
+        MacroStep(type='delay'),
+    ])]))
+    assert any('tap requires a keycode' in e for e in errors)
+    assert any('string requires text' in e for e in errors)
+    assert any('delay must be' in e for e in errors)
+
+
+def test_validate_macros_rejects_dangling_macro_reference():
+    config = _macro_kb(
+        [MacroEntry(id='m0', name='Only', steps=[])],
+        layer_keycodes={'k0': 'M(5)'},
+    )
+    errors = validate_keyboard_config(config)
+    assert any('M(5)' in e and 'only 1 macros' in e for e in errors)
+
+
+def test_validate_macros_rejects_control_chars_in_string():
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(
+        id='m0', name='Bad', steps=[MacroStep(type='string', text='hi\x00world')],
+    )]))
+    assert any('control characters' in e for e in errors)
+
+
+def test_validate_macros_allows_newline_and_tab_in_string():
+    errors = validate_keyboard_config(_macro_kb([MacroEntry(
+        id='m0', name='Ok', steps=[MacroStep(type='string', text='hi\n\tworld')],
+    )]))
+    assert errors == []
 
 
 def test_generate_all_sanitizes_keyboard_name_for_written_files(tmp_path):
