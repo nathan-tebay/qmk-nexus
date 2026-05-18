@@ -1563,10 +1563,6 @@ import json
 print(json.dumps({
   "Name": "${policy_name}",
   "Comment": "QMK Nexus security response headers",
-  "CorsConfig": {"OriginOverride": False, "AccessControlAllowOrigins": {"Quantity": 0, "Items": []},
-                 "AccessControlAllowHeaders": {"Quantity": 0, "Items": []},
-                 "AccessControlAllowMethods": {"Quantity": 0, "Items": []},
-                 "AccessControlAllowCredentials": False},
   "SecurityHeadersConfig": {
     "XSSProtection": {"Override": True, "Protection": False},
     "FrameOptions": {"Override": True, "FrameOption": "DENY"},
