@@ -206,8 +206,10 @@
   transform: translateY(1px);
 }
 
-.toggleActive,
-.modActive,
+.toggleBtn.toggleActive,
+.toggleBtn.toggleActive:hover,
+.modBtn.modActive,
+.modBtn.modActive:hover,
 .macroTab.macroTabActive {
   background: var(--accent);
   color: var(--on-accent);
