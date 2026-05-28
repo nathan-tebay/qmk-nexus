@@ -194,6 +194,16 @@
   background: var(--bg-elevated);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+
+.toggleBtn:hover {
+  background: color-mix(in srgb, var(--bg-elevated) 70%, var(--text) 30%);
+  color: var(--text);
+}
+
+.toggleBtn:active {
+  transform: translateY(1px);
 }
 
 .toggleActive,
@@ -242,6 +252,16 @@
   background: var(--bg-elevated);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+
+.modBtn:hover {
+  background: color-mix(in srgb, var(--bg-elevated) 70%, var(--text) 30%);
+  color: var(--text);
+}
+
+.modBtn:active {
+  transform: translateY(1px);
 }
 
 .manualPanel,
