@@ -194,10 +194,22 @@
   background: var(--bg-elevated);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 80ms, color 80ms, border-color 80ms;
 }
 
-.toggleActive,
-.modActive,
+.toggleBtn:hover {
+  background: color-mix(in srgb, var(--bg-elevated) 70%, var(--text) 30%);
+  color: var(--text);
+}
+
+.toggleBtn:active {
+  transform: translateY(1px);
+}
+
+.toggleBtn.toggleActive,
+.toggleBtn.toggleActive:hover,
+.modBtn.modActive,
+.modBtn.modActive:hover,
 .macroTab.macroTabActive {
   background: var(--accent);
   color: var(--on-accent);
@@ -242,6 +254,16 @@
   background: var(--bg-elevated);
   color: var(--text-muted);
   cursor: pointer;
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+
+.modBtn:hover {
+  background: color-mix(in srgb, var(--bg-elevated) 70%, var(--text) 30%);
+  color: var(--text);
+}
+
+.modBtn:active {
+  transform: translateY(1px);
 }
 
 .manualPanel,

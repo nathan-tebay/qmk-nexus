@@ -1,13 +1,10 @@
-# n8n — MCP SQLite Memory Server
+# n8n — MCP SQLite Memory Server External Note
 
-Project in `agent-memory/` directory. All 10 tool handlers implemented and complete.
+This memory lives under the `qmk-nexus` Serena project and is not qmk-nexus guidance.
 
-**Core concept:** Shared SQLite database allowing multiple AI agents to store/query structured data across projects with custom schemas, a global knowledge base, inter-agent messaging, conflict detection, and full audit logging.
+Historical status as of 2026-03-28:
+- Project in `agent-memory/` directory.
+- All 10 tool handlers were implemented.
+- Remaining work was wiring n8n workflow Code nodes, auth/API keys, schema evolution, and end-to-end testing.
 
-**Status as of 2026-03-28:** All code written. Remaining work:
-1. Wire tool handler Code nodes into the n8n workflow (switch outputs → handlers → response formatter → webhook response)
-2. Add authentication/API keys
-3. Schema evolution strategy for existing projects
-4. End-to-end testing
-
-**How to apply:** The CLAUDE.md in `agent-memory/` has the complete project summary. Read it first when working on this project.
+If user asks about n8n/agent-memory, inspect that project directly and prefer its local docs/CLAUDE.md over this external note.

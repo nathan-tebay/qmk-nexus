@@ -192,7 +192,7 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
   }
 
   function toggleHoldMod(key: ModKey) {
-    setHoldMods((m) => ({ ...m, [key]: !m[key] }))
+    setHoldMods((m) => ({ [key]: !m[key] }))
     setHoldLayer(null)
   }
 

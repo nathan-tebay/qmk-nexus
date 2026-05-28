@@ -1,17 +1,12 @@
-# PersonalSite — Analytics Tracking
+# PersonalSite — Analytics Tracking External Note
 
-## Tracking endpoint
-`/cgi-bin/infiniteImprobablity.cgi` — the page view beacon endpoint.
+This memory lives under the `qmk-nexus` Serena project and is only a cross-project note. For PersonalSite work, activate Serena project `PersonalSite` and read current memories there.
 
-**Why the name:** Ad blockers (uBlock Origin, EasyPrivacy, Firefox ETP) silently block any URL containing `track`, `beacon`, `analytics`, `collect`, or `pixel`. The deliberately obscure name avoids all common filter list patterns. Do NOT rename it back to anything recognisable.
+## Current known analytics behavior
+- Beacon endpoint: `/cgi-bin/infiniteImprobablity.cgi`.
+- Keep obscure endpoint name; common analytics/tracking words can be blocked by ad/privacy filters.
+- `assets/layout.js` sends page/ref data and, for `blog-post.html`, includes blog `slug` from `?slug=`.
+- Bot/preview/monitor/headless/script user agents and empty UAs are filtered from analytics writes/reads.
+- `cgi-bin/analytics.cgi` is admin-only and returns recent visits; prod reads directly from S3 rather than stale Lambda `/tmp` cache.
 
-## Flow
-- `assets/layout.js` fires `navigator.sendBeacon("/cgi-bin/infiniteImprobablity.cgi", ...)` on every page load (skips admin page)
-- Sends `page` (window.location.pathname) and `ref` (document.referrer) as URL-encoded POST body
-- CGI script logs to JSONL files: `analytics/YYYY-MM.jsonl` in S3 (prod) or `/tmp/analytics/` (local)
-
-## Read endpoint
-`/cgi-bin/analytics.cgi` — admin-only, returns last 2000 visits as JSON array covering current + previous month.
-
-## Known fix applied (2026-05-08)
-`analytics.cgi` was reading from stale `/tmp/analytics/` cache on Lambda — Lambda containers don't share `/tmp`, so the cache was always behind S3. Fixed: analytics.cgi now always fetches directly from S3 in prod mode, never uses the local container cache.
+Do not rename the endpoint or remove bot filtering unless user explicitly asks.
