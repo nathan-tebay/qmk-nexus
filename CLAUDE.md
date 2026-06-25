@@ -51,7 +51,7 @@ pytest --snapshot-update      # regenerate golden files
 ### Stack
 - **Frontend**: React 18 + TypeScript + Vite (port 3001), Konva.js (canvas), Zustand (state), CSS Modules
 - **Backend**: FastAPI + Mangum (Lambda-compatible), Pydantic v2
-- **Auth**: Google OAuth → JWT (httpOnly cookie, 7-day) + refresh token (30-day, DynamoDB-backed). GitHub OAuth not yet implemented.
+- **Auth**: Google + GitHub OAuth → JWT (httpOnly cookie, 7-day) + refresh token (30-day, DynamoDB-backed).
 - **Storage**: Per-user SQLite on S3 (no global DB). Dev: `/tmp/qmk-nexus-dbs/<user_id>.sqlite`. Build artifacts ephemeral (stream-download only).
 - **Build**: Custom builder image — vendored QMK C core + own Python codegen + direct `avr-gcc`/`arm-none-eabi-gcc`. No QMK CLI dependency.
 - **Deploy target**: AWS Lambda + S3 + CloudFront + ECS Fargate (for builds)
@@ -86,7 +86,7 @@ backend/
   validation.py    # Input sanitization + build-ready checks
   naming.py        # safe_name() utility
   routers/
-    auth.py        # /api/auth/* — Google OAuth, refresh, logout
+    auth.py        # /api/auth/* — Google + GitHub OAuth, refresh, logout
     keyboards.py   # /api/keyboards/* — CRUD + source file upload/reset
     builds.py      # /api/builds/* — trigger, poll status, download artifact
     qmk.py         # /api/qmk/* — index search + keyboard import
@@ -141,7 +141,7 @@ All core phases are complete:
 | Stage 1 — Layout + Wiring | Complete |
 | Stage 2 — Keymap / Layers | Complete |
 | Stage 3 — Features + Build | Complete |
-| Google OAuth + JWT auth | Complete |
+| Google + GitHub OAuth + JWT auth | Complete |
 | Keyboard CRUD + S3 storage | Complete |
 | Python codegen (all 6 files) | Complete |
 | Build pipeline (proxy + ECS) | Complete |
@@ -149,14 +149,13 @@ All core phases are complete:
 | QMK-native board support | Complete |
 | AWS deployment (Lambda + Fargate) | Complete |
 | Admin telemetry dashboard | Complete |
+| CI (lint/typecheck/pytest) + dependency scan | Complete (`.github/workflows/`) |
 
 **Implementation notes:**
 - Combo, tap-dance, and macro editors are all implemented (ComboEditor/TapDanceEditor/MacroEditor); tap-dance supports ACTION_TAP_DANCE_DOUBLE only.
 
 **Not yet implemented:**
-- GitHub OAuth
 - Frontend test suite (no Vitest/Jest setup)
-- CI/CD pipeline (no `.github/workflows/`)
 
 ## Key Conventions
 - All API routes prefixed `/api/`
