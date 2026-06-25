@@ -138,6 +138,7 @@ export function estimateFirmwareSize(config: KeyboardConfig): FirmwareSizeEstima
   }
 
   if (config.features.combo) estimated += (config.combos ?? []).length * 90
+  if (config.features.tap_dance) estimated += (config.tapDances ?? []).length * 80
 
   const macroBytes = macroPayloadBytes(config)
   if ((config.macros ?? []).length > 0) {

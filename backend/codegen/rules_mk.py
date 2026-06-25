@@ -44,8 +44,6 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         ('rgb_matrix',    'RGB_MATRIX_ENABLE'),
         ('split_keyboard','SPLIT_KEYBOARD'),
         ('console',       'CONSOLE_ENABLE'),
-        ('tap_dance',     'TAP_DANCE_ENABLE'),
-        ('combo',         'COMBO_ENABLE'),
         ('audio',         'AUDIO_ENABLE'),
         ('pointing_device','POINTING_DEVICE_ENABLE'),
         ('key_lock',      'KEY_LOCK_ENABLE'),
@@ -140,15 +138,21 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
                 lines.append(f'{key} = {val}')
         lines.append('')
 
-    if features.get('tap_dance'):
-        td = fc.get('tap_dance', {})
-        term = td.get('TAPPING_TERM', '200')
-        lines.append(f'TAPPING_TERM = {term}')
+    # Only enable TAP_DANCE_ENABLE when tap dances are actually defined; QMK's
+    # keymap_introspection.c references tap_dance_actions[] and fails to compile
+    # if the feature is on but the keymap defines none. TAPPING_TERM is a config.h
+    # define, emitted there.
+    if features.get('tap_dance') and config.tap_dances:
+        lines.append('TAP_DANCE_ENABLE = yes')
         lines.append('')
 
-    if features.get('combo'):
+    # Only enable COMBO_ENABLE when combos are actually defined; QMK's
+    # keymap_introspection.c references key_combos[] and fails to compile
+    # if the feature is on but the keymap defines no combos.
+    if features.get('combo') and config.combos:
         cb = fc.get('combo', {})
         term = cb.get('COMBO_TERM', '65')
+        lines.append('COMBO_ENABLE = yes')
         lines.append(f'COMBO_TERM = {term}')
         lines.append('')
 

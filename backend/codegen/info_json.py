@@ -26,6 +26,14 @@ def generate_info_json(config: KeyboardConfig) -> str:
     fc = config.feature_configs or {}
 
     enabled_features = [k for k, v in features.items() if v and k in _SAFE_INFO_FEATURES]
+    # QMK's keymap_introspection.c references key_combos[]/tap_dance_actions[]
+    # and fails to compile if the feature is enabled but the keymap defines no
+    # entries. Only advertise these features when they are actually backed by
+    # config (info.json + rules.mk both derive enablement from this set).
+    if not config.combos:
+        enabled_features = [f for f in enabled_features if f != 'combo']
+    if not config.tap_dances:
+        enabled_features = [f for f in enabled_features if f != 'tap_dance']
 
     try:
         debounce_ms = int((fc.get('debounce') or {}).get('DEBOUNCE') or 5)

@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement
+from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement, TapDanceEntry
 
 
 def pytest_addoption(parser):
@@ -116,6 +116,7 @@ def advanced_features_kb() -> KeyboardConfig:
         features={
             'combo': True, 'leader_key': True, 'dynamic_macro': True,
             'indicators': True, 'debounce': True, 'key_lock': True, 'wpm': True,
+            'tap_dance': True,
         },
         feature_configs={
             'debounce':       {'DEBOUNCE': '8', 'DEBOUNCE_TYPE': 'sym_eager_pr'},
@@ -123,12 +124,18 @@ def advanced_features_kb() -> KeyboardConfig:
             'dynamic_macro':  {'DYNAMIC_MACRO_SIZE': '256'},
             'indicators':     {'LED_CAPS_LOCK_PIN': 'B2', 'LED_NUM_LOCK_PIN': 'B3', 'LED_PIN_ON_STATE': '0'},
             'combo':          {'COMBO_TERM': '50'},
+            'tap_dance':      {'TAPPING_TERM': '180'},
         },
         combos=[
             # Combo 1: k0+k1 (base layer keys) → KC_ESC
             ComboEntry(id='c0', keys=['k0', 'k1'], output='KC_ESC'),
             # Combo 2: k2 resolves via layer 1 (base is TRNS) → exercises layer scan
             ComboEntry(id='c1', keys=['k2', 'k3'], output='QK_LEAD'),
+        ],
+        tap_dances=[
+            # tap → KC_SPC, double-tap → KC_ENT
+            TapDanceEntry(id='td0', on_tap='KC_SPC', on_double_tap='KC_ENT'),
+            TapDanceEntry(id='td1', on_tap='KC_LSFT', on_double_tap='KC_CAPS'),
         ],
     )
 

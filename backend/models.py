@@ -113,6 +113,14 @@ class ComboEntry(BaseModel):
     output: str = 'KC_NO'
 
 
+class TapDanceEntry(BaseModel):
+    model_config = _camel()
+
+    id: str
+    on_tap: str = 'KC_NO'
+    on_double_tap: str = 'KC_NO'
+
+
 class MacroStep(BaseModel):
     model_config = _camel()
 
@@ -165,6 +173,7 @@ class KeyboardConfig(BaseModel):
     custom_files: dict[str, str] = Field(default_factory=dict)
     encoder_keycodes: dict[str, str] = Field(default_factory=dict)
     combos: list[ComboEntry] = Field(default_factory=list)
+    tap_dances: list[TapDanceEntry] = Field(default_factory=list)
     macros: list[MacroEntry] = Field(default_factory=list)
 
 

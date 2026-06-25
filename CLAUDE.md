@@ -152,7 +152,7 @@ All core phases are complete:
 
 **Not yet implemented:**
 - GitHub OAuth
-- Tap-dance / combo / macro sequence editor UI (toggles exist, codegen stubs exist; no config UI)
+- Macro sequence editor UI (store actions + codegen exist; no config UI). Combo and tap-dance editors are implemented (ComboEditor/TapDanceEditor); tap-dance supports ACTION_TAP_DANCE_DOUBLE only.
 - Frontend test suite (no Vitest/Jest setup)
 - CI/CD pipeline (no `.github/workflows/`)
 
