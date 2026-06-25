@@ -150,9 +150,11 @@ All core phases are complete:
 | AWS deployment (Lambda + Fargate) | Complete |
 | Admin telemetry dashboard | Complete |
 
+**Implementation notes:**
+- Combo, tap-dance, and macro editors are all implemented (ComboEditor/TapDanceEditor/MacroEditor); tap-dance supports ACTION_TAP_DANCE_DOUBLE only.
+
 **Not yet implemented:**
 - GitHub OAuth
-- Macro sequence editor UI (store actions + codegen exist; no config UI). Combo and tap-dance editors are implemented (ComboEditor/TapDanceEditor); tap-dance supports ACTION_TAP_DANCE_DOUBLE only.
 - Frontend test suite (no Vitest/Jest setup)
 - CI/CD pipeline (no `.github/workflows/`)
 

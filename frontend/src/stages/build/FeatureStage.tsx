@@ -3,6 +3,7 @@ import { useKeyboardStore } from '@/store/keyboard'
 import FeatureToggles from './FeatureToggles'
 import ComboEditor from './ComboEditor'
 import TapDanceEditor from './TapDanceEditor'
+import MacroEditor from './MacroEditor'
 import { FEATURE_MODULES } from './modules'
 import { useBuildValidation } from './useBuildValidation'
 import styles from './FeatureStage.module.css'
@@ -46,6 +47,7 @@ export default function FeatureStage() {
         <FeatureToggles />
         {config.features.combo && <ComboEditor />}
         {config.features.tap_dance && <TapDanceEditor />}
+        <MacroEditor />
       </div>
     </div>
   )
