@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
 
   backend:
     runs-on: ubuntu-latest
