@@ -303,6 +303,11 @@ def generate_config_h(config: KeyboardConfig) -> str:
         size = dm.get('DYNAMIC_MACRO_SIZE', '128')
         lines += [f'#define DYNAMIC_MACRO_SIZE {size}', '']
 
+    if features.get('tap_dance') and config.tap_dances:
+        td = fc.get('tap_dance', {})
+        term = td.get('TAPPING_TERM', '200')
+        lines += [f'#define TAPPING_TERM {term}', '']
+
     bootloader = MCU_BOOTLOADER.get(config.mcu.lower(), 'atmel-dfu')
     lines += [f'#define BOOTLOADER {bootloader}', '']
 

@@ -159,6 +159,12 @@ export interface ComboEntry {
   output: string
 }
 
+export interface TapDanceEntry {
+  id: string
+  onTap: string
+  onDoubleTap: string
+}
+
 export type MacroStepType = 'tap' | 'down' | 'up' | 'string' | 'delay'
 
 export interface MacroStep {
@@ -213,6 +219,7 @@ export interface KeyboardConfig {
   customFiles: Record<string, string>
   encoderKeycodes: Record<string, string>
   combos: ComboEntry[]
+  tapDances: TapDanceEntry[]
   macros: MacroEntry[]
 }
 
@@ -419,6 +426,7 @@ const defaultConfig: KeyboardConfig = {
   customFiles: {},
   encoderKeycodes: {},
   combos: [],
+  tapDances: [],
   macros: [],
 }
 
@@ -461,6 +469,9 @@ interface KeyboardStore {
   addCombo: () => void
   removeCombo: (id: string) => void
   updateCombo: (id: string, patch: Partial<Omit<ComboEntry, 'id'>>) => void
+  addTapDance: () => void
+  removeTapDance: (id: string) => void
+  updateTapDance: (id: string, patch: Partial<Omit<TapDanceEntry, 'id'>>) => void
   addMacro: () => string
   removeMacro: (id: string) => void
   updateMacro: (id: string, patch: Partial<Omit<MacroEntry, 'id' | 'steps'>>) => void
@@ -773,6 +784,30 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       config: {
         ...s.config,
         combos: (s.config.combos ?? []).map((c) => c.id === id ? { ...c, ...patch } : c),
+      },
+    })),
+
+  addTapDance: () =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        tapDances: [...(s.config.tapDances ?? []), { id: uid(), onTap: 'KC_NO', onDoubleTap: 'KC_NO' }],
+      },
+    })),
+
+  removeTapDance: (id) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        tapDances: (s.config.tapDances ?? []).filter((t) => t.id !== id),
+      },
+    })),
+
+  updateTapDance: (id, patch) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        tapDances: (s.config.tapDances ?? []).map((t) => t.id === id ? { ...t, ...patch } : t),
       },
     })),
 

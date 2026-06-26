@@ -305,6 +305,15 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
         lines.append('};')
         lines.append('')
 
+    if config.tap_dances and config.features.get('tap_dance'):
+        lines.append('// Tap Dance — index i is referenced as TD(i) in the keymap')
+        lines.append('tap_dance_action_t tap_dance_actions[] = {')
+        for i, td in enumerate(config.tap_dances):
+            sep = ',' if i < len(config.tap_dances) - 1 else ''
+            lines.append(f'    [{i}] = ACTION_TAP_DANCE_DOUBLE({td.on_tap}, {td.on_double_tap}){sep}')
+        lines.append('};')
+        lines.append('')
+
     lines.extend(_emit_macros_block(config.macros or []))
 
     return "\n".join(lines)

@@ -1,0 +1,129 @@
+.editor {
+  padding: 16px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #e0e0e0);
+}
+
+.addBtn {
+  padding: 5px 12px;
+  font-size: 13px;
+  background: var(--accent, #d18a00);
+  color: var(--on-accent, #080704);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.12s;
+}
+
+.addBtn:hover {
+  opacity: 0.85;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  margin: 0;
+}
+
+.empty code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-style: normal;
+  color: var(--text, #e0e0e0);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tdLabel {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent, #d18a00);
+  padding-bottom: 6px;
+  flex-shrink: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #888);
+}
+
+.kcInput {
+  flex: 0 0 130px;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.05));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+}
+
+.kcInput:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.kcInvalid {
+  border-color: #df5b2f;
+  background: rgba(223, 91, 47, 0.08);
+}
+
+.arrow {
+  font-size: 14px;
+  color: var(--text-muted, #888);
+  flex-shrink: 0;
+  padding-bottom: 6px;
+}
+
+.removeBtn {
+  padding: 3px 10px;
+  font-size: 16px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-bottom: 1px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.removeBtn:hover {
+  background: var(--danger, #df5b2f);
+  color: #fff;
+  border-color: transparent;
+}

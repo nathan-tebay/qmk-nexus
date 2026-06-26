@@ -1,0 +1,244 @@
+.editor {
+  padding: 16px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text, #e0e0e0);
+}
+
+.addBtn {
+  padding: 5px 12px;
+  font-size: 13px;
+  background: var(--accent, #d18a00);
+  color: var(--on-accent, #080704);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.12s;
+}
+
+.addBtn:hover {
+  opacity: 0.85;
+}
+
+.empty {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  margin: 0;
+}
+
+.empty code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-style: normal;
+  color: var(--text, #e0e0e0);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.card {
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 12px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.03));
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.macroLabel {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent, #d18a00);
+  flex-shrink: 0;
+}
+
+.nameInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.3));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  outline: none;
+}
+
+.nameInput:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.noSteps {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  font-style: italic;
+  margin: 0 0 8px;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.stepRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.typeSelect {
+  flex: 0 0 110px;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.3));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+}
+
+.typeSelect:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.typeSelect option {
+  background: #1a1a2e;
+  color: var(--text, #e0e0e0);
+}
+
+.valueInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.05));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+}
+
+.valueInput:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.invalid {
+  border-color: #df5b2f;
+  background: rgba(223, 91, 47, 0.08);
+}
+
+.delayField {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.numInput {
+  width: 90px;
+  font-size: 13px;
+  padding: 5px 8px;
+  background: var(--bg-elevated, rgba(255, 255, 255, 0.05));
+  color: var(--text, #e0e0e0);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  outline: none;
+}
+
+.numInput:focus {
+  border-color: var(--accent, #d18a00);
+}
+
+.unit {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+}
+
+.stepActions {
+  display: inline-flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.iconBtn {
+  padding: 3px 8px;
+  font-size: 13px;
+  line-height: 1;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.iconBtn:hover:not(:disabled) {
+  color: var(--accent, #d18a00);
+  border-color: var(--accent, #d18a00);
+}
+
+.iconBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.addStepBtn {
+  font-size: 12px;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.2));
+  border-radius: 4px;
+  cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.addStepBtn:hover {
+  color: var(--accent, #d18a00);
+  border-color: var(--accent, #d18a00);
+}
+
+.removeBtn {
+  padding: 3px 10px;
+  font-size: 16px;
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.removeBtn:hover {
+  background: var(--danger, #df5b2f);
+  color: #fff;
+  border-color: transparent;
+}

@@ -21,3 +21,9 @@ combo_t key_combos[] = {
     COMBO(combo_0, KC_ESC),
     COMBO(combo_1, QK_LEAD)
 };
+
+// Tap Dance — index i is referenced as TD(i) in the keymap
+tap_dance_action_t tap_dance_actions[] = {
+    [0] = ACTION_TAP_DANCE_DOUBLE(KC_SPC, KC_ENT),
+    [1] = ACTION_TAP_DANCE_DOUBLE(KC_LSFT, KC_CAPS)
+};
