@@ -82,6 +82,20 @@ class OledElement(BaseModel):
     logo_image: str = ''
     logo_bytes: list[int] = Field(default_factory=list)
     display_rotation: int = 0
+    # Interactive settings menu (Phase D). All defaulted so existing configs
+    # parse unchanged. menu_input selects the adjustment input; menu_settings is
+    # the ordered subset of adjustable settings the menu exposes.
+    menu_enabled: bool = False
+    menu_input: str = 'encoder'  # 'encoder' | 'keys' | 'pointing_tap'
+    menu_encoder_id: str | None = None
+    menu_settings: list[str] = Field(default_factory=list)
+
+
+class DpiIndicator(BaseModel):
+    model_config = _camel()
+    mode: str = 'off'
+    colors: list[str] = Field(default_factory=list)
+    pins: list[str] = Field(default_factory=list)
 
 
 class TrackballElement(BaseModel):
@@ -91,6 +105,29 @@ class TrackballElement(BaseModel):
     y: float = 0.0
     diameter: float = 34.0
     driver: str = 'pmw3360'
+    cpi: int = 0
+    dpi_stages: list[int] = Field(default_factory=list)
+    dpi_indicator: DpiIndicator | None = None
+
+
+class JoystickAxis(BaseModel):
+    model_config = _camel()
+    pin: str | None = None
+    low: int = 0
+    rest: int = 512
+    high: int = 1023
+    virtual: bool = False
+
+
+class JoystickElement(BaseModel):
+    model_config = _camel()
+    id: str
+    x: float = 0.0
+    y: float = 0.0
+    axes: list[JoystickAxis] = Field(default_factory=list)
+    button_count: int = 8
+    has_hat: bool = False
+    hat: dict[str, str] | None = None
 
 
 class MatrixEdge(BaseModel):
@@ -170,11 +207,17 @@ class KeyboardConfig(BaseModel):
     encoders: list[EncoderElement] = Field(default_factory=list)
     oleds: list[OledElement] = Field(default_factory=list)
     trackballs: list[TrackballElement] = Field(default_factory=list)
+    joysticks: list[JoystickElement] = Field(default_factory=list)
     custom_files: dict[str, str] = Field(default_factory=dict)
     encoder_keycodes: dict[str, str] = Field(default_factory=dict)
     combos: list[ComboEntry] = Field(default_factory=list)
     tap_dances: list[TapDanceEntry] = Field(default_factory=list)
     macros: list[MacroEntry] = Field(default_factory=list)
+    # Composite-HID device-mode switching. A subset/ordering of
+    # ['keyboard', 'mouse', 'joystick']; the MODE_NEXT keycode cycles which HID
+    # report category is emitted at runtime, persisted in EEPROM. Empty or a
+    # single entry means the feature is inactive (no mode switching emitted).
+    device_modes: list[str] = Field(default_factory=list)
 
 
 class BuildStatus(BaseModel):

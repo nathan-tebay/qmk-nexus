@@ -16,6 +16,8 @@ export const TRACKBALL_DIAMETER_OPTIONS = [
   { value: 44, label: '44mm (billiard)' },
 ] as const
 
+export const JOYSTICK_DIAMETER_MM = 22
+
 // Physical panel dimensions (mm) for common OLED modules
 const OLED_PHYSICAL_MM: Record<string, { w: number; h: number }> = {
   '128_64': { w: 30, h: 17 },   // 0.96" / 1.3" SSD1306 module
@@ -30,6 +32,7 @@ function radiusPx(diameterMm: number): number {
 
 export const encoderRadiusPx = radiusPx
 export const trackballRadiusPx = radiusPx
+export const joystickRadiusPx = radiusPx
 
 export function oledSizePx(displaySize: string): { w: number; h: number } {
   const mm = OLED_PHYSICAL_MM[displaySize] ?? OLED_PHYSICAL_MM['128_32']

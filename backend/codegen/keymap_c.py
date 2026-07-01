@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 
-from models import KeyboardConfig, MacroEntry, MacroStep
+from models import KeyboardConfig, MacroStep
 from codegen._matrix import matrix_keys, matrix_rows, matrix_cols
+from codegen import _pointing
+from codegen import _settings
 
 
 _LAYER_MACRO_RE = re.compile(r'\b(MO|TG|TT|TO|DF|PDF|OSL|LT|LM)\s*\(\s*([A-Z_][A-Z0-9_]*)')
@@ -11,6 +13,7 @@ _BARE_KEYCODE_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
 _KNOWN_KEYCODE_PREFIXES = (
     'KC_',
     'QK_',
+    'QK_JOYSTICK',
     'RM_',
     'RGB_',
     'UG_',
@@ -22,6 +25,7 @@ _KNOWN_KEYCODE_PREFIXES = (
     'DM_',
     'GU_',
     'CW_',
+    'JS_',
     'MAGIC_',
 )
 _KNOWN_BARE_KEYCODES = {
@@ -129,13 +133,19 @@ def _is_known_keycode(identifier: str) -> bool:
 def _generated_custom_keycode_defines(
     keycodes: list[str],
     layer_symbols: list[tuple[str, int]],
+    enum_keycodes: set[str] | None = None,
 ) -> list[str]:
     layer_names = {symbol for symbol, _idx in layer_symbols}
+    reserved = enum_keycodes or set()
     custom: list[str] = []
     for keycode in keycodes:
         if not _BARE_KEYCODE_RE.fullmatch(keycode):
             continue
         if keycode in layer_names or _is_known_keycode(keycode) or keycode in custom:
+            continue
+        # Keycodes emitted as real SAFE_RANGE enum values (e.g. DPI_NEXT) must
+        # not be stubbed to KC_NO — skip them so the enum value is used.
+        if keycode in reserved:
             continue
         custom.append(keycode)
     return custom
@@ -176,9 +186,190 @@ def _macro_step_to_c(step: MacroStep) -> str | None:
     return None
 
 
-def _emit_macros_block(macros: list[MacroEntry]) -> list[str]:
-    if not macros:
+def _emit_dpi_prelude(config: KeyboardConfig) -> list[str]:
+    """Emit the DPI stage table + forward declaration for the indicator helper.
+
+    Only emitted when a trackball with >=1 DPI stage exists. The stage array is
+    consumed by the DPI_NEXT handler in process_record_user. The indicator
+    helper lives in keyboard.c, so we forward-declare it here when present.
+    """
+    stages = _pointing.dpi_stages(config)
+    if not stages:
         return []
+    lines: list[str] = []
+    if _pointing.has_indicator(config):
+        lines.append(f'void {_pointing.DPI_INDICATOR_FN}(uint8_t stage);')
+    stage_list = ', '.join(str(stage) for stage in stages)
+    lines.append('/* DPI stages cycled by the DPI_NEXT keycode. */')
+    lines.append(f'static const uint16_t dpi_stages[] = {{ {stage_list} }};')
+    lines.append('')
+    return lines
+
+
+def _emit_dpi_next_case(config: KeyboardConfig) -> list[str]:
+    """Emit the process_record_user case body for the DPI_NEXT keycode.
+
+    Advances a static stage index through dpi_stages[], applies the new CPI,
+    and (when configured) updates the shared LED indicator. Returns [] when no
+    DPI stages are configured.
+    """
+    if not _pointing.dpi_stages(config):
+        return []
+    lines = [
+        f'        case {_pointing.DPI_NEXT_KEYCODE}: {{',
+        '            static uint8_t dpi_stage = 0;',
+        '            dpi_stage = (dpi_stage + 1) % (sizeof(dpi_stages) / sizeof(dpi_stages[0]));',
+        '            pointing_device_set_cpi(dpi_stages[dpi_stage]);',
+    ]
+    if _pointing.has_indicator(config):
+        lines.append(f'            {_pointing.DPI_INDICATOR_FN}(dpi_stage);')
+    lines.append('            return false;')
+    lines.append('        }')
+    return lines
+
+
+def _emit_mode_next_case(config: KeyboardConfig) -> list[str]:
+    """Emit the process_record_user case for the MODE_NEXT keycode.
+
+    Advances g_nexus_config.active_mode modulo the number of enabled device
+    modes and persists it to EEPROM via the shared settings save helper.
+    Returns [] unless device-mode switching is active (>=2 modes).
+    """
+    if not _settings.device_mode_switching_active(config):
+        return []
+    mode_count = len(_settings.enabled_device_modes(config))
+    return [
+        f'        case {_settings.MODE_NEXT_KEYCODE}:',
+        '            /* Cycle the active composite-HID device mode + persist it. */',
+        f'            {_settings.CONFIG_GLOBAL}.active_mode = '
+        f'({_settings.CONFIG_GLOBAL}.active_mode + 1) % {mode_count};',
+        f'            {_settings.UPDATE_FN}();',
+        '            return false;',
+    ]
+
+
+def _menu_keys_active(config: KeyboardConfig) -> bool:
+    """True when a settings menu uses the 'keys' input mode (MENU_* keycodes)."""
+    return _settings.menu_active(config) and _settings.menu_input_mode(config) == 'keys'
+
+
+def _menu_encoder_active(config: KeyboardConfig) -> bool:
+    """True when a settings menu uses the 'encoder' input mode."""
+    return _settings.menu_active(config) and _settings.menu_input_mode(config) == 'encoder'
+
+
+def _menu_keycodes(config: KeyboardConfig) -> list[str]:
+    """MENU_* SAFE_RANGE keycodes to declare, or [] when keys input isn't used."""
+    if not _menu_keys_active(config):
+        return []
+    return [
+        _settings.MENU_UP_KEYCODE,
+        _settings.MENU_DOWN_KEYCODE,
+        _settings.MENU_SEL_KEYCODE,
+    ]
+
+
+def _emit_menu_keys_cases(config: KeyboardConfig) -> list[str]:
+    """Emit process_record_user cases for the MENU_UP/DOWN/SEL keycodes.
+
+    UP/DOWN step the selected setting's value; SEL advances the cursor to the
+    next setting. All mutation + persistence is delegated to the shared
+    nx_menu_* helpers defined in keyboard.c. Returns [] unless keys input active.
+    """
+    if not _menu_keys_active(config):
+        return []
+    return [
+        f'        case {_settings.MENU_UP_KEYCODE}:',
+        '            nx_menu_value_adjust(1);',
+        '            return false;',
+        f'        case {_settings.MENU_DOWN_KEYCODE}:',
+        '            nx_menu_value_adjust(-1);',
+        '            return false;',
+        f'        case {_settings.MENU_SEL_KEYCODE}:',
+        '            nx_menu_cursor_next();',
+        '            return false;',
+    ]
+
+
+def _emit_menu_forward_decls(config: KeyboardConfig) -> list[str]:
+    """Forward-declare the shared nx_menu_* helpers (defined in keyboard.c).
+
+    Emitted whenever a keys-input or encoder-input menu handler in this file
+    calls them. Returns [] otherwise.
+    """
+    if not (_menu_keys_active(config) or _menu_encoder_active(config)):
+        return []
+    return [
+        '/* OLED settings-menu mutators (defined in keyboard.c). */',
+        'void nx_menu_cursor_next(void);',
+        'void nx_menu_value_adjust(int8_t dir);',
+        '',
+    ]
+
+
+def _menu_encoder_index(config: KeyboardConfig) -> int | None:
+    """Resolve the configured menu encoder's index into config.encoders.
+
+    Returns None when encoder input isn't active or the id can't be resolved
+    (falls back to encoder 0 when a menu is present but no id is set).
+    """
+    if not _menu_encoder_active(config):
+        return None
+    oleds = _settings.menu_oleds(config)
+    enc_id = getattr(oleds[0], 'menu_encoder_id', None) if oleds else None
+    encoders = config.encoders or []
+    if enc_id is not None:
+        for idx, enc in enumerate(encoders):
+            if enc.id == enc_id:
+                return idx
+    return 0 if encoders else None
+
+
+def _emit_menu_encoder_update(config: KeyboardConfig) -> list[str]:
+    """Emit encoder_update_user() driving the menu from the configured encoder.
+
+    On the menu encoder's index: clockwise steps the selected value up, counter-
+    clockwise steps it down, and returning false consumes the event. A press to
+    advance the cursor is handled separately via the MENU_SEL keycode / keys
+    input; for encoder input the cursor is advanced by MENU_SEL if mapped, else
+    the user cycles settings by pressing the encoder switch mapped in the keymap.
+
+    Coexistence with ENCODER_MAP: encoder_map handles per-layer encoder keycodes,
+    but QMK still calls encoder_update_user first. We take precedence ONLY for the
+    menu encoder's index and return true for every other encoder so the default
+    encoder_map behaviour is preserved. Returns [] unless encoder input active.
+    """
+    enc_idx = _menu_encoder_index(config)
+    if enc_idx is None:
+        return []
+    return [
+        '/* Menu encoder: this encoder scrolls the selected setting; every other',
+        ' * encoder returns true so ENCODER_MAP / default handling still runs. */',
+        'bool encoder_update_user(uint8_t index, bool clockwise) {',
+        f'    if (index == {enc_idx}) {{',
+        '        nx_menu_value_adjust(clockwise ? 1 : -1);',
+        '        return false;',
+        '    }',
+        '    return true;',
+        '}',
+        '',
+    ]
+
+
+def _emit_process_record_user(config: KeyboardConfig) -> list[str]:
+    """Emit process_record_user covering macros + DPI_NEXT + MODE_NEXT + MENU_*.
+
+    Returns [] when none of macros, DPI stages, device-mode switching, or a
+    keys-input settings menu are configured, keeping output byte-identical for
+    configs that use none of them.
+    """
+    macros = config.macros or []
+    dpi_case = _emit_dpi_next_case(config)
+    mode_case = _emit_mode_next_case(config)
+    menu_case = _emit_menu_keys_cases(config)
+    if not macros and not dpi_case and not mode_case and not menu_case:
+        return []
+
     lines = ['bool process_record_user(uint16_t keycode, keyrecord_t *record) {',
              '    if (!record->event.pressed) return true;',
              '    switch (keycode) {']
@@ -189,6 +380,9 @@ def _emit_macros_block(macros: list[MacroEntry]) -> list[str]:
             if emitted:
                 lines.append(f'            {emitted}')
         lines.append('            return false;')
+    lines.extend(dpi_case)
+    lines.extend(mode_case)
+    lines.extend(menu_case)
     lines.append('    }')
     lines.append('    return true;')
     lines.append('}')
@@ -196,10 +390,120 @@ def _emit_macros_block(macros: list[MacroEntry]) -> list[str]:
     return lines
 
 
+_HAT_DIRECTIONS = ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')
+
+
+def _joystick_mode_gate(config: KeyboardConfig) -> int | None:
+    """Return the active_mode index that enables joystick output, or None.
+
+    None means no mode gating applies (either device-mode switching is inactive
+    or 'joystick' is not one of the configured modes), so joystick output is
+    always emitted as before.
+    """
+    if not _settings.device_mode_switching_active(config):
+        return None
+    modes = _settings.enabled_device_modes(config)
+    if 'joystick' not in modes:
+        return None
+    return modes.index('joystick')
+
+
+def _emit_joystick_block(config: KeyboardConfig) -> list[str]:
+    """Emit joystick_axes[] and an optional hat handler when joystick is enabled.
+
+    Gated entirely behind features.get('joystick'); emits nothing otherwise.
+
+    When composite-HID device-mode switching includes 'joystick', the hat and
+    axis output is additionally gated on g_nexus_config.active_mode: unless
+    joystick is the active mode, the hat is centered and every axis is forced to
+    its rest value, so no joystick HID movement/buttons are reported. Keyboard
+    reports stay active in every mode (mode gating only touches mouse/joystick).
+    """
+    if not config.features.get('joystick'):
+        return []
+
+    fc = config.feature_configs or {}
+    js_cfg = fc.get('joystick', {})
+    try:
+        axis_count = int(js_cfg.get('JOYSTICK_AXIS_COUNT', '2'))
+    except ValueError:
+        axis_count = 2
+
+    joysticks = config.joysticks or []
+    joystick = joysticks[0] if joysticks else None
+    axes = list(joystick.axes) if joystick else []
+
+    mode_idx = _joystick_mode_gate(config)
+    gated = mode_idx is not None
+
+    lines: list[str] = []
+
+    # joystick_axes[] — only when there are axes to declare.
+    if axis_count > 0:
+        axis_entries: list[str] = []
+        for i in range(axis_count):
+            axis = axes[i] if i < len(axes) else None
+            if axis is None or axis.virtual or not axis.pin:
+                axis_entries.append('JOYSTICK_AXIS_VIRTUAL')
+            else:
+                axis_entries.append(
+                    f'JOYSTICK_AXIS_IN({axis.pin}, {axis.low}, {axis.rest}, {axis.high})'
+                )
+        lines.append(
+            'joystick_config_t joystick_axes[JOYSTICK_AXIS_COUNT] = {'
+        )
+        for idx, entry in enumerate(axis_entries):
+            sep = ',' if idx < len(axis_entries) - 1 else ''
+            lines.append(f'    {entry}{sep}')
+        lines.append('};')
+        lines.append('')
+
+    # Optional 8-way hat handler driven by configured direction pins.
+    has_hat = js_cfg.get('JOYSTICK_HAS_HAT', 'no') == 'yes'
+    hat_map = joystick.hat if (joystick and joystick.has_hat) else None
+    need_scan = (has_hat and hat_map) or gated
+    if need_scan:
+        lines.append('/* Joystick: poll inputs each scan, gated by the active device mode. */')
+        lines.append('void matrix_scan_user(void) {')
+        if gated:
+            # When joystick is not the active mode, force axes to rest + center
+            # the hat so the composite device emits a neutral joystick report.
+            lines.append(f'    if ({_settings.CONFIG_GLOBAL}.active_mode != {mode_idx}) {{')
+            for i in range(axis_count):
+                axis = axes[i] if i < len(axes) else None
+                rest = axis.rest if (axis and not axis.virtual and axis.pin) else 0
+                lines.append(f'        joystick_set_axis({i}, {rest});')
+            if has_hat and hat_map:
+                lines.append('        joystick_set_hat(-1);')
+            lines.append('        return;')
+            lines.append('    }')
+        if has_hat and hat_map:
+            lines.append('    int8_t hat_dir = -1;  /* -1 = centered */')
+            for value, direction in enumerate(_HAT_DIRECTIONS):
+                pin = hat_map.get(direction)
+                if not pin:
+                    continue
+                lines.append(f'    if (readPin({pin}) == 0) hat_dir = {value};  /* {direction} */')
+            lines.append('    joystick_set_hat(hat_dir);')
+        lines.append('}')
+        lines.append('')
+
+    return lines
+
+
 def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     keycodes = _all_keycodes(config)
     layer_symbols = _generated_layer_symbols(keycodes, len(config.layers))
-    custom_keycodes = _generated_custom_keycode_defines(keycodes, layer_symbols)
+    dpi_enabled = bool(_pointing.dpi_stages(config))
+    mode_switch = _settings.device_mode_switching_active(config)
+    menu_keycodes = _menu_keycodes(config)
+    enum_keycodes: set[str] = set()
+    if dpi_enabled:
+        enum_keycodes.add(_pointing.DPI_NEXT_KEYCODE)
+    if mode_switch:
+        enum_keycodes.add(_settings.MODE_NEXT_KEYCODE)
+    enum_keycodes.update(menu_keycodes)
+    custom_keycodes = _generated_custom_keycode_defines(keycodes, layer_symbols, enum_keycodes)
     lines: list[str] = []
 
     if layer_symbols:
@@ -214,15 +518,30 @@ def _generated_keymap_prelude(config: KeyboardConfig) -> list[str]:
     if custom_keycodes:
         lines.append('')
 
+    # User keycode enum (SAFE_RANGE). Macros are emitted as NX_M*, and the DPI
+    # cycle keycode DPI_NEXT is appended as a real enum value so it is a
+    # distinct keycode (never #defined to KC_NO). Both share one SAFE_RANGE
+    # origin to keep keycode values contiguous and non-overlapping.
     macros = config.macros or []
-    if macros:
+    enum_items: list[str] = [_macro_enum_name(i) for i in range(len(macros))]
+    if dpi_enabled:
+        enum_items.append(_pointing.DPI_NEXT_KEYCODE)
+    if mode_switch:
+        enum_items.append(_settings.MODE_NEXT_KEYCODE)
+    enum_items.extend(menu_keycodes)
+
+    if enum_items:
         lines.append('enum nexus_macros {')
-        for i, _ in enumerate(macros):
+        for i, item in enumerate(enum_items):
             suffix = ' = SAFE_RANGE' if i == 0 else ''
-            lines.append(f'    {_macro_enum_name(i)}{suffix},')
+            lines.append(f'    {item}{suffix},')
         lines.append('};')
-        lines.append(f'#define M(n) ({_macro_enum_name(0)} + (n))')
+        if macros:
+            lines.append(f'#define M(n) ({_macro_enum_name(0)} + (n))')
         lines.append('')
+
+    lines.extend(_emit_dpi_prelude(config))
+    lines.extend(_emit_menu_forward_decls(config))
 
     return lines
 
@@ -314,6 +633,10 @@ def generate_keymap_c(config: KeyboardConfig) -> str:
         lines.append('};')
         lines.append('')
 
-    lines.extend(_emit_macros_block(config.macros or []))
+    lines.extend(_emit_joystick_block(config))
+
+    lines.extend(_emit_menu_encoder_update(config))
+
+    lines.extend(_emit_process_record_user(config))
 
     return "\n".join(lines)

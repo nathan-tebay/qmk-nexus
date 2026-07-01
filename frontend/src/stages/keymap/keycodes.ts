@@ -14,6 +14,17 @@ export interface Keycode {
    * FEATURE_MODULES) to be enabled. Pickers hide entries whose feature is off.
    */
   requiresFeature?: string
+  /**
+   * If true, this keycode is only available when device-mode switching is
+   * active (config.deviceModes has 2+ entries). Used instead of
+   * requiresFeature since device modes aren't a feature flag.
+   */
+  requiresDeviceModes?: boolean
+  /**
+   * If true, this keycode is only available when at least one OLED has
+   * menuEnabled=true and menuInput==='keys'. Gated in isKeycodeAvailable.
+   */
+  requiresOledMenuKeys?: boolean
 }
 
 export const CATEGORIES: readonly KeycodeCategory[] = [
@@ -25,6 +36,7 @@ export const CATEGORIES: readonly KeycodeCategory[] = [
   { id: 'media', label: 'Media' },
   { id: 'layers', label: 'Layers' },
   { id: 'mouse', label: 'Mouse' },
+  { id: 'joystick', label: 'Joystick' },
   { id: 'lighting', label: 'Lighting' },
   { id: 'special', label: 'Special' },
 ]
@@ -191,11 +203,30 @@ export const KEYCODES: readonly Keycode[] = [
     ['KC_BTN1', 'Btn1', 'Mouse button 1 (left)'],
     ['KC_BTN2', 'Btn2', 'Mouse button 2 (right)'],
     ['KC_BTN3', 'Btn3', 'Mouse button 3 (middle)'],
+    ['KC_BTN4', 'Btn4', 'Mouse button 4'],
+    ['KC_BTN5', 'Btn5', 'Mouse button 5'],
     ['KC_ACL0', 'Ac0',  'Mouse speed level 0 (slow)'],
     ['KC_ACL1', 'Ac1',  'Mouse speed level 1'],
     ['KC_ACL2', 'Ac2',  'Mouse speed level 2 (fast)'],
   ] as const).map(([code, label, description]) => ({
     code, label, category: 'mouse', description, requiresFeature: 'mousekeys',
+  })),
+
+  // DPI cycle (requires Pointing Device feature)
+  { code: 'DPI_NEXT', label: 'DPI+', category: 'mouse', description: 'Cycle pointing device DPI/CPI to next stage', requiresFeature: 'pointing_device' },
+
+  // Device-mode cycle (requires 2+ device modes configured)
+  { code: 'MODE_NEXT', label: 'Mode▸', category: 'mouse', description: 'Cycle active device mode (keyboard/mouse/joystick)', requiresDeviceModes: true },
+
+  // OLED settings menu navigation (requires an OLED with menuEnabled + menuInput==='keys')
+  { code: 'MENU_UP',  label: 'Mnu▲', category: 'special', description: 'OLED settings menu: scroll up',   requiresOledMenuKeys: true },
+  { code: 'MENU_DOWN',label: 'Mnu▼', category: 'special', description: 'OLED settings menu: scroll down', requiresOledMenuKeys: true },
+  { code: 'MENU_SEL', label: 'MnuOK',category: 'special', description: 'OLED settings menu: select/confirm', requiresOledMenuKeys: true },
+
+  // Joystick (requires Joystick feature)
+  ...Array.from({ length: 32 }, (_, i) => ({
+    code: `JS_${i}`, label: `Js${i}`, category: 'joystick',
+    description: `Joystick button ${i}`, requiresFeature: 'joystick',
   })),
 
   // Lighting — RGB (requires RGB Light or RGB Matrix)
@@ -226,14 +257,19 @@ export const KEYCODES: readonly Keycode[] = [
 ]
 
 /**
- * Returns true if `keycode` is available given the enabled feature flags.
- * Accepts pipe-separated alternatives in `requiresFeature` (e.g. RGB keys
- * need rgblight OR rgb_matrix).
+ * Returns true if `keycode` is available given the enabled feature flags
+ * (and, for MODE_NEXT-style entries, the configured device modes). Accepts
+ * pipe-separated alternatives in `requiresFeature` (e.g. RGB keys need
+ * rgblight OR rgb_matrix).
  */
 export function isKeycodeAvailable(
   keycode: Keycode,
   features: Record<string, boolean>,
+  deviceModes: string[] = [],
+  hasOledMenuKeys = false,
 ): boolean {
+  if (keycode.requiresDeviceModes && deviceModes.length < 2) return false
+  if (keycode.requiresOledMenuKeys && !hasOledMenuKeys) return false
   if (!keycode.requiresFeature) return true
   return keycode.requiresFeature
     .split('|')

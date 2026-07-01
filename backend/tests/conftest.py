@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pytest
 
-from models import ColPin, ComboEntry, EncoderElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement, TapDanceEntry
+from models import ColPin, ComboEntry, DpiIndicator, EncoderElement, JoystickAxis, JoystickElement, KeyboardConfig, KeyDef, Layer, MacroEntry, MacroStep, MatrixPin, OledElement, TapDanceEntry, TrackballElement
 
 
 def pytest_addoption(parser):
@@ -170,6 +170,124 @@ def macros_kb() -> KeyboardConfig:
                 MacroStep(type='tap', keycode='KC_A'),
                 MacroStep(type='up', keycode='KC_LSFT'),
             ]),
+        ],
+    )
+
+
+@pytest.fixture
+def joystick_kb() -> KeyboardConfig:
+    """Analog joystick: 3 axes (2 analog + 1 falls back to virtual), 4 buttons, 8-way hat."""
+    return KeyboardConfig(
+        id='test-joystick',
+        name='Test Joystick',
+        mcu='atmega32u4',
+        usb_vid='0xFEED',
+        usb_pid='0x0006',
+        manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0),
+            _key('k1', 0, 1, 1, 0),
+            _key('k2', 1, 0, 0, 1),
+            _key('k3', 1, 1, 1, 1),
+        ],
+        row_pins=[MatrixPin(row=0, pin='B0'), MatrixPin(row=1, pin='B1')],
+        col_pins=[ColPin(col=0, pin='D0'), ColPin(col=1, pin='D1')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'KC_A', 'k1': 'KC_B', 'k2': 'KC_C', 'k3': 'KC_D'})],
+        features={'joystick': True},
+        feature_configs={
+            'joystick': {
+                'JOYSTICK_DRIVER': 'analog',
+                'JOYSTICK_AXIS_COUNT': '3',
+                'JOYSTICK_BUTTON_COUNT': '4',
+                'JOYSTICK_AXIS_RESOLUTION': '12',
+                'JOYSTICK_HAS_HAT': 'yes',
+            },
+        },
+        joysticks=[
+            JoystickElement(
+                id='js0',
+                axes=[
+                    JoystickAxis(pin='F4', low=0, rest=512, high=1023),
+                    JoystickAxis(pin='F5', low=0, rest=512, high=1023),
+                    # 3rd axis intentionally omitted — falls back to JOYSTICK_AXIS_VIRTUAL
+                ],
+                button_count=4,
+                has_hat=True,
+                hat={'N': 'B2', 'E': 'B3', 'S': 'B4', 'W': 'B5'},
+            ),
+        ],
+    )
+
+
+@pytest.fixture
+def pointing_dpi_kb() -> KeyboardConfig:
+    """Trackball with CPI + DPI stages + an RGB DPI indicator (rgb_matrix path)."""
+    return KeyboardConfig(
+        id='test-pointing-dpi',
+        name='Test Pointing DPI',
+        mcu='atmega32u4',
+        usb_vid='0xFEED',
+        usb_pid='0x0007',
+        manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0, led_index=0),
+            _key('k1', 0, 1, 1, 0, led_index=1),
+            _key('k2', 1, 0, 0, 1, led_index=2),
+            _key('k3', 1, 1, 1, 1, led_index=3),
+        ],
+        row_pins=[MatrixPin(row=0, pin='B0'), MatrixPin(row=1, pin='B1')],
+        col_pins=[ColPin(col=0, pin='D0'), ColPin(col=1, pin='D1')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'KC_A', 'k1': 'KC_B', 'k2': 'DPI_NEXT', 'k3': 'KC_D'})],
+        features={'pointing_device': True, 'rgb_matrix': True, 'nkro': True},
+        feature_configs={
+            'pointing_device': {'POINTING_DEVICE_DRIVER': 'pmw3360', 'POINTING_DEVICE_CS_PIN': 'B6'},
+        },
+        trackballs=[
+            TrackballElement(
+                id='tb0',
+                driver='pmw3360',
+                cpi=1600,
+                dpi_stages=[400, 800, 1600],
+                dpi_indicator=DpiIndicator(mode='rgb', colors=['#FF0000', '#00FF00', '#0000FF']),
+            ),
+        ],
+    )
+
+
+@pytest.fixture
+def pointing_dpi_split_pins_kb() -> KeyboardConfig:
+    """Split trackball board: cpi resolved from first DPI stage (no explicit cpi),
+    set on both halves via _on_side, with a GPIO-pins DPI indicator instead of RGB."""
+    return KeyboardConfig(
+        id='test-pointing-dpi-split',
+        name='Test Pointing DPI Split',
+        mcu='atmega32u4',
+        usb_vid='0xFEED',
+        usb_pid='0x0008',
+        manufacturer='Tebay',
+        soft_serial_pin='D2',
+        keys=[
+            _key('k0', 0, 0, 0, 0),
+            _key('k1', 0, 1, 1, 0),
+            _key('k2', 1, 0, 0, 1),
+            _key('k3', 1, 1, 1, 1),
+        ],
+        row_pins=[MatrixPin(row=0, pin='B0'), MatrixPin(row=1, pin='B1')],
+        col_pins=[ColPin(col=0, pin='D0'), ColPin(col=1, pin='D1')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'KC_A', 'k1': 'KC_B', 'k2': 'DPI_NEXT', 'k3': 'KC_D'})],
+        features={'split_keyboard': True, 'pointing_device': True, 'nkro': True},
+        feature_configs={
+            'pointing_device': {'POINTING_DEVICE_DRIVER': 'pmw3360', 'POINTING_DEVICE_CS_PIN': 'B6'},
+        },
+        trackballs=[
+            TrackballElement(
+                id='tb0',
+                driver='pmw3360',
+                # cpi intentionally 0 — default_cpi() must fall back to the first DPI stage
+                cpi=0,
+                dpi_stages=[400, 800, 1600],
+                dpi_indicator=DpiIndicator(mode='pins', pins=['C0', 'C1']),
+            ),
         ],
     )
 
@@ -387,4 +505,87 @@ def zima_kb() -> KeyboardConfig:
         encoders=[_enc('enc0')],
         oleds=[_oled('oled0')],
         encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+    )
+
+
+@pytest.fixture
+def device_mode_kb() -> KeyboardConfig:
+    """Device-mode switching across keyboard/mouse/joystick with a MODE_NEXT key.
+
+    Exercises the EEPROM settings struct, the MODE_NEXT process_record case, and
+    mouse-report gating by active mode (Phase C).
+    """
+    return KeyboardConfig(
+        id='test-device-mode',
+        name='Test Device Mode',
+        mcu='rp2040',
+        usb_vid='0xFEED',
+        usb_pid='0x0009',
+        manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0),
+            _key('k1', 0, 1, 1, 0),
+            _key('k2', 1, 0, 0, 1),
+            _key('k3', 1, 1, 1, 1),
+        ],
+        row_pins=[MatrixPin(row=0, pin='GP0'), MatrixPin(row=1, pin='GP1')],
+        col_pins=[ColPin(col=0, pin='GP2'), ColPin(col=1, pin='GP3')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'MODE_NEXT', 'k1': 'KC_B', 'k2': 'KC_C', 'k3': 'KC_D'})],
+        features={'pointing_device': True, 'joystick': True},
+        feature_configs={
+            'pointing_device': {'POINTING_DEVICE_DRIVER': 'pmw3360', 'POINTING_DEVICE_CS_PIN': 'GP5'},
+            'joystick': {
+                'JOYSTICK_DRIVER': 'digital',
+                'JOYSTICK_AXIS_COUNT': '2',
+                'JOYSTICK_BUTTON_COUNT': '8',
+                'JOYSTICK_AXIS_RESOLUTION': '8',
+                'JOYSTICK_HAS_HAT': 'no',
+            },
+        },
+        trackballs=[TrackballElement(id='tb0', driver='pmw3360')],
+        device_modes=['keyboard', 'mouse', 'joystick'],
+    )
+
+
+@pytest.fixture
+def oled_menu_kb() -> KeyboardConfig:
+    """Encoder-driven OLED settings menu exposing all four adjustable settings.
+
+    Exercises the settings_menu render block, the EEPROM field-registry
+    extension (menu_index + rgb_brightness + joystick_enabled), and
+    encoder_update_user menu navigation (Phase D).
+    """
+    return KeyboardConfig(
+        id='test-oled-menu',
+        name='Test OLED Menu',
+        mcu='rp2040',
+        usb_vid='0xFEED',
+        usb_pid='0x000A',
+        manufacturer='Tebay',
+        keys=[
+            _key('k0', 0, 0, 0, 0, led_index=0),
+            _key('k1', 0, 1, 1, 0, led_index=1),
+            _key('k2', 1, 0, 0, 1, led_index=2),
+            _key('k3', 1, 1, 1, 1, led_index=3),
+        ],
+        row_pins=[MatrixPin(row=0, pin='GP0'), MatrixPin(row=1, pin='GP1')],
+        col_pins=[ColPin(col=0, pin='GP2'), ColPin(col=1, pin='GP3')],
+        layers=[Layer(id='layer0', name='Base', keycodes={'k0': 'KC_A', 'k1': 'KC_B', 'k2': 'KC_C', 'k3': 'KC_D'})],
+        features={'oled': True, 'encoder': True, 'pointing_device': True, 'rgb_matrix': True, 'nkro': True},
+        feature_configs={
+            'pointing_device': {'POINTING_DEVICE_DRIVER': 'pmw3360', 'POINTING_DEVICE_CS_PIN': 'GP5'},
+        },
+        encoders=[_enc('enc0')],
+        trackballs=[TrackballElement(id='tb0', driver='pmw3360')],
+        encoder_keycodes={'layer0:enc0:cw': 'KC_VOLU', 'layer0:enc0:ccw': 'KC_VOLD'},
+        oleds=[
+            OledElement(
+                id='o0', x=0.0, y=0.0,
+                active_blocks=['settings_menu'],
+                menu_enabled=True,
+                menu_input='encoder',
+                menu_encoder_id='enc0',
+                menu_settings=['dpi_stage', 'device_mode', 'rgb_brightness', 'joystick_enabled'],
+            ),
+        ],
     )

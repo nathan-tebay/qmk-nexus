@@ -1,0 +1,31 @@
+#include QMK_KEYBOARD_H
+
+enum nexus_macros {
+    DPI_NEXT = SAFE_RANGE,
+};
+
+void nx_dpi_indicator_update(uint8_t stage);
+/* DPI stages cycled by the DPI_NEXT keycode. */
+static const uint16_t dpi_stages[] = { 400, 800, 1600 };
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+    /* Layer 0: Base */
+    [0] = LAYOUT(
+        KC_A, KC_B,
+        DPI_NEXT, KC_D
+    )
+};
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    if (!record->event.pressed) return true;
+    switch (keycode) {
+        case DPI_NEXT: {
+            static uint8_t dpi_stage = 0;
+            dpi_stage = (dpi_stage + 1) % (sizeof(dpi_stages) / sizeof(dpi_stages[0]));
+            pointing_device_set_cpi(dpi_stages[dpi_stage]);
+            nx_dpi_indicator_update(dpi_stage);
+            return false;
+        }
+    }
+    return true;
+}

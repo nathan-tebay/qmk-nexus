@@ -1,3 +1,5 @@
+import { POINTING_DRIVER_OPTIONS } from './pointingSensors'
+
 export interface ConfigField {
   key: string
   type: 'text' | 'pin' | 'select'
@@ -115,14 +117,34 @@ export const FEATURE_MODULES: readonly FeatureModule[] = [
     inputs: [
       { key: 'POINTING_DEVICE_DRIVER', type: 'select', description: 'Pointing device driver',
         defaultValue: 'pmw3360',
-        options: ['pmw3360', 'pmw3389', 'adns9800', 'cirque_pinnacle_spi', 'cirque_pinnacle_i2c', 'pimoroni_trackball', 'custom'] },
+        options: POINTING_DRIVER_OPTIONS.map((o) => o.value) },
       { key: 'POINTING_DEVICE_CS_PIN', type: 'pin', description: 'SPI chip select pin', defaultValue: 'B0',
-        conditionalOn: { POINTING_DEVICE_DRIVER: ['pmw3360', 'pmw3389', 'adns9800', 'cirque_pinnacle_spi'] } },
+        conditionalOn: { POINTING_DEVICE_DRIVER: ['pmw3360', 'pmw3389', 'pmw3320', 'adns9800', 'adns5050', 'paw3204', 'paw3222', 'cirque_pinnacle_spi'] } },
       { key: 'POINTING_DEVICE_MOTION_PIN', type: 'pin', description: 'Motion interrupt pin', defaultValue: 'E6',
-        conditionalOn: { POINTING_DEVICE_DRIVER: ['pmw3360', 'pmw3389', 'adns9800'] } },
+        conditionalOn: { POINTING_DEVICE_DRIVER: ['pmw3360', 'pmw3389', 'pmw3320', 'adns9800', 'adns5050', 'paw3204', 'paw3222', 'azoteq_iqs5xx'] } },
+      { key: 'POINTING_DEVICE_I2C_SDA', type: 'pin', description: 'I2C SDA pin', defaultValue: 'D2',
+        conditionalOn: { POINTING_DEVICE_DRIVER: ['cirque_pinnacle_i2c', 'azoteq_iqs5xx', 'pimoroni_trackball'] } },
+      { key: 'POINTING_DEVICE_I2C_SCL', type: 'pin', description: 'I2C SCL pin', defaultValue: 'D1',
+        conditionalOn: { POINTING_DEVICE_DRIVER: ['cirque_pinnacle_i2c', 'azoteq_iqs5xx', 'pimoroni_trackball'] } },
       { key: 'POINTING_DEVICE_ROTATION_90', type: 'select', description: 'Rotate sensor 90°', defaultValue: 'no', options: ['yes', 'no'] },
       { key: 'POINTING_DEVICE_INVERT_X', type: 'select', description: 'Invert X axis', defaultValue: 'no', options: ['yes', 'no'] },
       { key: 'POINTING_DEVICE_INVERT_Y', type: 'select', description: 'Invert Y axis', defaultValue: 'no', options: ['yes', 'no'] },
+    ],
+  },
+  {
+    id: 'joystick', name: 'Joystick', group: 'Input',
+    rulesMkKey: 'JOYSTICK_ENABLE', qmkPrevalence: 0.02,
+    description: 'Gamepad/joystick HID device support (analog or digital axes, buttons, and an optional hat switch).',
+    requiredConfig: [], optionalConfig: ['JOYSTICK_AXIS_COUNT','JOYSTICK_BUTTON_COUNT','JOYSTICK_AXIS_RESOLUTION','JOYSTICK_HAS_HAT'], incompatibleWith: [],
+    inputs: [
+      { key: 'JOYSTICK_DRIVER', type: 'select', description: 'Joystick driver',
+        defaultValue: 'analog',
+        options: ['analog', 'digital'] },
+      { key: 'JOYSTICK_AXIS_COUNT', type: 'text', description: 'Number of axes (0-6)', defaultValue: '2' },
+      { key: 'JOYSTICK_BUTTON_COUNT', type: 'text', description: 'Number of buttons (0-32)', defaultValue: '8' },
+      { key: 'JOYSTICK_AXIS_RESOLUTION', type: 'text', description: 'Axis resolution in bits (8-16)', defaultValue: '8',
+        conditionalOn: { JOYSTICK_DRIVER: 'analog' } },
+      { key: 'JOYSTICK_HAS_HAT', type: 'select', description: 'Include a hat (POV) switch', defaultValue: 'no', options: ['yes', 'no'] },
     ],
   },
   {

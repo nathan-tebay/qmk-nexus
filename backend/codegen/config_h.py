@@ -254,6 +254,21 @@ def generate_config_h(config: KeyboardConfig) -> str:
             lines.append('#define POINTING_DEVICE_INVERT_Y')
         lines.append('')
 
+    if features.get('joystick'):
+        js = fc.get('joystick', {})
+        button_count = js.get('JOYSTICK_BUTTON_COUNT', '8')
+        axis_count = js.get('JOYSTICK_AXIS_COUNT', '2')
+        axis_resolution = js.get('JOYSTICK_AXIS_RESOLUTION', '10')
+        has_hat = js.get('JOYSTICK_HAS_HAT', 'no')
+        lines += [
+            f'#define JOYSTICK_BUTTON_COUNT {button_count}',
+            f'#define JOYSTICK_AXIS_COUNT {axis_count}',
+            f'#define JOYSTICK_AXIS_RESOLUTION {axis_resolution}',
+        ]
+        if has_hat == 'yes':
+            lines.append('#define JOYSTICK_HAS_HAT')
+        lines.append('')
+
     if features.get('bootmagic'):
         bm = fc.get('bootmagic', {})
         row = bm.get('BOOTMAGIC_LITE_ROW') or '0'

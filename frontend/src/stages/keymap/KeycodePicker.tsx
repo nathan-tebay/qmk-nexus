@@ -78,10 +78,14 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
   }, [onClose])
 
   const features = useKeyboardStore((s) => s.config.features)
+  const deviceModes = useKeyboardStore((s) => s.config.deviceModes)
+  const hasOledMenuKeys = useKeyboardStore((s) =>
+    s.config.oleds.some((o) => o.menuEnabled && o.menuInput === 'keys')
+  )
 
   const availableKeycodes = useMemo(
-    () => KEYCODES.filter((k) => isKeycodeAvailable(k, features)),
-    [features],
+    () => KEYCODES.filter((k) => isKeycodeAvailable(k, features, deviceModes, hasOledMenuKeys)),
+    [features, deviceModes, hasOledMenuKeys],
   )
 
   const filtered = useMemo(() => {
@@ -91,6 +95,16 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
       return k.category === category
     })
   }, [search, category, availableKeycodes])
+
+  const categoryHasAnyKeycodes = useMemo(() => {
+    return KEYCODES.some((k) => k.category === category)
+  }, [category])
+
+  const allInCategoryFilteredOut = categoryHasAnyKeycodes && filtered.length === 0 && !search
+
+  const currentCategoryLabel = useMemo(() => {
+    return CATEGORIES.find((c) => c.id === category)?.label ?? category
+  }, [category])
 
   const tapFiltered = useMemo(() => {
     const q = tapSearch.toLowerCase()
@@ -371,7 +385,10 @@ export function KeycodePicker({ onSelect, onClose, currentCode = '', layerCount 
                 <span className={k.shifted ? styles.cellBottom : undefined}>{k.label}</span>
               </button>
             ))}
-            {filtered.length === 0 && (
+            {allInCategoryFilteredOut && (
+              <span className={styles.empty}>Enable the {currentCategoryLabel} feature to assign these keycodes.</span>
+            )}
+            {filtered.length === 0 && !allInCategoryFilteredOut && (
               <span className={styles.empty}>No keycodes match</span>
             )}
           </div>

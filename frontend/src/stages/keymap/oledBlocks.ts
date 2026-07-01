@@ -8,6 +8,7 @@ export const OLED_BLOCKS = [
   { id: 'mod_indicators', label: 'Modifiers',      description: 'Currently active modifier key indicators' },
   { id: 'keylog',         label: 'Key Log',        description: 'Last key pressed (stub — implement keylog_str)' },
   { id: 'master_slave',   label: 'Master / Slave', description: 'Split keyboard side indicator' },
+  { id: 'settings_menu',  label: 'Settings Menu',  description: 'Interactive settings menu (DPI / Device mode / RGB / Joystick)' },
 ] as const
 
 export type OledBlockId = typeof OLED_BLOCKS[number]['id']
@@ -48,6 +49,8 @@ export function getBlockPreviewLines(
       return ['> KC_A']
     case 'master_slave':
       return ['Master']
+    case 'settings_menu':
+      return ['> DPI: 1600', '  Mode: Mouse', '  RGB: 80%']
     default:
       return []
   }

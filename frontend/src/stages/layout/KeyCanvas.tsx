@@ -5,7 +5,7 @@ import { useKeyboardStore } from '@/store/keyboard'
 import KeyShape from './KeyShape'
 import SelectionTransformer from './SelectionTransformer'
 import MatrixLines, { type ColorScheme } from './MatrixLines'
-import { EncoderShape, OledShape, TrackballShape } from './PeripheralShape'
+import { EncoderShape, OledShape, TrackballShape, JoystickShape } from './PeripheralShape'
 import { CANVAS_BG, UNIT } from './constants'
 
 interface Props {
@@ -51,7 +51,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     setSelectedKey, setSelectedKeys, toggleSelectedKey, updateKey,
     addMatrixEdge, removeMatrixEdge,
     selectedPeripheralId, setSelectedPeripheral,
-    updateEncoder, updateOled, updateTrackball,
+    updateEncoder, updateOled, updateTrackball, updateJoystick,
   } = useKeyboardStore()
 
   const [matrixPending, setMatrixPending] = useState<MatrixPending | null>(null)
@@ -83,7 +83,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     }
   }
 
-  function handlePeripheralSelect(id: string, type: 'encoder' | 'oled' | 'trackball') {
+  function handlePeripheralSelect(id: string, type: 'encoder' | 'oled' | 'trackball' | 'joystick') {
     setSelectedKeys([])
     setSelectedPeripheral(id, type)
   }
@@ -198,6 +198,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
       ...(config.encoders ?? []).map((e) => [(e.x + 2) * UNIT, (e.y + 2) * UNIT]),
       ...(config.oleds ?? []).map((o) => [(o.x + 2.5) * UNIT, (o.y + 1.5) * UNIT]),
       ...(config.trackballs ?? []).map((t) => [(t.x + 2) * UNIT, (t.y + 2) * UNIT]),
+      ...(config.joysticks ?? []).map((j) => [(j.x + 2) * UNIT, (j.y + 2) * UNIT]),
     ]
     if (!stage || allBounds.length === 0) return
     const maxX = Math.max(...allBounds.map((b) => b[0]))
@@ -208,7 +209,7 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
     const scale = Math.min(scaleX, scaleY, MAX_SCALE)
     stage.scale({ x: scale, y: scale })
     stage.position({ x: padding, y: padding })
-  }, [config.keys, config.encoders, config.oleds, config.trackballs, width, height])
+  }, [config.keys, config.encoders, config.oleds, config.trackballs, config.joysticks, width, height])
 
   useImperativeHandle(ref, () => ({ fitView }), [fitView])
 
@@ -295,6 +296,15 @@ const KeyCanvas = forwardRef<KeyCanvasHandle, Props>(function KeyCanvas(
             selected={selectedPeripheralId === tb.id}
             onSelect={(id) => handlePeripheralSelect(id, 'trackball')}
             onChange={updateTrackball}
+          />
+        ))}
+        {(config.joysticks ?? []).map((js) => (
+          <JoystickShape
+            key={js.id}
+            el={js}
+            selected={selectedPeripheralId === js.id}
+            onSelect={(id) => handlePeripheralSelect(id, 'joystick')}
+            onChange={updateJoystick}
           />
         ))}
         {showMatrix && <MatrixLines keys={config.keys} edges={config.matrixEdges ?? []} pendingId={matrixPending?.id} colorScheme={colorScheme} />}

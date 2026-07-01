@@ -495,3 +495,111 @@
   border: 1px solid #2a2a2a;
   box-shadow: 0 0 12px rgba(0, 180, 100, 0.08);
 }
+
+/* Settings menu section */
+
+.menuSection {
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  flex-shrink: 0;
+}
+
+.menuBlockedNote {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.menuToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.menuToggleLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.75px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.menuFlashNote {
+  font-size: 12px;
+  color: #c8903a;
+}
+
+.menuBody {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menuRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.menuRowLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  min-width: 56px;
+  padding-top: 3px;
+}
+
+.menuSelect {
+  flex: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text);
+}
+
+.menuHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.menuCheckGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menuCheckLabel {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.menuCheckDisabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.menuPreview {
+  margin-top: 4px;
+  padding: 6px 8px;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 11px;
+}
+
+.menuPreviewLine {
+  color: #c8c8c8;
+  line-height: 1.6;
+  white-space: pre;
+}

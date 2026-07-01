@@ -51,6 +51,9 @@ _NUMERIC_KEYS = frozenset({
     'MOUSEKEY_MAX_SPEED',
     'TAPPING_TERM',
     'COMBO_TERM',
+    'JOYSTICK_AXIS_COUNT',
+    'JOYSTICK_BUTTON_COUNT',
+    'JOYSTICK_AXIS_RESOLUTION',
 })
 
 _YES_NO_KEYS = frozenset({
@@ -68,6 +71,7 @@ _YES_NO_KEYS = frozenset({
     'POINTING_DEVICE_INVERT_Y',
     'BACKLIGHT_BREATHING',
     'AUDIO_CLICKY',
+    'JOYSTICK_HAS_HAT',
 })
 
 _IDENTIFIER_VALUE_KEYS = frozenset({
@@ -77,6 +81,7 @@ _IDENTIFIER_VALUE_KEYS = frozenset({
     'POINTING_DEVICE_DRIVER',
     'AUDIO_DRIVER',
     'SERIAL_DRIVER',
+    'JOYSTICK_DRIVER',
 })
 
 _DISPLAY_SIZES = frozenset({'64_32', '64_48', '128_32', '128_64'})

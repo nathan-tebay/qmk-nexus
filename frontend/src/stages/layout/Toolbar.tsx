@@ -24,7 +24,7 @@ const KEY_SIZES: { label: string; w: number; h: number; shape?: KeyShapeType }[]
 ]
 
 export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggleGrid, onFitView, onImportQMK }: Props) {
-  const { config, selectedKeyIds, addKey, removeKey, addEncoder, addOled, addTrackball } = useKeyboardStore()
+  const { config, selectedKeyIds, addKey, removeKey, addEncoder, addOled, addTrackball, addJoystick } = useKeyboardStore()
   const oledLimitReached = (config.oleds?.length ?? 0) >= maxSupportedOleds(config)
   const keyLimitReached = config.keys.length >= MAX_KEY_COUNT
 
@@ -113,6 +113,7 @@ export default function Toolbar({ showMatrix, snapGrid, onToggleMatrix, onToggle
           OLED
         </button>
         <button className={styles.sizeBtn} onClick={addTrackball} title="Add trackball">Trackball</button>
+        <button className={styles.sizeBtn} onClick={addJoystick} title="Add joystick">Joystick</button>
       </div>
 
       <div className={styles.group}>

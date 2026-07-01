@@ -46,6 +46,7 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         ('console',       'CONSOLE_ENABLE'),
         ('audio',         'AUDIO_ENABLE'),
         ('pointing_device','POINTING_DEVICE_ENABLE'),
+        ('joystick',      'JOYSTICK_ENABLE'),
         ('key_lock',      'KEY_LOCK_ENABLE'),
         ('dynamic_macro', 'DYNAMIC_MACRO_ENABLE'),
         ('wpm',           'WPM_ENABLE'),
@@ -105,6 +106,12 @@ def generate_rules_mk(config: KeyboardConfig) -> str:
         pd = fc.get('pointing_device', {})
         driver = pd.get('POINTING_DEVICE_DRIVER', 'pmw3360')
         lines.append(f'POINTING_DEVICE_DRIVER = {driver}')
+        lines.append('')
+
+    if features.get('joystick'):
+        js = fc.get('joystick', {})
+        driver = js.get('JOYSTICK_DRIVER', 'analog')
+        lines.append(f'JOYSTICK_DRIVER = {driver}')
         lines.append('')
 
     if features.get('encoder'):

@@ -1,0 +1,6 @@
+MCU = atmega32u4
+F_CPU = 16000000
+
+JOYSTICK_ENABLE = yes
+
+JOYSTICK_DRIVER = analog

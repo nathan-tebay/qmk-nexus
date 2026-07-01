@@ -1,8 +1,8 @@
 import { Group, Circle, Rect, Text, Line } from 'react-konva'
 import type Konva from 'konva'
 import { UNIT } from './constants'
-import type { EncoderElement, OledElement, TrackballElement } from '@/store/keyboard'
-import { encoderRadiusPx, trackballRadiusPx, oledSizePx } from '../peripheralSizes'
+import type { EncoderElement, OledElement, TrackballElement, JoystickElement } from '@/store/keyboard'
+import { encoderRadiusPx, trackballRadiusPx, oledSizePx, joystickRadiusPx, JOYSTICK_DIAMETER_MM } from '../peripheralSizes'
 
 const SNAP = 0.25
 
@@ -171,6 +171,70 @@ export function TrackballShape({ el, selected, onSelect, onChange }: TrackballSh
       />
       <Text
         text="TB"
+        x={0} y={r * 1.35}
+        width={r * 2}
+        align="center"
+        fontSize={11.25}
+        fill={selected ? accent : '#666'}
+        fontStyle="bold"
+      />
+    </Group>
+  )
+}
+
+interface JoystickShapeProps {
+  el: JoystickElement
+  selected: boolean
+  onSelect: (id: string) => void
+  onChange: (id: string, updates: Partial<JoystickElement>) => void
+}
+
+export function JoystickShape({ el, selected, onSelect, onChange }: JoystickShapeProps) {
+  const r = joystickRadiusPx(JOYSTICK_DIAMETER_MM)
+  const accent = '#42a5f5'
+
+  function handleDragEnd(e: Konva.KonvaEventObject<DragEvent>) {
+    const x = snap(e.target.x() / UNIT)
+    const y = snap(e.target.y() / UNIT)
+    e.target.position({ x: x * UNIT, y: y * UNIT })
+    onChange(el.id, { x, y })
+  }
+
+  return (
+    <Group
+      x={el.x * UNIT}
+      y={el.y * UNIT}
+      draggable
+      onClick={(e) => { e.cancelBubble = true; onSelect(el.id) }}
+      onDragEnd={handleDragEnd}
+    >
+      {/* base */}
+      <Circle
+        x={r} y={r} radius={r}
+        fill={selected ? 'rgba(66,165,245,0.12)' : 'rgba(255,255,255,0.05)'}
+        stroke={selected ? accent : 'rgba(255,255,255,0.22)'}
+        strokeWidth={selected ? 2 : 1.5}
+      />
+      {/* stick */}
+      <Circle
+        x={r} y={r} radius={r * 0.35}
+        fill={selected ? 'rgba(66,165,245,0.4)' : 'rgba(255,255,255,0.12)'}
+        stroke={selected ? accent : 'rgba(255,255,255,0.1)'}
+        strokeWidth={1}
+      />
+      {/* crosshair */}
+      <Line
+        points={[r * 0.2, r, r * 1.8, r]}
+        stroke={selected ? accent : '#888'}
+        strokeWidth={1}
+      />
+      <Line
+        points={[r, r * 0.2, r, r * 1.8]}
+        stroke={selected ? accent : '#888'}
+        strokeWidth={1}
+      />
+      <Text
+        text="JOY"
         x={0} y={r * 1.35}
         width={r * 2}
         align="center"

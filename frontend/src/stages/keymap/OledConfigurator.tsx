@@ -3,6 +3,7 @@ import { useKeyboardStore } from '@/store/keyboard'
 import type { Layer } from '@/store/keyboard'
 import type { OledElement } from '@/store/keyboard'
 import { OLED_BLOCKS, OLED_PIXEL_SIZES, OLED_DISPLAY_OPTIONS, getBlockPreviewLines } from './oledBlocks'
+import { mcuById } from '@/stages/build/mcus'
 import styles from './OledConfigurator.module.css'
 
 type OledState = 'startup' | 'active' | 'idle'
@@ -207,6 +208,52 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
   const displayRotation   = (oled?.displayRotation  ?? 0) as 0 | 90 | 180 | 270
   const logoImage      = oled?.logoImage      ?? ''
   const pixelSize      = useMemo(() => OLED_PIXEL_SIZES[displaySize] ?? OLED_PIXEL_SIZES['128_32'], [displaySize])
+
+  const menuEnabled    = oled?.menuEnabled    ?? false
+  const menuInput      = oled?.menuInput      ?? 'encoder'
+  const menuEncoderId  = oled?.menuEncoderId  ?? null
+  const menuSettings   = oled?.menuSettings   ?? []
+
+  const mcuInfo        = mcuById.get(config.mcu)
+  // atmega32u2 (flashKb=16): disable menu entirely
+  // atmega32u4 (flashKb=32): advisory warning only
+  // arm / at90usb1286 / atmega328p etc (flashKb>=32, or arm): fine
+  const menuBlocked    = mcuInfo !== undefined && mcuInfo.flashKb <= 16
+  const menuFlashWarn  = !menuBlocked && mcuInfo !== undefined && mcuInfo.flashKb <= 32 && mcuInfo.arch === 'avr'
+
+  // Prerequisite checks for each menu settings item
+  const hasPointingDevice  = config.trackballs.length > 0
+  const hasDpiStages       = config.trackballs.some((tb) => tb.dpiStages.length > 0)
+  const hasDeviceModes2    = config.deviceModes.length >= 2
+  const hasRgb             = !!(config.features.rgblight || config.features.rgb_matrix)
+  const hasJoystick        = !!config.features.joystick
+
+  const MENU_SETTING_DEFS = [
+    {
+      id: 'dpi_stage',
+      label: 'DPI stage',
+      enabled: hasDpiStages,
+      hint: !hasPointingDevice ? 'No pointing device configured' : !hasDpiStages ? 'Add DPI stages to trackball' : '',
+    },
+    {
+      id: 'device_mode',
+      label: 'Device mode',
+      enabled: hasDeviceModes2,
+      hint: !hasDeviceModes2 ? 'Need 2+ device modes configured' : '',
+    },
+    {
+      id: 'rgb_brightness',
+      label: 'RGB brightness',
+      enabled: hasRgb,
+      hint: !hasRgb ? 'Enable rgblight or rgb_matrix feature' : '',
+    },
+    {
+      id: 'joystick_enabled',
+      label: 'Joystick on/off',
+      enabled: hasJoystick,
+      hint: !hasJoystick ? 'Enable joystick feature' : '',
+    },
+  ] as const
 
   useEffect(() => {
     if (!logoImage) { setLogoImg(null); return }
@@ -472,6 +519,105 @@ export function OledConfigurator({ oledId, oledIndex, onClose }: Props) {
                   data-enable-grammarly="false"
                 />
               </div>
+            )}
+          </div>
+
+          {/* Settings menu section */}
+          <div className={styles.menuSection}>
+            {menuBlocked ? (
+              <div className={styles.menuBlockedNote}>
+                Settings menu not available on ATmega32U2 (insufficient flash).
+              </div>
+            ) : (
+              <>
+                <div className={styles.menuToggleRow}>
+                  <label className={styles.menuToggleLabel}>
+                    <input
+                      type="checkbox"
+                      checked={menuEnabled}
+                      onChange={(e) => updateOled(oledId, { menuEnabled: e.target.checked })}
+                    />
+                    Settings menu
+                  </label>
+                  {menuFlashWarn && (
+                    <span className={styles.menuFlashNote}>
+                      Flash-tight on ATmega32U4 — enable with care
+                    </span>
+                  )}
+                </div>
+
+                {menuEnabled && (
+                  <div className={styles.menuBody}>
+                    <div className={styles.menuRow}>
+                      <span className={styles.menuRowLabel}>Input</span>
+                      <select
+                        className={styles.menuSelect}
+                        value={menuInput}
+                        onChange={(e) => updateOled(oledId, { menuInput: e.target.value as OledElement['menuInput'] })}
+                      >
+                        <option value="encoder">Encoder</option>
+                        <option value="keys">Keys (MENU_UP / MENU_DOWN / MENU_SEL)</option>
+                        <option value="pointing_tap">Pointing tap</option>
+                      </select>
+                    </div>
+
+                    {menuInput === 'encoder' && (
+                      <div className={styles.menuRow}>
+                        <span className={styles.menuRowLabel}>Encoder</span>
+                        {config.encoders.length === 0 ? (
+                          <span className={styles.menuHint}>No encoders — add one in Layout stage</span>
+                        ) : (
+                          <select
+                            className={styles.menuSelect}
+                            value={menuEncoderId ?? ''}
+                            onChange={(e) => updateOled(oledId, { menuEncoderId: e.target.value || null })}
+                          >
+                            <option value="">— pick encoder —</option>
+                            {config.encoders.map((enc, i) => (
+                              <option key={enc.id} value={enc.id}>Encoder {i + 1}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    )}
+
+                    <div className={styles.menuRow}>
+                      <span className={styles.menuRowLabel}>Expose</span>
+                      <div className={styles.menuCheckGroup}>
+                        {MENU_SETTING_DEFS.map((def) => (
+                          <label
+                            key={def.id}
+                            className={`${styles.menuCheckLabel} ${!def.enabled ? styles.menuCheckDisabled : ''}`}
+                            title={def.hint}
+                          >
+                            <input
+                              type="checkbox"
+                              disabled={!def.enabled}
+                              checked={menuSettings.includes(def.id)}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...menuSettings, def.id]
+                                  : menuSettings.filter((s) => s !== def.id)
+                                updateOled(oledId, { menuSettings: next })
+                              }}
+                            />
+                            {def.label}
+                            {!def.enabled && def.hint && (
+                              <span className={styles.menuHint}> ({def.hint})</span>
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className={styles.menuPreview}>
+                      {getBlockPreviewLines('settings_menu', config.layers, activeLayerId).map((line, i) => (
+                        <div key={i} className={styles.menuPreviewLine}>{line}</div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
 

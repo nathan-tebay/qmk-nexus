@@ -1,0 +1,25 @@
+#include QMK_KEYBOARD_H
+#include "split_util.h"
+#include "pointing_device.h"
+
+void keyboard_post_init_kb(void) {
+    split_post_init();
+    keyboard_post_init_user();
+}
+
+/* DPI indicator: reflect the active DPI stage. Shared by the pointing
+ * device init and the DPI_NEXT keycode handler. */
+void nx_dpi_indicator_update(uint8_t stage) {
+    /* Drive indicator pins to encode the stage index in binary. */
+    gpio_set_pin_output(C0);
+    gpio_write_pin(C0, (stage >> 0) & 1);
+    gpio_set_pin_output(C1);
+    gpio_write_pin(C1, (stage >> 1) & 1);
+}
+
+void pointing_device_init_user(void) {
+    /* Split: set CPI on both halves so they match. */
+    pointing_device_set_cpi_on_side(true, 400);
+    pointing_device_set_cpi_on_side(false, 400);
+    nx_dpi_indicator_update(0);
+}

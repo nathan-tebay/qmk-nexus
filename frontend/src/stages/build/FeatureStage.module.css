@@ -107,6 +107,18 @@
   margin-bottom: 4px;
 }
 
+.advisoryBox {
+  width: min(1225px, 100%);
+  margin: 0 auto;
+  padding: 9px 11px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 6px;
+  background: rgba(251, 191, 36, 0.1);
+  color: #fbbf24;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 .featureShell {
   width: min(1225px, 100%);
   margin: 0 auto;

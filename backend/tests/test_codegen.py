@@ -371,6 +371,212 @@ def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
     assert 'KINETIS_USB_USE_USB0' in sources['mcuconf.h']
 
 
+# ── Joystick emission ─────────────────────────────────────────────────────────
+
+def test_joystick_rules_mk_emits_enable_and_driver(joystick_kb):
+    rules = generate_rules_mk(joystick_kb)
+    assert 'JOYSTICK_ENABLE = yes' in rules
+    assert 'JOYSTICK_DRIVER = analog' in rules
+
+
+def test_joystick_config_h_emits_counts_resolution_and_hat_define(joystick_kb):
+    config = generate_config_h(joystick_kb)
+    assert '#define JOYSTICK_BUTTON_COUNT 4' in config
+    assert '#define JOYSTICK_AXIS_COUNT 3' in config
+    assert '#define JOYSTICK_AXIS_RESOLUTION 12' in config
+    assert '#define JOYSTICK_HAS_HAT' in config
+
+
+def test_joystick_config_h_omits_hat_define_when_has_hat_no(joystick_kb):
+    kb = joystick_kb.model_copy(update={
+        'feature_configs': {
+            'joystick': {**joystick_kb.feature_configs['joystick'], 'JOYSTICK_HAS_HAT': 'no'},
+        },
+    })
+    config = generate_config_h(kb)
+    assert 'JOYSTICK_HAS_HAT' not in config
+
+
+def test_joystick_keymap_c_emits_axes_array_with_analog_and_virtual_fallback(joystick_kb):
+    c = generate_keymap_c(joystick_kb)
+    assert 'joystick_config_t joystick_axes[JOYSTICK_AXIS_COUNT] = {' in c
+    assert 'JOYSTICK_AXIS_IN(F4, 0, 512, 1023),' in c
+    assert 'JOYSTICK_AXIS_IN(F5, 0, 512, 1023),' in c
+    # 3rd axis configured as AXIS_COUNT=3 but only 2 JoystickAxis entries supplied → virtual fallback
+    assert 'JOYSTICK_AXIS_VIRTUAL' in c
+
+
+def test_joystick_keymap_c_emits_hat_matrix_scan_user(joystick_kb):
+    c = generate_keymap_c(joystick_kb)
+    assert 'void matrix_scan_user(void) {' in c
+    assert 'joystick_set_hat(hat_dir);' in c
+    assert 'readPin(B2)' in c  # N
+    assert 'readPin(B3)' in c  # E
+    assert 'readPin(B4)' in c  # S
+    assert 'readPin(B5)' in c  # W
+
+
+def test_joystick_keymap_c_omits_hat_handler_when_has_hat_false_on_element(joystick_kb):
+    kb = joystick_kb.model_copy(update={
+        'joysticks': [joystick_kb.joysticks[0].model_copy(update={'has_hat': False})],
+    })
+    c = generate_keymap_c(kb)
+    assert 'matrix_scan_user' not in c
+    # axes array is independent of hat and must still be emitted
+    assert 'joystick_config_t joystick_axes[JOYSTICK_AXIS_COUNT] = {' in c
+
+
+def test_no_joystick_emits_no_joystick_output(minimal_avr_kb):
+    rules = generate_rules_mk(minimal_avr_kb)
+    config = generate_config_h(minimal_avr_kb)
+    c = generate_keymap_c(minimal_avr_kb)
+    assert 'JOYSTICK' not in rules
+    assert 'JOYSTICK' not in config
+    assert 'joystick_axes' not in c
+    assert 'matrix_scan_user' not in c
+
+
+# ── Pointing-device DPI emission ───────────────────────────────────────────────
+
+def test_pointing_dpi_keymap_c_emits_enum_stages_and_case(pointing_dpi_kb):
+    c = generate_keymap_c(pointing_dpi_kb)
+    assert 'enum nexus_macros {' in c
+    assert 'DPI_NEXT = SAFE_RANGE,' in c
+    assert 'static const uint16_t dpi_stages[] = { 400, 800, 1600 };' in c
+    assert 'case DPI_NEXT: {' in c
+    assert 'pointing_device_set_cpi(dpi_stages[dpi_stage]);' in c
+
+
+def test_pointing_dpi_keyboard_c_emits_init_and_indicator(pointing_dpi_kb):
+    c = generate_keyboard_c(pointing_dpi_kb)
+    assert 'void pointing_device_init_user(void) {' in c
+    assert 'pointing_device_set_cpi(1600);' in c
+    assert 'void nx_dpi_indicator_update(uint8_t stage) {' in c
+    assert 'nx_dpi_indicator_update(0);' in c  # called once from init
+
+
+def test_pointing_dpi_keyboard_c_rgb_indicator_uses_rgb_matrix_setter(pointing_dpi_kb):
+    c = generate_keyboard_c(pointing_dpi_kb)
+    assert 'rgb_matrix_set_color_all(255, 0, 0); break;' in c
+    assert 'rgb_matrix_set_color_all(0, 255, 0); break;' in c
+    assert 'rgb_matrix_set_color_all(0, 0, 255); break;' in c
+
+
+def test_pointing_dpi_split_falls_back_to_first_stage_and_uses_on_side(pointing_dpi_split_pins_kb):
+    c = generate_keyboard_c(pointing_dpi_split_pins_kb)
+    # cpi=0 on the trackball → default_cpi() resolves to the first DPI stage (400)
+    assert 'pointing_device_set_cpi_on_side(true, 400);' in c
+    assert 'pointing_device_set_cpi_on_side(false, 400);' in c
+    assert 'pointing_device_set_cpi(' not in c.replace('pointing_device_set_cpi_on_side', '')
+
+
+def test_pointing_dpi_pins_indicator_emits_gpio_writes(pointing_dpi_split_pins_kb):
+    c = generate_keyboard_c(pointing_dpi_split_pins_kb)
+    assert 'gpio_set_pin_output(C0);' in c
+    assert 'gpio_write_pin(C0, (stage >> 0) & 1);' in c
+    assert 'gpio_set_pin_output(C1);' in c
+    assert 'gpio_write_pin(C1, (stage >> 1) & 1);' in c
+    assert 'rgb_matrix_set_color_all' not in c
+
+
+def test_no_dpi_data_emits_no_dpi_output(unicorne_kb):
+    """unicorne_kb has pointing_device enabled but no trackballs/cpi/dpi_stages —
+    must be a complete no-op for all DPI-related output (regression guard)."""
+    keymap = generate_keymap_c(unicorne_kb)
+    keyboard = generate_keyboard_c(unicorne_kb)
+    assert 'DPI_NEXT' not in keymap
+    assert 'dpi_stages' not in keymap
+    assert 'DPI_NEXT' not in keyboard
+    assert 'nx_dpi_indicator_update' not in keyboard
+    assert 'pointing_device_init_user' not in keyboard
+    assert 'pointing_device_set_cpi' not in keyboard
+
+
+# ── Device-mode switching (Phase C) ─────────────────────────────────────────────
+
+def test_device_mode_keymap_c_emits_mode_next_case(device_mode_kb):
+    c = generate_keymap_c(device_mode_kb)
+    assert 'MODE_NEXT' in c
+    assert 'active_mode' in c
+    # cycles modulo the 3 enabled modes
+    assert '% 3' in c
+
+
+def test_device_mode_keyboard_c_emits_settings_struct(device_mode_kb):
+    c = generate_keyboard_c(device_mode_kb)
+    assert 'nexus_user_config_t' in c
+    assert 'uint8_t active_mode;' in c
+
+
+def test_device_mode_keyboard_c_gates_mouse_report_by_active_mode(device_mode_kb):
+    c = generate_keyboard_c(device_mode_kb)
+    # 'mouse' is index 1 in ['keyboard','mouse','joystick']
+    assert 'active_mode != 1' in c
+
+
+def test_no_device_modes_emits_no_mode_output(joystick_kb):
+    """joystick_kb has no device_modes — none of the mode-switching scaffold
+    should be emitted (regression guard)."""
+    keymap = generate_keymap_c(joystick_kb)
+    keyboard = generate_keyboard_c(joystick_kb)
+    assert 'MODE_NEXT' not in keymap
+    assert 'nexus_user_config_t' not in keyboard
+    assert 'active_mode' not in keyboard
+
+
+# ── Interactive OLED settings menu (Phase D) ────────────────────────────────────
+
+def test_oled_menu_keyboard_c_renders_settings_block(oled_menu_kb):
+    c = generate_keyboard_c(oled_menu_kb)
+    assert 'SETTINGS' in c
+    assert 'menu_index' in c
+    # live values pulled from QMK getters
+    assert 'pointing_device_get_cpi()' in c
+
+
+def test_oled_menu_keyboard_c_emits_shared_mutators(oled_menu_kb):
+    c = generate_keyboard_c(oled_menu_kb)
+    assert 'nx_menu_cursor_next' in c
+    assert 'nx_menu_value_adjust' in c
+
+
+def test_oled_menu_extends_settings_struct(oled_menu_kb):
+    c = generate_keyboard_c(oled_menu_kb)
+    assert 'nexus_user_config_t' in c
+    assert 'uint8_t menu_index;' in c
+    # exposed settings that need their own stored value
+    assert 'rgb_brightness' in c
+    assert 'joystick_enabled' in c
+
+
+def test_oled_menu_encoder_emits_encoder_update_user(oled_menu_kb):
+    c = generate_keymap_c(oled_menu_kb)
+    assert 'encoder_update_user' in c
+
+
+def test_oled_menu_keys_input_emits_menu_keycodes(oled_menu_kb):
+    kb = oled_menu_kb.model_copy(update={
+        'oleds': [oled_menu_kb.oleds[0].model_copy(update={'menu_input': 'keys'})],
+    })
+    c = generate_keymap_c(kb)
+    assert 'MENU_UP' in c
+    assert 'MENU_DOWN' in c
+    assert 'MENU_SEL' in c
+    # encoder handler should NOT be emitted in keys mode
+    assert 'encoder_update_user' not in c
+
+
+def test_no_oled_menu_emits_no_menu_output(zima_kb):
+    """zima_kb has an OLED but no menu — none of the menu scaffold should emit
+    (regression guard)."""
+    keyboard = generate_keyboard_c(zima_kb)
+    keymap = generate_keymap_c(zima_kb)
+    assert 'SETTINGS' not in keyboard
+    assert 'menu_index' not in keyboard
+    assert 'nx_menu_cursor_next' not in keyboard
+    assert 'MENU_UP' not in keymap
+
+
 # ── Snapshot tests ─────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize('fixture,gen_fn,suffix', [
@@ -393,6 +599,25 @@ def test_mk20dx256_generates_mcuconf_h(minimal_avr_kb):
     ('advanced_features_kb', generate_config_h, 'advanced_features.config_h'),
     ('advanced_features_kb', generate_rules_mk, 'advanced_features.rules_mk'),
     ('macros_kb', generate_keymap_c, 'macros.keymap_c'),
+    ('joystick_kb', generate_keymap_c, 'joystick.keymap_c'),
+    ('joystick_kb', generate_config_h, 'joystick.config_h'),
+    ('joystick_kb', generate_rules_mk, 'joystick.rules_mk'),
+    ('pointing_dpi_kb', generate_keymap_c, 'pointing_dpi.keymap_c'),
+    ('pointing_dpi_kb', generate_keyboard_c, 'pointing_dpi.keyboard_c'),
+    ('pointing_dpi_kb', generate_config_h, 'pointing_dpi.config_h'),
+    ('pointing_dpi_kb', generate_rules_mk, 'pointing_dpi.rules_mk'),
+    ('pointing_dpi_split_pins_kb', generate_keymap_c, 'pointing_dpi_split_pins.keymap_c'),
+    ('pointing_dpi_split_pins_kb', generate_keyboard_c, 'pointing_dpi_split_pins.keyboard_c'),
+    ('pointing_dpi_split_pins_kb', generate_config_h, 'pointing_dpi_split_pins.config_h'),
+    ('pointing_dpi_split_pins_kb', generate_rules_mk, 'pointing_dpi_split_pins.rules_mk'),
+    ('device_mode_kb', generate_keymap_c, 'device_mode.keymap_c'),
+    ('device_mode_kb', generate_keyboard_c, 'device_mode.keyboard_c'),
+    ('device_mode_kb', generate_config_h, 'device_mode.config_h'),
+    ('device_mode_kb', generate_rules_mk, 'device_mode.rules_mk'),
+    ('oled_menu_kb', generate_keymap_c, 'oled_menu.keymap_c'),
+    ('oled_menu_kb', generate_keyboard_c, 'oled_menu.keyboard_c'),
+    ('oled_menu_kb', generate_config_h, 'oled_menu.config_h'),
+    ('oled_menu_kb', generate_rules_mk, 'oled_menu.rules_mk'),
 ])
 def test_snapshot(request, fixture, gen_fn, suffix):
     kb: KeyboardConfig = request.getfixturevalue(fixture)

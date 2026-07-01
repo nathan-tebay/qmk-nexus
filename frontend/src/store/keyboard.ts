@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { matrixExtentOrNull } from '@/utils/matrixExtent'
 import { MAX_KEY_COUNT } from '@/utils/validateKeyboardConfig'
+import { getSensorCpiRange } from '@/stages/build/pointingSensors'
 
 function makeUF(ids: string[]) {
   const parent = new Map<string, string>()
@@ -151,6 +152,10 @@ export interface OledElement {
   logoImage: string
   logoBytes: number[]
   displayRotation: 0 | 90 | 180 | 270
+  menuEnabled: boolean
+  menuInput: 'encoder' | 'keys' | 'pointing_tap'
+  menuEncoderId: string | null
+  menuSettings: string[]
 }
 
 export interface ComboEntry {
@@ -180,15 +185,44 @@ export interface MacroEntry {
   steps: MacroStep[]
 }
 
+export interface TrackballDpiIndicator {
+  mode: 'off' | 'rgb' | 'pins'
+  colors: string[]
+  pins: string[]
+}
+
 export interface TrackballElement {
   id: string
   x: number
   y: number
   diameter: number
   driver: 'pmw3360' | 'pmw3389' | 'adns9800' | 'cirque_pinnacle_spi' | 'pimoroni_trackball'
+  /** Default sensor DPI/CPI. */
+  cpi: number
+  /** Ordered DPI cycle list for runtime stage switching. */
+  dpiStages: number[]
+  dpiIndicator?: TrackballDpiIndicator
 }
 
-export type PeripheralType = 'encoder' | 'oled' | 'trackball'
+export interface JoystickAxis {
+  pin: string
+  low: number
+  rest: number
+  high: number
+  virtual: boolean
+}
+
+export interface JoystickElement {
+  id: string
+  x: number
+  y: number
+  axes: JoystickAxis[]
+  buttonCount: number
+  hasHat: boolean
+  hat?: Record<string, string>
+}
+
+export type PeripheralType = 'encoder' | 'oled' | 'trackball' | 'joystick'
 
 export interface KeyboardConfig {
   id: string | null
@@ -216,11 +250,17 @@ export interface KeyboardConfig {
   encoders: EncoderElement[]
   oleds: OledElement[]
   trackballs: TrackballElement[]
+  joysticks: JoystickElement[]
   customFiles: Record<string, string>
   encoderKeycodes: Record<string, string>
   combos: ComboEntry[]
   tapDances: TapDanceEntry[]
   macros: MacroEntry[]
+  /**
+   * Ordered subset of ['keyboard', 'mouse', 'joystick']. Empty or a single
+   * entry means device-mode switching is inactive (MODE_NEXT has no effect).
+   */
+  deviceModes: string[]
 }
 
 const featureDefaults: Record<string, Record<string, string>> = {
@@ -237,6 +277,7 @@ const featureDefaults: Record<string, Record<string, string>> = {
   combo: { COMBO_TERM: '65' },
   audio: { AUDIO_PIN: 'C6', AUDIO_CLICKY: 'no' },
   pointing_device: { POINTING_DEVICE_DRIVER: 'pmw3360', POINTING_DEVICE_ROTATION_90: 'no', POINTING_DEVICE_INVERT_X: 'no', POINTING_DEVICE_INVERT_Y: 'no' },
+  joystick: { JOYSTICK_DRIVER: 'analog', JOYSTICK_AXIS_COUNT: '2', JOYSTICK_BUTTON_COUNT: '8', JOYSTICK_AXIS_RESOLUTION: '8', JOYSTICK_HAS_HAT: 'no' },
   debounce: { DEBOUNCE: '5', DEBOUNCE_TYPE: 'sym_defer_g' },
   key_lock: {},
   dynamic_macro: { DYNAMIC_MACRO_SIZE: '128' },
@@ -321,6 +362,18 @@ function trimMatrixPins(
   }
 }
 
+function backfillOledMenuFields(oled: OledElement): OledElement {
+  // Older persisted configs may lack menu fields; backfill without clobbering existing values.
+  const partial = oled as Partial<OledElement>
+  return {
+    ...oled,
+    menuEnabled:   partial.menuEnabled   ?? false,
+    menuInput:     partial.menuInput     ?? 'encoder',
+    menuEncoderId: partial.menuEncoderId ?? null,
+    menuSettings:  partial.menuSettings  ?? [],
+  }
+}
+
 function normalizeKeyboardConfig(config: KeyboardConfig): KeyboardConfig {
   const pins = trimMatrixPins(config.keys ?? [], config.rowPins ?? [], config.colPins ?? [])
   const features = normalizeFeatureFlags(config.features ?? {})
@@ -339,6 +392,8 @@ function normalizeKeyboardConfig(config: KeyboardConfig): KeyboardConfig {
     upstreamFiles: config.upstreamFiles ?? {},
     upstreamLayouts: config.upstreamLayouts ?? {},
     layoutAliases: config.layoutAliases ?? {},
+    deviceModes: config.deviceModes ?? [],
+    oleds: (config.oleds ?? []).map(backfillOledMenuFields),
     ...pins,
     encoderKeycodes: sanitizeEncoderKeycodes(
       config.encoderKeycodes ?? {},
@@ -382,6 +437,14 @@ function syncPeripheralFeatures(
     delete fc.pointing_device
   }
 
+  const joystickCount = (config.joysticks ?? []).length
+  features.joystick = joystickCount > 0
+  if (joystickCount > 0) {
+    fc.joystick = { ...(featureDefaults.joystick ?? {}), ...(fc.joystick ?? {}) }
+  } else {
+    delete fc.joystick
+  }
+
   return { features, featureConfigs: fc }
 }
 
@@ -410,6 +473,7 @@ const defaultConfig: KeyboardConfig = {
     mousekeys: false,
     extrakeys: true,
     pointing_device: false,
+    joystick: false,
   },
   featureConfigs: {},
   featureInputValues: {},
@@ -423,11 +487,13 @@ const defaultConfig: KeyboardConfig = {
   encoders: [],
   oleds: [],
   trackballs: [],
+  joysticks: [],
   customFiles: {},
   encoderKeycodes: {},
   combos: [],
   tapDances: [],
   macros: [],
+  deviceModes: [],
 }
 
 interface KeyboardStore {
@@ -464,6 +530,9 @@ interface KeyboardStore {
   addTrackball: () => void
   removeTrackball: (id: string) => void
   updateTrackball: (id: string, updates: Partial<TrackballElement>) => void
+  addJoystick: () => void
+  removeJoystick: (id: string) => void
+  updateJoystick: (id: string, updates: Partial<JoystickElement>) => void
   setCustomFiles: (files: Record<string, string>) => void
   setEncoderKeycode: (layerId: string, encoderId: string, dir: 'cw' | 'ccw', keycode: string) => void
   addCombo: () => void
@@ -479,6 +548,7 @@ interface KeyboardStore {
   updateMacroStep: (macroId: string, index: number, patch: Partial<MacroStep>) => void
   removeMacroStep: (macroId: string, index: number) => void
   reorderMacroStep: (macroId: string, from: number, to: number) => void
+  setDeviceModes: (modes: string[]) => void
   reset: () => void
 }
 
@@ -685,7 +755,7 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addOled: () =>
     set((s) => {
-      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', customCodeTemplate: '', logoImage: '', logoBytes: [], displayRotation: 0 }
+      const oled: OledElement = { id: uid(), x: 0, y: 0, rotation: 0, displaySize: '128_32', contentMode: 'preset', startupBlocks: [], activeBlocks: [], idleBlocks: [], startupDuration: 15000, idleTimeout: 10000, customCode: '', customCodeTemplate: '', logoImage: '', logoBytes: [], displayRotation: 0, menuEnabled: false, menuInput: 'encoder', menuEncoderId: null, menuSettings: [] }
       const oleds = [...(s.config.oleds ?? []), oled]
       const synced = syncPeripheralFeatures({ ...s.config, oleds })
       return {
@@ -718,7 +788,12 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
 
   addTrackball: () =>
     set((s) => {
-      const tb: TrackballElement = { id: uid(), x: 0, y: 0, diameter: 34, driver: 'pmw3360' }
+      const tb: TrackballElement = {
+        id: uid(), x: 0, y: 0, diameter: 34, driver: 'pmw3360',
+        cpi: getSensorCpiRange('pmw3360').cpiDefault,
+        dpiStages: [],
+        dpiIndicator: { mode: 'off', colors: [], pins: [] },
+      }
       const trackballs = [...(s.config.trackballs ?? []), tb]
       const synced = syncPeripheralFeatures({ ...s.config, trackballs })
       return {
@@ -746,6 +821,49 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       config: {
         ...s.config,
         trackballs: (s.config.trackballs ?? []).map((t) => t.id === id ? { ...t, ...updates } : t),
+      },
+    })),
+
+  addJoystick: () =>
+    set((s) => {
+      const joy: JoystickElement = {
+        id: uid(),
+        x: 0,
+        y: 0,
+        axes: [
+          { pin: '', low: 0, rest: 512, high: 1023, virtual: false },
+          { pin: '', low: 0, rest: 512, high: 1023, virtual: false },
+        ],
+        buttonCount: 8,
+        hasHat: false,
+      }
+      const joysticks = [...(s.config.joysticks ?? []), joy]
+      const synced = syncPeripheralFeatures({ ...s.config, joysticks })
+      return {
+        config: { ...s.config, joysticks, ...synced },
+        selectedPeripheralId: joy.id,
+        selectedPeripheralType: 'joystick' as PeripheralType,
+        selectedKeyId: null,
+        selectedKeyIds: [],
+      }
+    }),
+
+  removeJoystick: (id) =>
+    set((s) => {
+      const joysticks = (s.config.joysticks ?? []).filter((j) => j.id !== id)
+      const synced = syncPeripheralFeatures({ ...s.config, joysticks })
+      return {
+        config: { ...s.config, joysticks, ...synced },
+        selectedPeripheralId: s.selectedPeripheralId === id ? null : s.selectedPeripheralId,
+        selectedPeripheralType: s.selectedPeripheralId === id ? null : s.selectedPeripheralType,
+      }
+    }),
+
+  updateJoystick: (id, updates) =>
+    set((s) => ({
+      config: {
+        ...s.config,
+        joysticks: (s.config.joysticks ?? []).map((j) => j.id === id ? { ...j, ...updates } : j),
       },
     })),
 
@@ -893,6 +1011,9 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       },
     })),
 
+  setDeviceModes: (modes) =>
+    set((s) => ({ config: { ...s.config, deviceModes: modes } })),
+
   reset: () =>
     set(() => ({
       config: defaultConfig,
@@ -957,10 +1078,13 @@ export const useKeyboardStore = create<KeyboardStore>()(persist((set) => ({
       state.config.layers ?? [],
       state.config.encoders ?? [],
     )
-    // Backfill TrackballElement diameter
+    // Backfill TrackballElement diameter, cpi, dpiStages, dpiIndicator
     if (state.config.trackballs) {
       state.config.trackballs = (state.config.trackballs as unknown as Partial<TrackballElement>[]).map((t) => ({
         diameter: 34,
+        cpi: getSensorCpiRange(t.driver ?? 'pmw3360').cpiDefault,
+        dpiStages: [],
+        dpiIndicator: { mode: 'off', colors: [], pins: [] },
         ...t,
       } as TrackballElement))
     }

@@ -1,0 +1,32 @@
+#include QMK_KEYBOARD_H
+
+/* OLED settings-menu mutators (defined in keyboard.c). */
+void nx_menu_cursor_next(void);
+void nx_menu_value_adjust(int8_t dir);
+
+const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
+    /* Layer 0: Base */
+    [0] = LAYOUT(
+        KC_A, KC_B,
+        KC_C, KC_D
+    )
+};
+
+#if defined(ENCODER_MAP_ENABLE)
+const uint16_t PROGMEM encoder_map[1][1][2] = {
+    /* Layer 0: Base */
+    [0] = {
+        [0] = ENCODER_CCW_CW(KC_VOLD, KC_VOLU)
+    }
+};
+#endif
+
+/* Menu encoder: this encoder scrolls the selected setting; every other
+ * encoder returns true so ENCODER_MAP / default handling still runs. */
+bool encoder_update_user(uint8_t index, bool clockwise) {
+    if (index == 0) {
+        nx_menu_value_adjust(clockwise ? 1 : -1);
+        return false;
+    }
+    return true;
+}
