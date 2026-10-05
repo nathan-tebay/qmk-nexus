@@ -1,6 +1,6 @@
 FROM debian:bookworm-slim AS qmk-source
 
-ARG QMK_FIRMWARE_REF=master
+ARG QMK_FIRMWARE_REF=ba9642c83dc78050c7e9764c6dcb128076aef691
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -59,7 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=qmk-source /qmk_firmware /qmk_firmware
 
-ARG QMK_FIRMWARE_REF=master
+ARG QMK_FIRMWARE_REF=ba9642c83dc78050c7e9764c6dcb128076aef691
 ENV QMK_FIRMWARE_REF=${QMK_FIRMWARE_REF}
 ENV QMK_HOME=/qmk_firmware
 ENV PATH=/qmk_firmware/bin:$PATH
