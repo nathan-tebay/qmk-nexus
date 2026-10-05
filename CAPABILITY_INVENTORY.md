@@ -18,7 +18,7 @@
 | AVR: `hotdox76v2` | atmega32u4, Atmel DFU, serial split; `backend/data/keyboards/hotdox76v2.json` | Nathan reports Hotdox v2; catalog-path match and exact PCB revision unconfirmed | Experimental; no flash/USB check |
 | ARM: `sawnsprojects/okayu/stm32f103` | STM32F103, STM32duino; corresponding imported JSON | No physical STM32F103 board was identified in Nathan's answer | Unsupported; no physical target selected |
 
-The AVR paths are provisional matches to Nathan's named hardware, not confirmed PCB revisions. His answer did not identify an ARM board. The firmware task can start its portable AVR implementation against `atmega32u4`, but must keep capability status unsupported until flash, enumeration, matrix, split transport where applicable, and HID checks pass on a named revision.
+Nathan's intended coverage is **all Ergodox EZ and Hotdox revisions**. The three catalog paths above are the first representative sample, not a complete revision inventory. Start validation with `ergodox_ez/base` on `atmega32u4`; the reported physical board still needs its PCB revision and bootloader identified before a flash attempt. Use the imported STM32F103 Okayu path as the first representative ARM *build* target only; no physical ARM target was offered for this milestone. The firmware task can start its portable AVR implementation against `atmega32u4`, but must keep capability status unsupported until flash, enumeration, matrix, split transport where applicable, and HID checks pass on each named revision. Additional revisions require distinct inventory rows and evidence before any support claim.
 
 ## Queries
 

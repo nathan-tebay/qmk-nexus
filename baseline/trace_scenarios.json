@@ -1,0 +1,37 @@
+{
+  "schema": "nexus.reference_trace.v1",
+  "clock": "milliseconds relative to first matrix transition; input schedule only",
+  "source": "backend/tests/conftest.py fixtures; synthetic stimuli, no hardware capture",
+  "scenarios": [
+    {
+      "id": "minimal_avr_single_key",
+      "fixture": "minimal_avr_kb",
+      "events": [
+        {"at_ms": 0, "key": "k0", "action": "press"},
+        {"at_ms": 100, "key": "k0", "action": "release"}
+      ],
+      "expected_keycodes": ["KC_A"]
+    },
+    {
+      "id": "layered_avr_transparent_key",
+      "fixture": "advanced_features_kb",
+      "setup": "Activate layer1 (Fn) through the test harness before replay; the fixture has no layer-switch key",
+      "events": [
+        {"at_ms": 0, "key": "k2", "action": "press"},
+        {"at_ms": 100, "key": "k2", "action": "release"}
+      ],
+      "expected_keycodes": ["KC_C"]
+    },
+    {
+      "id": "feature_rich_combo",
+      "fixture": "advanced_features_kb",
+      "events": [
+        {"at_ms": 0, "key": "k0", "action": "press"},
+        {"at_ms": 10, "key": "k1", "action": "press"},
+        {"at_ms": 80, "key": "k1", "action": "release"},
+        {"at_ms": 90, "key": "k0", "action": "release"}
+      ],
+      "expected_keycodes": ["KC_ESC"]
+    }
+  ]
+}
