@@ -11,265 +11,13 @@
     {
       "board": "0_sixty/base",
       "mcu": "atmega32u4",
-      "module": "audio",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "backlight",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
       "module": "base_keyboard",
       "configuration": "imported_default",
-      "status": "experimental",
-      "reason": "Selected for validation; no physical flash or USB result",
+      "status": "unsupported",
+      "reason": "Imported catalog entry only; no Nexus runtime validation",
       "evidence": [
         "backend/data/qmk_index.json",
         "backend/data/keyboards/0_sixty/base.json"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "bootmagic",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "combo",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "console",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "debounce",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "dynamic_macro",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "encoder",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "extrakeys",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "indicators",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "key_lock",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "leader_key",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "mousekeys",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "nkro",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "oled",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "pointing_device",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "rgb_matrix",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "rgblight",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "split_keyboard",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "tap_dance",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "0_sixty/base",
-      "mcu": "atmega32u4",
-      "module": "wpm",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
       ]
     },
     {
@@ -11255,13 +11003,265 @@
     {
       "board": "ergodox_ez/base",
       "mcu": "atmega32u4",
+      "module": "audio",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "backlight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
       "module": "base_keyboard",
       "configuration": "imported_default",
-      "status": "unsupported",
-      "reason": "Imported catalog entry only; no Nexus runtime validation",
+      "status": "experimental",
+      "reason": "Selected for validation; no physical flash or USB result",
       "evidence": [
         "backend/data/qmk_index.json",
         "backend/data/keyboards/ergodox_ez/base.json"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "bootmagic",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "combo",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "console",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "debounce",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "dynamic_macro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "encoder",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "extrakeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "indicators",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "key_lock",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "leader_key",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "mousekeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "nkro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "oled",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "pointing_device",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "rgb_matrix",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "rgblight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "split_keyboard",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "tap_dance",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "ergodox_ez/base",
+      "mcu": "atmega32u4",
+      "module": "wpm",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
       ]
     },
     {
@@ -18827,13 +18827,289 @@
     {
       "board": "hotdox",
       "mcu": "atmega32u4",
+      "module": "audio",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "backlight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
       "module": "base_keyboard",
       "configuration": "imported_default",
-      "status": "unsupported",
-      "reason": "Imported catalog entry only; no Nexus runtime validation",
+      "status": "experimental",
+      "reason": "Selected for validation; no physical flash or USB result",
       "evidence": [
         "backend/data/qmk_index.json",
         "backend/data/keyboards/hotdox.json"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "bootmagic",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "combo",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "console",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "debounce",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "dynamic_macro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "encoder",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "extrakeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "indicators",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "key_lock",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "leader_key",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "mousekeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "nkro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "oled",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "pointing_device",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "rgb_matrix",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "rgblight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "split_keyboard",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "tap_dance",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox",
+      "mcu": "atmega32u4",
+      "module": "wpm",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "audio",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "backlight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
       ]
     },
     {
@@ -18841,11 +19117,239 @@
       "mcu": "atmega32u4",
       "module": "base_keyboard",
       "configuration": "imported_default",
-      "status": "unsupported",
-      "reason": "Imported catalog entry only; no Nexus runtime validation",
+      "status": "experimental",
+      "reason": "Selected for validation; no physical flash or USB result",
       "evidence": [
         "backend/data/qmk_index.json",
         "backend/data/keyboards/hotdox76v2.json"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "bootmagic",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "combo",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "console",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "debounce",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "dynamic_macro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "encoder",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "extrakeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "indicators",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "key_lock",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "leader_key",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "mousekeys",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "nkro",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "oled",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "pointing_device",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "rgb_matrix",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "rgblight",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "split_keyboard",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "tap_dance",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
+      ]
+    },
+    {
+      "board": "hotdox76v2",
+      "mcu": "atmega32u4",
+      "module": "wpm",
+      "configuration": "editor_default",
+      "status": "unsupported",
+      "reason": "Editor exposes this option; no independent runtime or hardware validation",
+      "evidence": [
+        "frontend/src/stages/build/modules.ts",
+        "backend/models.py"
       ]
     },
     {
@@ -36563,265 +37067,13 @@
     {
       "board": "sawnsprojects/okayu/stm32f103",
       "mcu": "stm32f103",
-      "module": "audio",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "backlight",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
       "module": "base_keyboard",
       "configuration": "imported_default",
-      "status": "experimental",
-      "reason": "Selected for validation; no physical flash or USB result",
+      "status": "unsupported",
+      "reason": "Imported catalog entry only; no Nexus runtime validation",
       "evidence": [
         "backend/data/qmk_index.json",
         "backend/data/keyboards/sawnsprojects/okayu/stm32f103.json"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "bootmagic",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "combo",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "console",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "debounce",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "dynamic_macro",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "encoder",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "extrakeys",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "indicators",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "key_lock",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "leader_key",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "mousekeys",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "nkro",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "oled",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "pointing_device",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "rgb_matrix",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "rgblight",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "split_keyboard",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "tap_dance",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
-      ]
-    },
-    {
-      "board": "sawnsprojects/okayu/stm32f103",
-      "mcu": "stm32f103",
-      "module": "wpm",
-      "configuration": "editor_default",
-      "status": "unsupported",
-      "reason": "Editor exposes this option; no independent runtime or hardware validation",
-      "evidence": [
-        "frontend/src/stages/build/modules.ts",
-        "backend/models.py"
       ]
     },
     {

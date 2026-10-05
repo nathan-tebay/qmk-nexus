@@ -7,7 +7,11 @@ ROOT = Path(__file__).resolve().parents[1]
 index = json.loads((ROOT / 'backend/data/qmk_index.json').read_text())
 modules = (ROOT / 'frontend/src/stages/build/modules.ts').read_text()
 module_ids = re.findall(r"^    id: '([^']+)', name:", modules, re.M)
-selected = {'0_sixty/base': 'AVR candidate', 'sawnsprojects/okayu/stm32f103': 'ARM candidate'}
+selected = {
+    'ergodox_ez/base': 'physical AVR candidate',
+    'hotdox': 'physical AVR candidate',
+    'hotdox76v2': 'physical AVR candidate',
+}
 rows = []
 for board in index:
     path = board['path']

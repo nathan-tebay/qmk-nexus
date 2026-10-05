@@ -4,7 +4,7 @@
 
 The indexed QMK reference is `ba9642c83dc78050c7e9764c6dcb128076aef691` (`backend/data/qmk_meta.json`). `docker/builder/Dockerfile` now defaults its QMK source argument to that commit. Its Debian base image, apt packages, pip `qmk`, and QMK submodule refs are not yet locked to immutable versions. The builder image digest and exact `avr-gcc`, `arm-none-eabi-gcc`, binutils, `qmk`, and make versions are **unmeasured**. This is a remaining reproducibility gate, not a pinned toolchain claim.
 
-This run had no accessible container runtime: `podman images` failed with `Failed to obtain podman configuration: set sticky bit on: chmod /run/user/1000/libpod: read-only file system`. Neither compiler is installed on the host. No firmware ELF or physical board was available. A `.hex` or `.bin` alone is not sufficient input to `size -A`; measure the ELF in the QMK build tree.
+This runner cannot initialize Podman: `podman info` fails with `Failed to obtain podman configuration: set sticky bit on: chmod /run/user/1000/libpod: read-only file system`. `/run/user/1000` is a read-only tmpfs, while Podman must update `/run/user/1000/libpod` during initialization. Setting `XDG_RUNTIME_DIR` to run scratch and passing alternate `--root`, `--runroot`, and `--tmpdir` paths did not bypass that initialization. Neither compiler is installed on the host. Nathan reports access to Ergodox EZ and Hotdox v1/v2, but no board is attached to this runner and no ARM board was identified. No firmware ELF was produced. A `.hex` or `.bin` alone is not sufficient input to `size -A`; measure the ELF in the QMK build tree.
 
 ## Raw measurement availability
 

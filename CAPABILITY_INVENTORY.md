@@ -1,6 +1,6 @@
 # Nexus runtime capability inventory (TEB-14)
 
-`baseline/capabilities.json` is the machine-readable source of truth for this milestone. Regenerate it with `python3 scripts/build_capability_inventory.py`. It contains one base row for each of the 3,717 imported board paths and module rows for the two first validation candidates. A missing board/module/configuration tuple is **unsupported**. No row is supported yet. `experimental` on a candidate means selected for investigation, not flash or USB success.
+`baseline/capabilities.json` is the machine-readable source of truth for this milestone. Regenerate it with `python3 scripts/build_capability_inventory.py`. It contains one base row for each of the 3,717 imported board paths and module rows for the three available AVR candidates. A missing board/module/configuration tuple is **unsupported**. No row is supported yet. `experimental` on a candidate means selected for investigation, not flash or USB success.
 
 ## Evidence and boundaries
 
@@ -13,10 +13,12 @@
 
 | Candidate | Catalog evidence | Hardware/revision | Status |
 | --- | --- | --- | --- |
-| AVR: `0_sixty/base` | atmega32u4, Caterina bootloader, `LAYOUT_ortho_5x12`; `backend/data/keyboards/0_sixty/base.json` | Physical ownership and PCB revision unconfirmed | Experimental; no flash/USB check |
-| ARM: `sawnsprojects/okayu/stm32f103` | STM32F103, Blue Pill development board, STM32duino bootloader; corresponding imported JSON | Physical ownership and Blue Pill/PCB revision unconfirmed | Experimental; no flash/USB check |
+| AVR: `ergodox_ez/base` | atmega32u4, Halfkay bootloader; `backend/data/keyboards/ergodox_ez/base.json` | Nathan reports an Ergodox EZ; exact PCB revision, bootloader, and flashing access unconfirmed | Experimental; no flash/USB check |
+| AVR: `hotdox` | atmega32u4, Atmel DFU; `backend/data/keyboards/hotdox.json` | Nathan reports Hotdox v1; catalog-path match and exact PCB revision unconfirmed | Experimental; no flash/USB check |
+| AVR: `hotdox76v2` | atmega32u4, Atmel DFU, serial split; `backend/data/keyboards/hotdox76v2.json` | Nathan reports Hotdox v2; catalog-path match and exact PCB revision unconfirmed | Experimental; no flash/USB check |
+| ARM: `sawnsprojects/okayu/stm32f103` | STM32F103, STM32duino; corresponding imported JSON | No physical STM32F103 board was identified in Nathan's answer | Unsupported; no physical target selected |
 
-These are exact catalog paths for first validation. If available physical hardware differs, update the candidate rows before calling a board validated. The firmware task can start its portable AVR implementation against `atmega32u4`, but must keep capability status unsupported until flash, enumeration, matrix, and HID checks pass on a named revision.
+The AVR paths are provisional matches to Nathan's named hardware, not confirmed PCB revisions. His answer did not identify an ARM board. The firmware task can start its portable AVR implementation against `atmega32u4`, but must keep capability status unsupported until flash, enumeration, matrix, split transport where applicable, and HID checks pass on a named revision.
 
 ## Queries
 
