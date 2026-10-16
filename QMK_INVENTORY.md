@@ -43,7 +43,18 @@ Pinned reference: QMK `ba9642c83dc78050c7e9764c6dcb128076aef691`. Every local pa
 - `notices/license_GPLv2.md`, `notices/license_GPLv3.md`, and `notices/license_Modified_BSD.md` are verbatim license texts from the pinned QMK root. The repository root `LICENSE` is GPLv3 text. Keep the original headers in every copied source file. GPLv2-or-later files must not be described as GPLv3-only merely because the root file is GPLv3.
 - `tmk_core/protocol/lufa/lufa.c` and `.h` contain Dean Camera and Denver Gingerich copyright, permission, and warranty text in their headers. Keep those complete embedded notices in source and accompanying distributions. A separate LUFA submodule notice audit remains necessary for binaries containing other LUFA files.
 - `quantum/matrix_common.c`, `quantum/split_common/post_config.h`, and `split_util.h` have no local license header. Their exact equality or modification against QMK is recorded above, but the effective license must be confirmed from upstream project context before independent redistribution. Do not infer their license from adjacent files.
-- The builder's `git submodule update` includes `lib/lufa` (`549b97320d515bfca2f95c145a67bd13be968faa`), `lib/vusb` (`819dbc1e5d5926b17e27e00ca6d3d2988adae04e`), `lib/chibios` (`8bd61b804303f1614d574546c2dd735eeabb09f5`), `lib/chibios-contrib` (`8d863d9ee4eecea68ad8d15f7e7c2b451aea79d9`), `lib/pico-sdk` (`d0c5cac430cc955b65efa0e899748853d9a80928`), and `lib/printf` (`c2e3b4e10d281e7f0f694d3ecbd9f320977288cc`). These are pinned gitlinks at the reference commit. Static source review alone cannot establish which HAL or USB objects each fixture links. Keep their own notices with any redistributed builder/runtime and obtain a link map from the actual build before a complete binary notice claim.
+The builder's `git submodule update` includes the following pinned gitlinks. Notice files below were copied from those exact submodule commits, not inferred from current upstream HEAD.
+
+| Component / gitlink | Static notice evidence | Preserved text / open item |
+| --- | --- | --- |
+| LUFA `549b97320d515bfca2f95c145a67bd13be968faa` | `LUFA/License.txt`: Dean Camera permission and warranty disclaimer | `notices/submodules/LUFA-License.txt` |
+| V-USB `819dbc1e5d5926b17e27e00ca6d3d2988adae04e` | `usbdrv/License.txt`: GPLv2 or GPLv3 option; additional publication requests are explicitly encouragement | `notices/submodules/V-USB-License.txt` |
+| ChibiOS `8bd61b804303f1614d574546c2dd735eeabb09f5` | root `license.txt`: GPLv3 text | `notices/submodules/ChibiOS-license.txt`; file-level exceptions still need linked-object review |
+| ChibiOS-Contrib `8d863d9ee4eecea68ad8d15f7e7c2b451aea79d9` | no root or nested license file found by filename search | **Unresolved:** inspect exact linked source headers and bundled dependencies after build |
+| Pico SDK `d0c5cac430cc955b65efa0e899748853d9a80928` | root `LICENSE.TXT`: Raspberry Pi BSD-style three-clause notice | `notices/submodules/Pico-SDK-LICENSE.TXT`; inspect linked bundled libraries separately |
+| printf `c2e3b4e10d281e7f0f694d3ecbd9f320977288cc` | root `LICENSE`: Marco Paland and Eyal Rozenberg MIT notice | `notices/submodules/printf-LICENSE` |
+
+Static source review cannot establish which HAL or USB objects each fixture links. Obtain compiler output and a link map from the actual build before a complete binary notice claim. Preserve any additional license, attribution, and source offer material applicable to those linked objects in distributed artifacts.
 
 ## Reproduce the file comparison
 
