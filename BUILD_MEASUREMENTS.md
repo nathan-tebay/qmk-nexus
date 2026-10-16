@@ -15,7 +15,7 @@ This runner cannot initialize Podman: `podman info` fails with `Failed to obtain
 | feature-rich AVR | missing | missing | missing | missing | missing | missing | missing | missing |
 | ARM equivalents | missing | missing | missing | missing | missing | missing | missing | missing |
 
-Existing generator goldens in `backend/tests/goldens/` cover `minimal_avr`, `split_rgb`, and `advanced_features`. They are generated source expectations, not saved complete board configurations. `baseline/trace_scenarios.json` preserves deterministic *stimulus definitions* for three representative behaviors; its times are requested input offsets, not observed latency or jitter. Complete 60-key and buildable board configurations remain to be captured against a pinned toolchain. Do not substitute example numbers for measurements.
+Existing generator goldens in `backend/tests/goldens/` cover `minimal_avr`, `split_rgb`, and `advanced_features`. They are generated source expectations. `baseline/fixtures/` now contains three complete QMK Configurator `keymap.json` inputs tied to board paths in the pinned QMK source. They passed static board/layout and JSON checks, but no QMK compiler was available here, so buildability and firmware measurements remain unverified. `baseline/trace_scenarios.json` preserves deterministic *stimulus definitions* for synthetic tests; its times are requested input offsets, not observed latency or jitter. Do not substitute example numbers for measurements.
 
 ## Collection commands once a builder and boards are available
 
